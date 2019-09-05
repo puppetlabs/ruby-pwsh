@@ -1,0 +1,18 @@
+---
+dist: trusty
+language: ruby
+cache: bundler
+before_install:
+  - bundle -v
+  - rm -f Gemfile.lock
+  - gem update --system $RUBYGEMS_VERSION
+  - gem --version
+  - bundle -v
+script:
+  - 'bundle exec rake $CHECK'
+rvm:
+  - 2.5.1
+matrix:
+  include:
+  - env: CHECK="rubocop"
+  - env: CHECK='spec'
