@@ -9,7 +9,7 @@ module Pwsh
     # is compatible with the implementation of the Manager.
     def self.compatible_version?
       # If this method isn't defined, we're not on Windows!
-      return false unless defined?(Pwsh::WindowsPowerShell.version)
+      return false if defined?(Pwsh::WindowsPowerShell.version).nil?
 
       powershell_version = defined?(Pwsh::WindowsPowerShell.version) ? Pwsh::WindowsPowerShell.version : nil
 

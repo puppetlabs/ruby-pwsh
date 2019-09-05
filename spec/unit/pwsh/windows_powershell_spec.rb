@@ -10,7 +10,7 @@ RSpec.describe Pwsh::WindowsPowerShell do
       end
 
       it 'is not defined' do
-        expect(defined?(described_class.version)).to eq(false)
+        expect(defined?(described_class.version)).to eq(nil)
       end
     end
 
@@ -82,7 +82,6 @@ RSpec.describe Pwsh::WindowsPowerShell do
       end
 
       it 'returns false' do
-        expect(Pwsh::Util).to receive(:on_windows?).and_return(false)
         expect(described_class.compatible_version?).to eq(false)
       end
     end
