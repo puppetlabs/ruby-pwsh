@@ -22,6 +22,12 @@ module Pwsh
     # We actually want this to be a class variable.
     @@instances = {} # rubocop:disable Style/ClassVars
 
+    # Return the list of currently instantiated instances of the PowerShell Manager
+    # @return [Hash] the list of instantiated instances of the PowerShell Manager, including their params and status.
+    def self.instances
+      @@instances
+    end
+
     # Returns a set of default options for instantiating a manager
     #
     # @return [Hash] the default options for a new manager
