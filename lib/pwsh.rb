@@ -592,7 +592,7 @@ Invoke-PowerShellUserCode @params
         # Reads the expected bytes as a binary string or fails
         buffer = ''
         # sysread may not return all of the requested bytes due to buffering or the
-        # underlying IO system. Keep reading from the pipe untill all the bytes are read.
+        # underlying IO system. Keep reading from the pipe until all the bytes are read.
         loop do
           buffer.concat(pipe.sysread(expected_response_length - buffer.length))
           break if buffer.length >= expected_response_length
