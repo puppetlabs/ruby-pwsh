@@ -22,6 +22,12 @@ module Pwsh
     # We actually want this to be a class variable.
     @@instances = {} # rubocop:disable Style/ClassVars
 
+    # Return the list of currently instantiated instances of the PowerShell Manager
+    # @return [Hash] the list of instantiated instances of the PowerShell Manager, including their params and status.
+    def self.instances
+      @@instances
+    end
+
     # Returns a set of default options for instantiating a manager
     #
     # @return [Hash] the default options for a new manager
@@ -586,7 +592,7 @@ Invoke-PowerShellUserCode @params
         # Reads the expected bytes as a binary string or fails
         buffer = ''
         # sysread may not return all of the requested bytes due to buffering or the
-        # underlying IO system. Keep reading from the pipe untill all the bytes are read.
+        # underlying IO system. Keep reading from the pipe until all the bytes are read.
         loop do
           buffer.concat(pipe.sysread(expected_response_length - buffer.length))
           break if buffer.length >= expected_response_length
