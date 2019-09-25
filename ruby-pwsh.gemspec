@@ -5,10 +5,10 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'pwsh/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = 'pwsh'
+  spec.name          = 'ruby-pwsh'
   spec.version       = Pwsh::VERSION
-  spec.authors       = ['Michael T Lombardi']
-  spec.email         = ['michael.t.lombardi@outlook.com']
+  spec.authors       = ['Puppet, Inc.']
+  spec.email         = ['info@puppet.com']
 
   spec.summary       = 'PowerShell code manager for ruby.'
   spec.description   = 'PowerShell code manager for ruby.'
