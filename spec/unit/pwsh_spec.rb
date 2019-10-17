@@ -782,14 +782,14 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'handles lots of output from user code' do
-        result = manager.execute('1..1000 | %{ (65..90) + (97..122) | Get-Random -Count 5 | % {[char]$_} }') # rubocop:disable Style/FormatStringToken
+        result = manager.execute('1..1000 | %{ (65..90) + (97..122) | Get-Random -Count 5 | % {[char]$_} }')
 
         expect(result[:stdout]).not_to eq(nil)
         expect(result[:exitcode]).to eq(0)
       end
 
       it 'handles a larger return of output from user code' do
-        result = manager.execute('1..1000 | %{ (65..90) + (97..122) | Get-Random -Count 5 | % {[char]$_} } | %{ $f="" } { $f+=$_ } {$f }') # rubocop:disable Style/FormatStringToken
+        result = manager.execute('1..1000 | %{ (65..90) + (97..122) | Get-Random -Count 5 | % {[char]$_} } | %{ $f="" } { $f+=$_ } {$f }')
 
         expect(result[:stdout]).not_to eq(nil)
         expect(result[:exitcode]).to eq(0)
