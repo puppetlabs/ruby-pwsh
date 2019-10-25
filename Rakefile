@@ -84,6 +84,9 @@ end
 # @param :path [String] optional, the full or relative path to the built gem to be pushed
 desc 'Push to RubyGems'
 task :push, [:path] do |_task, args|
+  raise 'No discoverable gem for pushing' if Dir.glob("ruby-pwsh*\.gem").empty? && args[:path].nil?
+  raise "No file found at specified path: '#{args[:path]}'" unless File.exist?(args[:path])
+
   path = args[:path] || File.join(Dir.pwd, Dir.glob("ruby-pwsh*\.gem")[0])
   run_local_command("bundle exec gem push #{path}")
 end
