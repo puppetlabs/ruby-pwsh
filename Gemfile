@@ -22,6 +22,10 @@ group :development do
   gem 'yard'
 end
 
+group :puppet do
+  gem 'pdk', '~> 1.0'
+end
+
 group :pry do
   gem 'fuubar'
 

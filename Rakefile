@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'rubocop/rake_task'
+require 'fileutils'
 require 'github_changelog_generator/task'
 require 'open3'
 require 'pwsh/version'
@@ -11,8 +12,8 @@ GitHubChangelogGenerator::RakeTask.new :changelog do |config|
   config.user = 'puppetlabs'
   config.project = 'ruby-pwsh'
   config.future_release = Pwsh::VERSION
-  config.since_tag = '0.0.1'
-  config.exclude_labels = ['maintenance']
+  config.since_tag = '0.1.0'
+  config.exclude_labels = ['maint']
   config.header = "# Change log\n\nAll notable changes to this project will be documented in this file." \
                   'The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).'
   config.add_pr_wo_labels = true
@@ -60,6 +61,8 @@ end
 desc 'Build the gem'
 task :build do
   gemspec_path = File.join(Dir.pwd, 'ruby-pwsh.gemspec')
+  # Delete the puppet-specific code if it exists
+  FileUtils.rm_r('lib/puppet') if File.exist?('lib/puppet')
   run_local_command("bundle exec gem build '#{gemspec_path}'")
 end
 
@@ -81,6 +84,27 @@ end
 # @param :path [String] optional, the full or relative path to the built gem to be pushed
 desc 'Push to RubyGems'
 task :push, [:path] do |_task, args|
+  raise 'No discoverable gem for pushing' if Dir.glob("ruby-pwsh*\.gem").empty? && args[:path].nil?
+  raise "No file found at specified path: '#{args[:path]}'" unless File.exist?(args[:path])
+
   path = args[:path] || File.join(Dir.pwd, Dir.glob("ruby-pwsh*\.gem")[0])
   run_local_command("bundle exec gem push #{path}")
+end
+
+desc 'Build for Puppet'
+task :build_module do
+  # Ready for module building
+  content = "require 'puppet/util/feature'\n\nPuppet.features.add(:ruby_pwsh, :libs => ['ruby-pwsh'])\n"
+  feature_path = 'lib/puppet/feature/ruby_pwsh.rb'
+  unless File.exist?(feature_path) ? File.read(feature_path) == content : false
+    FileUtils.mkdir_p(File.dirname(feature_path))
+    File.open(feature_path, 'wb') { |file| file.write(content) }
+  end
+  actual_readme_content = File.read('README.md')
+  FileUtils.copy_file('pwshlib.md', 'README.md')
+  # Build
+  run_local_command('pdk build --force')
+  # Cleanup
+  File.open('README.md', 'wb') { |file| file.write(actual_readme_content) }
+  FileUtils.rm_r('lib/puppet') if File.exist?('lib/puppet')
 end
