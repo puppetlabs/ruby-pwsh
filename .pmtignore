@@ -10,6 +10,7 @@ spec
 .rubocop.yml
 .travis.yml
 CODEOWNERS
+CONTRIBUTING.md
 design-comms.png
 DESIGN.md
 Gemfile
