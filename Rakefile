@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'rubocop/rake_task'
+require 'fileutils'
 require 'github_changelog_generator/task'
 require 'open3'
 require 'pwsh/version'
@@ -60,6 +61,8 @@ end
 desc 'Build the gem'
 task :build do
   gemspec_path = File.join(Dir.pwd, 'ruby-pwsh.gemspec')
+  # Delete the puppet-specific code if it exists
+  FileUtils.rm_r('lib/puppet') if File.exist?('lib/puppet')
   run_local_command("bundle exec gem build '#{gemspec_path}'")
 end
 
@@ -83,4 +86,22 @@ desc 'Push to RubyGems'
 task :push, [:path] do |_task, args|
   path = args[:path] || File.join(Dir.pwd, Dir.glob("ruby-pwsh*\.gem")[0])
   run_local_command("bundle exec gem push #{path}")
+end
+
+desc 'Build for Puppet'
+task :build_module do
+  # Ready for module building
+  content = "require 'puppet/util/feature'\n\nPuppet.features.add(:ruby_pwsh, :libs => ['ruby-pwsh'])\n"
+  feature_path = 'lib/puppet/feature/ruby_pwsh.rb'
+  unless File.exist?(feature_path) ? File.read(feature_path) == content : false
+    FileUtils.mkdir_p(File.dirname(feature_path))
+    File.open(feature_path, 'wb') { |file| file.write(content) }
+  end
+  actual_readme_content = File.read('README.md')
+  FileUtils.copy_file('pwshlib.md', 'README.md')
+  # Build
+  run_local_command('pdk build --force')
+  # Cleanup
+  File.open('README.md', 'wb') { |file| file.write(actual_readme_content) }
+  FileUtils.rm_r('lib/puppet') if File.exist?('lib/puppet')
 end
