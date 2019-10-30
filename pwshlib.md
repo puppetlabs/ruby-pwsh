@@ -11,7 +11,11 @@ Include `puppetlabs-pwshlib` as a dependency in your module and you can leverage
 
 ```ruby
 require 'puppet/resource_api/simple_provider'
-require 'ruby-pwsh'
+begin
+  require 'ruby-pwsh'
+rescue LoadError
+  raise 'Could not load the "ruby-pwsh" library; is the dependency module puppetlabs-pwshlib installed in this environment?'
+end
 
 # Implementation for the foo type using the Resource API.
 class Puppet::Provider::Foo::Foo < Puppet::ResourceApi::SimpleProvider
