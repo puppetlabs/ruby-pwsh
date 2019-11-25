@@ -192,4 +192,10 @@ RSpec.describe Pwsh::Util do
       expect { described_class.format_powershell_value(described_class) }.to raise_error(/unsupported type Module/)
     end
   end
+
+  context '.custom_powershell_property' do
+    it 'returns a powershell hash with the name and expression keys' do
+      expect(described_class.custom_powershell_property('apple', '$_.SomeValue / 5')).to eq("@{Name = 'apple'; Expression = {$_.SomeValue / 5}}")
+    end
+  end
 end

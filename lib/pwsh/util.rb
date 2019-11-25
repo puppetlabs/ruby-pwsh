@@ -109,6 +109,15 @@ module Pwsh
         raise "unsupported type #{object.class} of value '#{object}'"
       end
     end
+
+    # Return the representative string of a PowerShell hash for a custom object property to be used in selecting or filtering.
+    # The script block for the expression must be passed as the string you want interpolated into the hash; this method does
+    # not do any of the additional work of interpolation for you as the type sits inside a code block inside a hash.
+    #
+    # @return [String] representation of a PowerShell hash with the keys 'Name' and 'Expression'
+    def custom_powershell_property(name, expression)
+      "@{Name = '#{name}'; Expression = {#{expression}}}"
+    end
   end
 end
 
