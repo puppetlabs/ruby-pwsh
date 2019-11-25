@@ -132,4 +132,64 @@ RSpec.describe Pwsh::Util do
       expect(described_class.pascal_case_hash_keys(snake_case_hash)).to eq pascal_case_hash
     end
   end
+
+  context '.escape_quotes' do
+    it 'handles single quotes' do
+      expect(described_class.escape_quotes("The 'Cats' go 'meow'!")).to match(/The ''Cats'' go ''meow''!/)
+    end
+
+    it 'handles double single quotes' do
+      expect(described_class.escape_quotes("The ''Cats'' go 'meow'!")).to match(/The ''''Cats'''' go ''meow''!/)
+    end
+
+    it 'handles double quotes' do
+      expect(described_class.escape_quotes("The 'Cats' go \"meow\"!")).to match(/The ''Cats'' go "meow"!/)
+    end
+
+    it 'handles dollar signs' do
+      expect(described_class.escape_quotes("This should show \$foo variable")).to match(/This should show \$foo variable/)
+    end
+  end
+
+  context '.format_powershell_value' do
+    let(:ruby_array) { ['string', 1, :symbol, true] }
+    let(:powershell_array) { "@('string', 1, symbol, $true)" }
+    let(:ruby_hash) do
+      {
+        string: 'string',
+        number: 1,
+        symbol: :some_symbol,
+        boolean: true,
+        nested_hash: {
+          another_string: 'foo',
+          another_number: 2,
+          array: [1, 2, 3]
+        }
+      }
+    end
+    let(:powershell_hash) { "@{string = 'string'; number = 1; symbol = some_symbol; boolean = $true; nested_hash = @{another_string = 'foo'; another_number = 2; array = @(1, 2, 3)}}" }
+    it 'returns a symbol as a non-interpolated string' do
+      expect(described_class.format_powershell_value(:apple)).to eq('apple')
+    end
+    it 'returns a number as a non interpolated string' do
+      expect(described_class.format_powershell_value(101)).to eq('101')
+      expect(described_class.format_powershell_value(1.1)).to eq('1.1')
+    end
+    it 'returns boolean values as the appropriate PowerShell automatic variable' do
+      expect(described_class.format_powershell_value(true)).to eq('$true')
+      expect(described_class.format_powershell_value(:false)).to eq('$false') # rubocop:disable Lint/BooleanSymbol
+    end
+    it 'returns a string as an escaped string' do
+      expect(described_class.format_powershell_value('some string')).to eq("'some string'")
+    end
+    it 'returns an array as a string representing a PowerShell array' do
+      expect(described_class.format_powershell_value(ruby_array)).to eq(powershell_array)
+    end
+    it 'returns a hash as a string representing a PowerShell hash' do
+      expect(described_class.format_powershell_value(ruby_hash)).to eq(powershell_hash)
+    end
+    it 'raises an error if an unknown type is passed' do
+      expect { described_class.format_powershell_value(described_class) }.to raise_error(/unsupported type Module/)
+    end
+  end
 end

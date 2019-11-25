@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# Manage PowerShell and Windows PowerShell via ruby
 module Pwsh
   # Various helper methods
   module Util
@@ -74,6 +75,39 @@ module Pwsh
         modified_hash[pascal_case(key.to_s).to_sym] = value
       end
       modified_hash
+    end
+
+    # Ensure that quotes inside a passed string will continue to be passed
+    #
+    # @reurn [String] the string with quotes escaped
+    def escape_quotes(text)
+      text.gsub("'", "''")
+    end
+
+    # Convert a ruby value into a string to be passed along to PowerShell for interpolation in a command
+    # Handles:
+    # - Strings
+    # - Numbers
+    # - Booleans
+    # - Symbols
+    # - Arrays
+    # - Hashes
+    #
+    # @return [String] representation of the value for interpolation
+    def format_powershell_value(object)
+      if %i[true false].include?(object) || %w[trueclass falseclass].include?(object.class.name.downcase) # rubocop:disable Lint/BooleanSymbol
+        "$#{object}"
+      elsif object.class.name == 'Symbol' || object.class.ancestors.include?(Numeric)
+        object.to_s
+      elsif object.class.name == 'String'
+        "'#{escape_quotes(object)}'"
+      elsif object.class.name == 'Array'
+        '@(' + object.collect { |item| format_powershell_value(item) }.join(', ') + ')'
+      elsif object.class.name == 'Hash'
+        '@{' + object.collect { |k, v| format_powershell_value(k) + ' = ' + format_powershell_value(v) }.join('; ') + '}'
+      else
+        raise "unsupported type #{object.class} of value '#{object}'"
+      end
     end
   end
 end
