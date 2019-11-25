@@ -55,4 +55,147 @@ RSpec.describe Pwsh::Util do
       expect(described_class.invalid_directories?(empty_members)).to be false
     end
   end
+
+  let(:camel_case_hash) do
+    {
+      a: 1,
+      appleButter: %w[a b c],
+      someKeyValue: {
+        nestedKey: 1,
+        anotherNestedKey: 2
+      }
+    }
+  end
+  let(:kebab_case_hash) do
+    {
+      a: 1,
+      'apple-butter': %w[a b c],
+      'some-key-value': {
+        'nested-key': 1,
+        'another-nested-key': 2
+      }
+    }
+  end
+  let(:pascal_case_hash) do
+    {
+      A: 1,
+      AppleButter: %w[a b c],
+      SomeKeyValue: {
+        NestedKey: 1,
+        AnotherNestedKey: 2
+      }
+    }
+  end
+  let(:snake_case_hash) do
+    {
+      a: 1,
+      apple_butter: %w[a b c],
+      some_key_value: {
+        nested_key: 1,
+        another_nested_key: 2
+      }
+    }
+  end
+  let(:camel_case_string) { 'thisIsAString' }
+  let(:kebab_case_string) { 'this-is-a-string' }
+  let(:pascal_case_string) { 'ThisIsAString' }
+  let(:snake_case_string) { 'this_is_a_string' }
+
+  context '.snake_case' do
+    it 'converts a string to snake_case' do
+      expect(described_class.snake_case(camel_case_string)).to eq snake_case_string
+      expect(described_class.snake_case(kebab_case_string)).to eq snake_case_string
+      expect(described_class.snake_case(pascal_case_string)).to eq snake_case_string
+    end
+  end
+
+  context '.snake_case_hash_keys' do
+    it 'snake_cases the keys in a passed hash' do
+      expect(described_class.snake_case_hash_keys(camel_case_hash)).to eq snake_case_hash
+      expect(described_class.snake_case_hash_keys(kebab_case_hash)).to eq snake_case_hash
+      expect(described_class.snake_case_hash_keys(pascal_case_hash)).to eq snake_case_hash
+    end
+  end
+
+  context '.pascal_case' do
+    it 'converts a string to PascalCase' do
+      expect(described_class.pascal_case(camel_case_string)).to eq pascal_case_string
+      expect(described_class.pascal_case(kebab_case_string)).to eq pascal_case_string
+      expect(described_class.pascal_case(snake_case_string)).to eq pascal_case_string
+    end
+  end
+
+  context '.pascal_case_hash_keys' do
+    it 'PascalCases the keys in a passed hash' do
+      expect(described_class.pascal_case_hash_keys(camel_case_hash)).to eq pascal_case_hash
+      expect(described_class.pascal_case_hash_keys(kebab_case_hash)).to eq pascal_case_hash
+      expect(described_class.pascal_case_hash_keys(snake_case_hash)).to eq pascal_case_hash
+    end
+  end
+
+  context '.escape_quotes' do
+    it 'handles single quotes' do
+      expect(described_class.escape_quotes("The 'Cats' go 'meow'!")).to match(/The ''Cats'' go ''meow''!/)
+    end
+
+    it 'handles double single quotes' do
+      expect(described_class.escape_quotes("The ''Cats'' go 'meow'!")).to match(/The ''''Cats'''' go ''meow''!/)
+    end
+
+    it 'handles double quotes' do
+      expect(described_class.escape_quotes("The 'Cats' go \"meow\"!")).to match(/The ''Cats'' go "meow"!/)
+    end
+
+    it 'handles dollar signs' do
+      expect(described_class.escape_quotes("This should show \$foo variable")).to match(/This should show \$foo variable/)
+    end
+  end
+
+  context '.format_powershell_value' do
+    let(:ruby_array) { ['string', 1, :symbol, true] }
+    let(:powershell_array) { "@('string', 1, symbol, $true)" }
+    let(:ruby_hash) do
+      {
+        string: 'string',
+        number: 1,
+        symbol: :some_symbol,
+        boolean: true,
+        nested_hash: {
+          another_string: 'foo',
+          another_number: 2,
+          array: [1, 2, 3]
+        }
+      }
+    end
+    let(:powershell_hash) { "@{string = 'string'; number = 1; symbol = some_symbol; boolean = $true; nested_hash = @{another_string = 'foo'; another_number = 2; array = @(1, 2, 3)}}" }
+    it 'returns a symbol as a non-interpolated string' do
+      expect(described_class.format_powershell_value(:apple)).to eq('apple')
+    end
+    it 'returns a number as a non interpolated string' do
+      expect(described_class.format_powershell_value(101)).to eq('101')
+      expect(described_class.format_powershell_value(1.1)).to eq('1.1')
+    end
+    it 'returns boolean values as the appropriate PowerShell automatic variable' do
+      expect(described_class.format_powershell_value(true)).to eq('$true')
+      expect(described_class.format_powershell_value(:false)).to eq('$false') # rubocop:disable Lint/BooleanSymbol
+    end
+    it 'returns a string as an escaped string' do
+      expect(described_class.format_powershell_value('some string')).to eq("'some string'")
+    end
+    it 'returns an array as a string representing a PowerShell array' do
+      expect(described_class.format_powershell_value(ruby_array)).to eq(powershell_array)
+    end
+    it 'returns a hash as a string representing a PowerShell hash' do
+      expect(described_class.format_powershell_value(ruby_hash)).to eq(powershell_hash)
+    end
+    it 'raises an error if an unknown type is passed' do
+      expect { described_class.format_powershell_value(described_class) }.to raise_error(/unsupported type Module/)
+    end
+  end
+
+  context '.custom_powershell_property' do
+    it 'returns a powershell hash with the name and expression keys' do
+      expect(described_class.custom_powershell_property('apple', '$_.SomeValue / 5')).to eq("@{Name = 'apple'; Expression = {$_.SomeValue / 5}}")
+    end
+  end
 end
