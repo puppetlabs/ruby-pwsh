@@ -88,3 +88,5 @@ Puppet.debug(posh.execute('[String]$PSVersionTable.PSVersion'))
 ps_version = posh.execute('[String]$PSVersionTable.PSVersion')[:stdout].strip
 Puppet.debug("The PowerShell version of the currently running Manager is #{ps_version}")
 ```
+
+For more information, please review the [online reference documentation for the gem](https://rubydoc.info/gems/ruby-pwsh).

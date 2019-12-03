@@ -60,6 +60,10 @@ ps_version = posh.execute('[String]$PSVersionTable.PSVersion')[:stdout].strip
 pp("The PowerShell version of the currently running Manager is #{ps_version}")
 ```
 
+## Reference
+
+You can find the full reference documentation online, [here](https://rubydoc.info/gems/ruby-pwsh).
+
 <!-- ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
