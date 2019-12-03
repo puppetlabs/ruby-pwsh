@@ -48,16 +48,9 @@ module Pwsh
     # Iterate through a hashes keys, snake_casing them
     #
     # @return [Hash] Hash with all keys snake_cased
-    def snake_case_hash_keys(hash)
-      return hash.map { |h| snake_case_hash_keys(h) } if hash.is_a?(Array)
-      return hash unless hash.is_a?(Hash)
-
-      modified_hash = {}
-      hash.each do |key, value|
-        value = snake_case_hash_keys(value)
-        modified_hash[snake_case(key.to_s).to_sym] = value
-      end
-      modified_hash
+    def snake_case_hash_keys(object)
+      snake_case_proc = proc { |key| snake_case(key.to_s).to_sym }
+      apply_key_mutator(object, snake_case_proc)
     end
 
     # Return a string converted to PascalCase
@@ -71,16 +64,9 @@ module Pwsh
     # Iterate through a hashes keys, PascalCasing them
     #
     # @return [Hash] Hash with all keys PascalCased
-    def pascal_case_hash_keys(hash)
-      return hash.map { |h| pascal_case_hash_keys(h) } if hash.is_a?(Array)
-      return hash unless hash.is_a?(Hash)
-
-      modified_hash = {}
-      hash.each do |key, value|
-        value = pascal_case_hash_keys(value)
-        modified_hash[pascal_case(key.to_s).to_sym] = value
-      end
-      modified_hash
+    def pascal_case_hash_keys(object)
+      pascal_case_proc = proc { |key| pascal_case(key.to_s).to_sym }
+      apply_key_mutator(object, pascal_case_proc)
     end
 
     # Ensure that quotes inside a passed string will continue to be passed
@@ -93,18 +79,23 @@ module Pwsh
     # Ensure that all keys in a hash are symbols, not strings.
     #
     # @return [Hash] a hash whose keys have been converted to symbols.
-    def symbolize_hash_keys(hash)
-      if hash.is_a?(Hash)
-        hash.inject({}) do |memo, (k, v)| # rubocop:disable Style/EachWithObject
-          memo[k.to_sym] = symbolize_hash_keys(v)
-          memo
-        end
-      elsif hash.is_a?(Array)
-        hash.map { |i| symbolize_hash_keys(i) }
-      else
-        hash
-      end
+    def symbolize_hash_keys(object)
+      symbolize_proc = proc(&:to_sym)
+      apply_key_mutator(object, symbolize_proc)
     end
+
+    def apply_key_mutator(object, proc)
+      return object.map { |item| apply_key_mutator(item, proc) } if object.is_a?(Array)
+      return object unless object.is_a?(Hash)
+
+      modified_hash = {}
+      object.each do |key, value|
+        modified_hash[proc.call(key)] = apply_key_mutator(value, proc)
+      end
+      modified_hash
+    end
+
+    private_class_method :apply_key_mutator
 
     # Convert a ruby value into a string to be passed along to PowerShell for interpolation in a command
     # Handles:
