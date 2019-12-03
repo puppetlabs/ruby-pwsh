@@ -31,41 +31,50 @@ module Pwsh
       invalid_paths
     end
 
-    # Return a string converted to snake_case
+    # Return a string or symbol converted to snake_case
     #
     # @return [String] snake_cased string
-    def snake_case(string)
+    def snake_case(object)
       # Implementation copied from: https://github.com/rubyworks/facets/blob/master/lib/core/facets/string/snakecase.rb
       # gsub(/::/, '/').
-      string.gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
-            .gsub(/([a-z\d])([A-Z])/, '\1_\2')
-            .tr('-', '_')
-            .gsub(/\s/, '_')
-            .gsub(/__+/, '_')
-            .downcase
+      should_symbolize = object.is_a?(Symbol)
+      raise "snake_case method only handles strings and symbols, passed a #{object.class}: #{object}" unless should_symbolize || object.is_a?(String)
+
+      text = object.to_s
+                   .gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
+                   .gsub(/([a-z\d])([A-Z])/, '\1_\2')
+                   .tr('-', '_')
+                   .gsub(/\s/, '_')
+                   .gsub(/__+/, '_')
+                   .downcase
+      should_symbolize ? text.to_sym : text
     end
 
     # Iterate through a hashes keys, snake_casing them
     #
     # @return [Hash] Hash with all keys snake_cased
     def snake_case_hash_keys(object)
-      snake_case_proc = proc { |key| snake_case(key.to_s).to_sym }
+      snake_case_proc = proc { |key| snake_case(key) }
       apply_key_mutator(object, snake_case_proc)
     end
 
-    # Return a string converted to PascalCase
+    # Return a string or symbol converted to PascalCase
     #
     # @return [String] PascalCased string
-    def pascal_case(string)
+    def pascal_case(object)
+      should_symbolize = object.is_a?(Symbol)
+      raise "snake_case method only handles strings and symbols, passed a #{object.class}: #{object}" unless should_symbolize || object.is_a?(String)
+
       # Break word boundaries to snake case first
-      snake_case(string).split('_').collect(&:capitalize).join
+      text = snake_case(object.to_s).split('_').collect(&:capitalize).join
+      should_symbolize ? text.to_sym : text
     end
 
     # Iterate through a hashes keys, PascalCasing them
     #
     # @return [Hash] Hash with all keys PascalCased
     def pascal_case_hash_keys(object)
-      pascal_case_proc = proc { |key| pascal_case(key.to_s).to_sym }
+      pascal_case_proc = proc { |key| pascal_case(key) }
       apply_key_mutator(object, pascal_case_proc)
     end
 
