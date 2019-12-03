@@ -11,7 +11,7 @@ group :test do
   gem 'rspec', '~> 3.0'
   gem 'rspec-collection_matchers', '~> 1.0'
   gem 'rspec-its', '~> 1.0'
-  gem 'rubocop'
+  gem 'rubocop', '>= 0.77'
   gem 'rubocop-rspec'
   gem 'simplecov'
 end
