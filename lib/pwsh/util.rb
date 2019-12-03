@@ -31,50 +31,51 @@ module Pwsh
       invalid_paths
     end
 
-    # Return a string converted to snake_case
+    # Return a string or symbol converted to snake_case
     #
     # @return [String] snake_cased string
-    def snake_case(string)
+    def snake_case(object)
       # Implementation copied from: https://github.com/rubyworks/facets/blob/master/lib/core/facets/string/snakecase.rb
       # gsub(/::/, '/').
-      string.gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
-            .gsub(/([a-z\d])([A-Z])/, '\1_\2')
-            .tr('-', '_')
-            .gsub(/\s/, '_')
-            .gsub(/__+/, '_')
-            .downcase
+      should_symbolize = object.is_a?(Symbol)
+      raise "snake_case method only handles strings and symbols, passed a #{object.class}: #{object}" unless should_symbolize || object.is_a?(String)
+
+      text = object.to_s
+                   .gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
+                   .gsub(/([a-z\d])([A-Z])/, '\1_\2')
+                   .tr('-', '_')
+                   .gsub(/\s/, '_')
+                   .gsub(/__+/, '_')
+                   .downcase
+      should_symbolize ? text.to_sym : text
     end
 
     # Iterate through a hashes keys, snake_casing them
     #
     # @return [Hash] Hash with all keys snake_cased
-    def snake_case_hash_keys(hash)
-      modified_hash = {}
-      hash.each do |key, value|
-        value = snake_case_hash_keys(value) if value.is_a?(Hash)
-        modified_hash[snake_case(key.to_s).to_sym] = value
-      end
-      modified_hash
+    def snake_case_hash_keys(object)
+      snake_case_proc = proc { |key| snake_case(key) }
+      apply_key_mutator(object, snake_case_proc)
     end
 
-    # Return a string converted to PascalCase
+    # Return a string or symbol converted to PascalCase
     #
     # @return [String] PascalCased string
-    def pascal_case(string)
+    def pascal_case(object)
+      should_symbolize = object.is_a?(Symbol)
+      raise "snake_case method only handles strings and symbols, passed a #{object.class}: #{object}" unless should_symbolize || object.is_a?(String)
+
       # Break word boundaries to snake case first
-      snake_case(string).split('_').collect(&:capitalize).join
+      text = snake_case(object.to_s).split('_').collect(&:capitalize).join
+      should_symbolize ? text.to_sym : text
     end
 
     # Iterate through a hashes keys, PascalCasing them
     #
     # @return [Hash] Hash with all keys PascalCased
-    def pascal_case_hash_keys(hash)
-      modified_hash = {}
-      hash.each do |key, value|
-        value = pascal_case_hash_keys(value) if value.is_a?(Hash)
-        modified_hash[pascal_case(key.to_s).to_sym] = value
-      end
-      modified_hash
+    def pascal_case_hash_keys(object)
+      pascal_case_proc = proc { |key| pascal_case(key) }
+      apply_key_mutator(object, pascal_case_proc)
     end
 
     # Ensure that quotes inside a passed string will continue to be passed
@@ -87,18 +88,23 @@ module Pwsh
     # Ensure that all keys in a hash are symbols, not strings.
     #
     # @return [Hash] a hash whose keys have been converted to symbols.
-    def symbolize_hash_keys(hash)
-      if hash.is_a?(Hash)
-        hash.inject({}) do |memo, (k, v)| # rubocop:disable Style/EachWithObject
-          memo[k.to_sym] = symbolize_hash_keys(v)
-          memo
-        end
-      elsif hash.is_a?(Array)
-        hash.map { |i| symbolize_hash_keys(i) }
-      else
-        hash
-      end
+    def symbolize_hash_keys(object)
+      symbolize_proc = proc(&:to_sym)
+      apply_key_mutator(object, symbolize_proc)
     end
+
+    def apply_key_mutator(object, proc)
+      return object.map { |item| apply_key_mutator(item, proc) } if object.is_a?(Array)
+      return object unless object.is_a?(Hash)
+
+      modified_hash = {}
+      object.each do |key, value|
+        modified_hash[proc.call(key)] = apply_key_mutator(value, proc)
+      end
+      modified_hash
+    end
+
+    private_class_method :apply_key_mutator
 
     # Convert a ruby value into a string to be passed along to PowerShell for interpolation in a command
     # Handles:
