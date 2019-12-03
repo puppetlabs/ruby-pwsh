@@ -79,7 +79,7 @@ module Pwsh
 
     # Ensure that quotes inside a passed string will continue to be passed
     #
-    # @reurn [String] the string with quotes escaped
+    # @return [String] the string with quotes escaped
     def escape_quotes(text)
       text.gsub("'", "''")
     end
