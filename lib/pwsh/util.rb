@@ -84,6 +84,22 @@ module Pwsh
       text.gsub("'", "''")
     end
 
+    # Ensure that all keys in a hash are symbols, not strings.
+    #
+    # @return [Hash] a hash whose keys have been converted to symbols.
+    def symbolize_hash_keys(hash)
+      if hash.is_a?(Hash)
+        hash.inject({}) do |memo, (k, v)| # rubocop:disable Style/EachWithObject
+          memo[k.to_sym] = symbolize_hash_keys(v)
+          memo
+        end
+      elsif hash.is_a?(Array)
+        hash.map { |i| symbolize_hash_keys(i) }
+      else
+        hash
+      end
+    end
+
     # Convert a ruby value into a string to be passed along to PowerShell for interpolation in a command
     # Handles:
     # - Strings
