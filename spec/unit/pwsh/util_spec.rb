@@ -133,6 +133,51 @@ RSpec.describe Pwsh::Util do
     end
   end
 
+  context '.symbolize_hash_keys' do
+    let(:array_with_string_keys_in_hashes) do
+      [
+        'just a string',
+        {
+          'some_key' => 'a value'
+        },
+        1,
+        {
+          'another_key' => {
+            'nested_key' => 1,
+            'nested_array' => [
+              1,
+              'another string',
+              { 'super_nested_key' => 'value' }
+            ]
+          }
+        }
+      ]
+    end
+    let(:array_with_symbol_keys_in_hashes) do
+      [
+        'just a string',
+        {
+          some_key: 'a value'
+        },
+        1,
+        {
+          another_key: {
+            nested_key: 1,
+            nested_array: [
+              1,
+              'another string',
+              { super_nested_key: 'value' }
+            ]
+          }
+        }
+      ]
+    end
+
+    it 'converts all string hash keys into symbols' do
+      expect(described_class.symbolize_hash_keys(array_with_string_keys_in_hashes)).to eq array_with_symbol_keys_in_hashes
+    end
+  end
+
   context '.escape_quotes' do
     it 'handles single quotes' do
       expect(described_class.escape_quotes("The 'Cats' go 'meow'!")).to match(/The ''Cats'' go ''meow''!/)
