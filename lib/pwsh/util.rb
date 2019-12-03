@@ -49,9 +49,12 @@ module Pwsh
     #
     # @return [Hash] Hash with all keys snake_cased
     def snake_case_hash_keys(hash)
+      return hash.map { |h| snake_case_hash_keys(h) } if hash.is_a?(Array)
+      return hash unless hash.is_a?(Hash)
+
       modified_hash = {}
       hash.each do |key, value|
-        value = snake_case_hash_keys(value) if value.is_a?(Hash)
+        value = snake_case_hash_keys(value)
         modified_hash[snake_case(key.to_s).to_sym] = value
       end
       modified_hash
@@ -69,9 +72,12 @@ module Pwsh
     #
     # @return [Hash] Hash with all keys PascalCased
     def pascal_case_hash_keys(hash)
+      return hash.map { |h| pascal_case_hash_keys(h) } if hash.is_a?(Array)
+      return hash unless hash.is_a?(Hash)
+
       modified_hash = {}
       hash.each do |key, value|
-        value = pascal_case_hash_keys(value) if value.is_a?(Hash)
+        value = pascal_case_hash_keys(value)
         modified_hash[pascal_case(key.to_s).to_sym] = value
       end
       modified_hash

@@ -86,6 +86,25 @@ RSpec.describe Pwsh::Util do
       }
     }
   end
+  let(:pascal_case_hash_in_an_array) do
+    [
+      'just a string',
+      {
+        SomeKey: 'a value'
+      },
+      1,
+      {
+        AnotherKey: {
+          NestedKey: 1,
+          NestedArray: [
+            1,
+            'another string',
+            { SuperNestedKey: 'value' }
+          ]
+        }
+      }
+    ]
+  end
   let(:snake_case_hash) do
     {
       a: 1,
@@ -95,6 +114,25 @@ RSpec.describe Pwsh::Util do
         another_nested_key: 2
       }
     }
+  end
+  let(:snake_case_hash_in_an_array) do
+    [
+      'just a string',
+      {
+        some_key: 'a value'
+      },
+      1,
+      {
+        another_key: {
+          nested_key: 1,
+          nested_array: [
+            1,
+            'another string',
+            { super_nested_key: 'value' }
+          ]
+        }
+      }
+    ]
   end
   let(:camel_case_string) { 'thisIsAString' }
   let(:kebab_case_string) { 'this-is-a-string' }
@@ -114,6 +152,7 @@ RSpec.describe Pwsh::Util do
       expect(described_class.snake_case_hash_keys(camel_case_hash)).to eq snake_case_hash
       expect(described_class.snake_case_hash_keys(kebab_case_hash)).to eq snake_case_hash
       expect(described_class.snake_case_hash_keys(pascal_case_hash)).to eq snake_case_hash
+      expect(described_class.snake_case_hash_keys(pascal_case_hash_in_an_array)).to eq snake_case_hash_in_an_array
     end
   end
 
@@ -130,6 +169,7 @@ RSpec.describe Pwsh::Util do
       expect(described_class.pascal_case_hash_keys(camel_case_hash)).to eq pascal_case_hash
       expect(described_class.pascal_case_hash_keys(kebab_case_hash)).to eq pascal_case_hash
       expect(described_class.pascal_case_hash_keys(snake_case_hash)).to eq pascal_case_hash
+      expect(described_class.pascal_case_hash_keys(snake_case_hash_in_an_array)).to eq pascal_case_hash_in_an_array
     end
   end
 
