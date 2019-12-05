@@ -13,7 +13,9 @@ CODEOWNERS
 CONTRIBUTING.md
 design-comms.png
 DESIGN.md
+pwshlib.md
 Gemfile
 Gemfile.lock
 Rakefile
 ruby-pwsh.gemspec
+*.gem
