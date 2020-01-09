@@ -117,6 +117,7 @@ module Pwsh
         # This named pipe path is Windows specific.
         pipe_path = "\\\\.\\pipe\\#{named_pipe_name}"
       else
+        require 'tmpdir'
         # .Net implements named pipes under Linux etc. as Unix Sockets in the filesystem
         # Paths that are rooted are not munged within C# Core.
         # https://github.com/dotnet/corefx/blob/94e9d02ad70b2224d012ac4a66eaa1f913ae4f29/src/System.IO.Pipes/src/System/IO/Pipes/PipeStream.Unix.cs#L49-L60
