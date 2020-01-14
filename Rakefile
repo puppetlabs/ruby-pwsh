@@ -61,8 +61,6 @@ end
 desc 'Build the gem'
 task :build do
   gemspec_path = File.join(Dir.pwd, 'ruby-pwsh.gemspec')
-  # Delete the puppet-specific code if it exists
-  FileUtils.rm_r('lib/puppet') if File.exist?('lib/puppet')
   run_local_command("bundle exec gem build '#{gemspec_path}'")
 end
 
