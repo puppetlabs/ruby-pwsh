@@ -2,4 +2,4 @@
 
 require 'puppet/util/feature'
 
-Puppet.features.add(:pwshlib, libs: ['pwshlib'])
+Puppet.features.add(:pwshlib, libs: ['ruby-pwsh'])
