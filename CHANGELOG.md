@@ -2,7 +2,15 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
-## [0.3.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.3.0) (2019-12-03)
+## [0.4.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.4.0) (2020-01-13)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.3.0...0.4.0)
+
+### Added
+
+- \(MODULES-10389\) Add puppet feature for dependent modules to leverage [\#20](https://github.com/puppetlabs/ruby-pwsh/pull/20) ([cmccrisken-puppet](https://github.com/cmccrisken-puppet))
+
+## [0.3.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.3.0) (2019-12-04)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.2.0...0.3.0)
 
