@@ -117,7 +117,9 @@ module Pwsh
     #
     # @return [String] representation of the value for interpolation
     def format_powershell_value(object)
-      if %i[true false].include?(object) || %w[trueclass falseclass].include?(object.class.name.downcase) # rubocop:disable Lint/BooleanSymbol
+      # rubocop:disable Style/SymbolArray
+      if [:true, :false].include?(object) || %w[trueclass falseclass].include?(object.class.name.downcase) # rubocop:disable Lint/BooleanSymbol
+        # rubocop:enable Style/SymbolArray
         "$#{object}"
       elsif object.class.name == 'Symbol' || object.class.ancestors.include?(Numeric)
         object.to_s
