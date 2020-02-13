@@ -54,7 +54,7 @@ module Pwsh
       if manager.nil? || !manager.alive?
         # ignore any errors trying to tear down this unusable instance
         begin
-          manager.exit if defined?(manager)
+          manager.exit unless manager.nil? # rubocop:disable Style/SafeNavigation
         rescue
           nil
         end
