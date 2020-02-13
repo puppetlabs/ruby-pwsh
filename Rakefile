@@ -73,7 +73,7 @@ task :tag, [:version, :sha] do |_task, args|
   raise "Invalid version #{args[:version]} - must be like '1.2.3'" unless args[:version] =~ /^\d+\.\d+\.\d+$/
 
   run_local_command('git fetch upstream')
-  run_local_command("git tag -a version -m #{args[:version]} #{args[:sha]}")
+  run_local_command("git tag -a #{args[:version]} -m #{args[:version]} #{args[:sha]}")
   run_local_command('git push upstream --tags')
 end
 
