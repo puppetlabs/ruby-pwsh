@@ -2,7 +2,15 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
-## [0.4.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.4.0) (2020-01-13)
+## [0.4.1](https://github.com/puppetlabs/ruby-pwsh/tree/0.4.1) (2020-02-12)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.4.0...0.4.1)
+
+### Fixed
+
+- Ensure ruby versions older than 2.3 function correctly [\#30](https://github.com/puppetlabs/ruby-pwsh/pull/30) ([binford2k](https://github.com/binford2k))
+
+## [0.4.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.4.0) (2020-01-14)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.3.0...0.4.0)
 
