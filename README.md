@@ -70,4 +70,50 @@ After checking out the repo, run `bin/setup` to install dependencies. Then, run 
 
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org). -->
 
+## Releasing the Gem and Puppet Module
+
+Steps to release an update to the gem and module include:
+
+1. Ensure that the release branch is up to date with the master:
+   ```bash
+   git push upstream upstream/master:release --force
+   ```
+1. Checkout a new working branch for the release prep (where xyz is the appropriate version, sans periods):
+   ```bash
+   git checkout -b maint/release/prep-xyz upstream/release
+   ```
+1. Update the version in `lib/pwsh/version.rb` and `metadata.json` to the appropriate version for the new release.
+1. Run the changelog update task (make sure to verify the changelog, correctly tagging PRs as needed):
+   ```bash
+   bundle exec rake changelog
+   ```
+1. Commit your changes with a short, sensible commit message, like:
+   ```text
+   git add lib/pwsh/version.rb
+   git add metadata.json
+   git add CHANGELOG.md
+   git commit -m '(MAINT) Prep for x.y.z release'
+   ```
+1. Push your changes and submit a pull request for review _against the **release** branch_:
+   ```bash
+   git push -u origin maint/release-prep-xyz
+   ```
+1. Ensure tests pass and the code is merged to `release`.
+1. Grab the commit hash from the merge commit on release, use that as the tag for the version (replacing `x.y.z` with the appropriate version and  `commithash` with the relevant one), then push the tags to upstream:
+   ```bash
+   bundle exec rake tag['x.y.z', 'commithash']
+   ```
+1. Build the Ruby gem and publish:
+   ```bash
+   bundle exec rake build
+   bundle exec rake push['ruby-pwsh-x.y.z.gem']
+   ```
+1. Verify that the correct version now exists on [RubyGems](https://rubygems.org/search?query=ruby-pwsh)
+1. Build the Puppet module:
+   ```bash
+   bundle exec rake build_module
+   ```
+1. Publish the updated module version (found in the `pkg` folder) to [the Forge](https://forge.puppet.com/puppetlabs/pwshlib).
+1. Submit the [mergeback PR from the release branch to master](https://github.com/puppetlabs/ruby-pwsh/compare/master...release).
+
 ## Known Issues
