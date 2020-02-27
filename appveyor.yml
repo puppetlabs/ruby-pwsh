@@ -1,0 +1,38 @@
+---
+version: 1.1.x.{build}
+branches:
+  only:
+    - master
+    - release
+clone_depth: 10
+environment:
+  matrix:
+    -
+      RUBY_VERSION: 25-x64
+      CHECK: rubocop
+    -
+      RUBY_VERSION: 25
+      CHECK: spec
+      COVERAGE: yes
+matrix:
+  fast_finish: true
+install:
+  - set PATH=C:\Ruby%RUBY_VERSION%\bin;%PATH%
+  - bundle install --jobs 4 --retry 2
+  - type Gemfile.lock
+build: off
+build_script:
+  - dir .
+test_script:
+  - ruby -v
+  - gem -v
+  - bundle -v
+  - pwsh -v
+  - bundle exec rake %CHECK%
+notifications:
+  - provider: Email
+    to:
+      - nobody@nowhere.com
+    on_build_success: false
+    on_build_failure: false
+    on_build_status_changed: false
