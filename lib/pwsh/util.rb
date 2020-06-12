@@ -12,7 +12,7 @@ module Pwsh
     def on_windows?
       # Ruby only sets File::ALT_SEPARATOR on Windows and the Ruby standard
       # library uses that to test what platform it's on.
-      !!File::ALT_SEPARATOR # rubocop:disable Style/DoubleNegation
+      !!File::ALT_SEPARATOR
     end
 
     # Verify paths specified are valid directories which exist.
