@@ -165,12 +165,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
           expect_different_manager_returned_than(manager, first_pid)
         end
 
-        context 'on Windows' do
-          # On Windows we're using named pipes so these tests only apply on Windows.
-          before :each do
-            skip('Not on Windows platform') unless Pwsh::Util.on_windows?
-          end
-
+        context 'on Windows', if: Pwsh::Util.on_windows? do
           it 'creates a new PowerShell manager host if the input stream is closed' do
             first_pid = manager.execute('[Diagnostics.Process]::GetCurrentProcess().Id')[:stdout]
 
@@ -651,8 +646,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         expect(result[:errormessage]).to match(/Working directory .+ does not exist/)
       end
 
-      it 'allows forward slashes in working directory' do
-        skip('Not on Windows platform') unless Pwsh::Util.on_windows?
+      it 'allows forward slashes in working directory', if: Pwsh::Util.on_windows? do
         # Backslashes only apply on Windows filesystems
         work_dir = ENV['WINDIR']
         forward_work_dir = work_dir.gsub('\\', '/')
@@ -807,21 +801,13 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
   end
 end
 
-RSpec.describe 'On Windows PowerShell' do
-  before :each do
-    skip unless Pwsh::Util.on_windows? && Pwsh::Manager.windows_powershell_supported?
-  end
-
+RSpec.describe 'On Windows PowerShell', if: Pwsh::Util.on_windows? && Pwsh::Manager.windows_powershell_supported? do
   it_should_behave_like 'a PowerShellCodeManager',
                         Pwsh::Manager.powershell_path,
                         Pwsh::Manager.powershell_args
 end
 
-RSpec.describe 'On PowerShell Core' do
-  before :each do
-    skip unless Pwsh::Manager.pwsh_supported? # && !Puppet::Type.type(:exec).provider(:pwsh).new().get_pwsh_command.nil?
-  end
-
+RSpec.describe 'On PowerShell Core', if: Pwsh::Manager.pwsh_supported? do
   it_should_behave_like 'a PowerShellCodeManager',
                         Pwsh::Manager.pwsh_path,
                         Pwsh::Manager.pwsh_args

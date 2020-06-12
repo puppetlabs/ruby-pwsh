@@ -4,21 +4,13 @@ require 'spec_helper'
 
 RSpec.describe Pwsh::WindowsPowerShell do
   describe '.version' do
-    context 'on non-Windows platforms' do
-      before(:each) do
-        skip('On a Windows platform') if Pwsh::Util.on_windows?
-      end
-
+    context 'on non-Windows platforms', unless: Pwsh::Util.on_windows? do
       it 'is not defined' do
         expect(defined?(described_class.version)).to eq(nil)
       end
     end
 
-    context 'On Windows' do
-      before(:each) do
-        skip('Not on Windows platform') unless Pwsh::Util.on_windows?
-      end
-
+    context 'On Windows', if: Pwsh::Util.on_windows? do
       context 'when Windows PowerShell version is greater than three' do
         it 'detects a Windows PowerShell version' do
           allow_any_instance_of(Win32::Registry).to receive(:[]).with('PowerShellVersion').and_return('5.0.10514.6')
@@ -76,21 +68,13 @@ RSpec.describe Pwsh::WindowsPowerShell do
   end
 
   describe '.compatible_version?' do
-    context 'on non-Windows platforms' do
-      before(:each) do
-        skip('On a Windows platform') if Pwsh::Util.on_windows?
-      end
-
+    context 'on non-Windows platforms', unless: Pwsh::Util.on_windows? do
       it 'returns false' do
         expect(described_class.compatible_version?).to eq(false)
       end
     end
 
-    context 'On Windows' do
-      before(:each) do
-        skip('Not on Windows platform') unless Pwsh::Util.on_windows?
-      end
-
+    context 'On Windows', if: Pwsh::Util.on_windows? do
       context 'when the Windows PowerShell major version is nil' do
         it 'returns false' do
           expect(described_class).to receive(:version).and_return(nil)
