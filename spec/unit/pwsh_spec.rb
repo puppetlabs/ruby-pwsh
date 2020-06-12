@@ -595,6 +595,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'returns any available stdout / stderr prior to being terminated if a timeout error occurs' do
+        pending('Powershell 7 changed Write-Error handling on linux - needs review') unless Pwsh::Util.on_windows?
         timeout_ms = 1500
         command = '$debugPreference = "Continue"; Write-Output "200 OK Glenn"; Write-Debug "304 Not Modified James"; Write-Error "404 Craig Not Found"; sleep 10'
         result = manager.execute(command, timeout_ms)
@@ -754,6 +755,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'collects anything written to Error stream' do
+        pending('Powershell 7 changed Write-Error handling on linux - needs review') unless Pwsh::Util.on_windows?
         msg = SecureRandom.uuid.to_s.gsub('-', '')
         result = manager.execute("Write-Error '#{msg}'")
 
