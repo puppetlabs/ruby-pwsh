@@ -17,8 +17,7 @@ group :test do
 end
 
 group :development do
-  # TODO: Use gem instead of git. Section mapping is merged into master, but not yet released
-  gem 'github_changelog_generator', git: 'https://github.com/skywinder/github-changelog-generator.git', ref: '20ee04ba1234e9e83eb2ffb5056e23d641c7a018'
+  gem 'github_changelog_generator', '~> 1.15' if Gem::Version.new(RUBY_VERSION.dup) >= Gem::Version.new('2.3.0')
   gem 'yard'
 end
 
@@ -29,13 +28,8 @@ end
 group :pry do
   gem 'fuubar'
 
-  if RUBY_VERSION == '1.8.7'
-    gem 'debugger'
-  elsif RUBY_VERSION =~ /^2\.[01]/
-    gem 'byebug', '~> 9.0.0'
+  if Gem::Version.new(RUBY_VERSION.dup) >= Gem::Version.new('2.4.0')
     gem 'pry-byebug'
-  elsif RUBY_VERSION =~ /^2\.[23456789]/
-    gem 'pry-byebug' # rubocop:disable Bundler/DuplicatedGem
   else
     gem 'pry-debugger'
   end

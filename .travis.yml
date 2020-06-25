@@ -19,6 +19,7 @@ script:
   - 'bundle exec rake $CHECK'
 rvm:
   - 2.5.1
+  - 2.7
 matrix:
   include:
   - env: CHECK="rubocop"

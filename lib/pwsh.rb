@@ -471,7 +471,7 @@ Invoke-PowerShellUserCode @params
     # @return [String] The UTF-8 encoded string containing the payload
     def self.read_length_prefixed_string!(bytes)
       # 32 bit integer in Little Endian format
-      length = bytes.slice!(0, 4).unpack('V').first
+      length = bytes.slice!(0, 4).unpack1('V')
       return nil if length.zero?
 
       bytes.slice!(0, length).force_encoding(Encoding::UTF_8)
@@ -586,7 +586,7 @@ Invoke-PowerShellUserCode @params
 
       pipe_reader = Thread.new(@pipe) do |pipe|
         # Read a Little Endian 32-bit integer for length of response
-        expected_response_length = pipe.sysread(4).unpack('V').first
+        expected_response_length = pipe.sysread(4).unpack1('V')
 
         next nil if expected_response_length.zero?
 
