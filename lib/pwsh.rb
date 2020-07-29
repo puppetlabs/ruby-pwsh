@@ -356,7 +356,7 @@ Invoke-PowerShellUserCode @params
     # @return [Array[String]] array of command flags to pass Windows PowerShell
     def self.powershell_args
       ps_args = ['-NoProfile', '-NonInteractive', '-NoLogo', '-ExecutionPolicy', 'Bypass']
-      ps_args << '-Command' unless windows_powershell_supported?
+      #ps_args << '-Command' unless windows_powershell_supported?
 
       ps_args
     end
