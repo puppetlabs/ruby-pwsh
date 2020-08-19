@@ -23,6 +23,7 @@ end
 
 group :puppet do
   gem 'pdk', '~> 1.0'
+  gem 'puppet'
 end
 
 group :pry do
