@@ -1,6 +1,6 @@
 {
   "name": "puppetlabs-pwshlib",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "author": "puppetlabs",
   "summary": "Provide library code for interoperating with PowerShell.",
   "license": "MIT",
