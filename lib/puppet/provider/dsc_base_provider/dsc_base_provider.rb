@@ -278,11 +278,15 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
     end
     resource[:dsc_invoke_method] = dsc_invoke_method
 
-    # Because Puppet adds all of the modules to the LOAD_PATH we can be sure that the appropriate module lives here
+    # Because Puppet adds all of the modules to the LOAD_PATH we can be sure that the appropriate module lives here during an apply;
     # PROBLEM: This currently uses the downcased name, we need to capture the module name in the metadata I think.
+    # During a Puppet agent run, the code lives in the cache so we can use the file expansion to discover the correct folder.
     root_module_path = $LOAD_PATH.select { |path| path.match?(%r{#{resource[:dscmeta_module_name].downcase}/lib}) }.first
-    resource[:vendored_modules_path] = File.expand_path(root_module_path + '/puppet_x/dsc_resources')
-    # resource[:vendored_modules_path] = File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + 'puppet_x/dsc_resources')
+    resource[:vendored_modules_path] = if root_module_path.nil?
+                                         File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + 'puppet_x/dsc_resources')
+                                       else
+                                         File.expand_path(root_module_path + '/puppet_x/dsc_resources')
+                                       end
     resource[:attributes] = nil
     context.debug("should_to_resource: #{resource.inspect}")
     resource
