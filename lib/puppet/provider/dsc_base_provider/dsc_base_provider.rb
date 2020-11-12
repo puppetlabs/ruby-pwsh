@@ -198,6 +198,11 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
       type_key = "dsc_#{key.downcase}".to_sym
       data[type_key] = data.delete(key)
       camelcase_hash_keys!(data[type_key]) if data[type_key].is_a?(Enumerable)
+      # PowerShell does not distinguish between a return of empty array/string
+      #  and null but Puppet does; revert to those values if specified.
+      if data[type_key].nil? && query_props.keys.include?(type_key) && query_props[type_key].is_a?(Array)
+        data[type_key] = query_props[type_key].empty? ? query_props[type_key] : []
+      end
     end
     # If a resource is found, it's present, so refill these two Puppet-only keys
     data.merge!({ name: name_hash[:name] })
@@ -560,6 +565,13 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
                                 end
     end
     params_block = interpolate_variables("$InvokeParams = #{format(params)}")
+    # HACK: Handle intentionally empty arrays - need to strongly type them because
+    # CIM instances do not do a consistent job of casting an empty array properly.
+    empty_array_parameters = resource[:parameters].select { |k,v| v[:value].empty? }
+    empty_array_parameters.each do |name, properties|
+      param_block_name = name.to_s.gsub(/^dsc_/, '')
+      params_block = params_block.gsub("#{param_block_name} = @()", "#{param_block_name} = [#{properties[:mof_type]}]@()")
+    end
     # HACK: make CIM instances work:
     resource[:parameters].select { |_key, hash| hash[:mof_is_embedded] && hash[:mof_type] =~ /\[\]/ }.each do |_property_name, property_hash|
       formatted_property_hash = interpolate_variables(format(property_hash[:value]))
