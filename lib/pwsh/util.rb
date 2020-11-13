@@ -117,16 +117,16 @@ module Pwsh
     #
     # @return [String] representation of the value for interpolation
     def format_powershell_value(object)
-      if %i[true false].include?(object) || %w[trueclass falseclass].include?(object.class.name.downcase) # rubocop:disable Lint/BooleanSymbol
+      if %i[true false].include?(object) || %w[trueclass falseclass].include?(object.class.name.downcase)
         "$#{object}"
-      elsif object.class.name == 'Symbol' || object.class.ancestors.include?(Numeric)
+      elsif object.instance_of?(Symbol) || object.class.ancestors.include?(Numeric)
         object.to_s
-      elsif object.class.name == 'String'
+      elsif object.instance_of?(String)
         "'#{escape_quotes(object)}'"
-      elsif object.class.name == 'Array'
-        '@(' + object.collect { |item| format_powershell_value(item) }.join(', ') + ')'
-      elsif object.class.name == 'Hash'
-        '@{' + object.collect { |k, v| format_powershell_value(k) + ' = ' + format_powershell_value(v) }.join('; ') + '}'
+      elsif object.instance_of?(Array)
+        "@(#{object.collect { |item| format_powershell_value(item) }.join(', ')})"
+      elsif object.instance_of?(Hash)
+        "@{#{object.collect { |k, v| "#{format_powershell_value(k)} = #{format_powershell_value(v)}" }.join('; ')}}"
       else
         raise "unsupported type #{object.class} of value '#{object}'"
       end
