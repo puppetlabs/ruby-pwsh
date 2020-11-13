@@ -597,9 +597,8 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'returns any available stdout / stderr prior to being terminated if a timeout error occurs' do
-        pending('Powershell 7 changed Write-Error handling on linux - needs review') unless Pwsh::Util.on_windows?
         timeout_ms = 1500
-        command = '$debugPreference = "Continue"; Write-Output "200 OK Glenn"; Write-Debug "304 Not Modified James"; Write-Error "404 Craig Not Found"; sleep 10'
+        command = '$debugPreference = "Continue"; $ErrorView = "NormalView" ; Write-Output "200 OK Glenn"; Write-Debug "304 Not Modified James"; Write-Error "404 Craig Not Found"; sleep 10'
         result = manager.execute(command, timeout_ms)
         expect(result[:exitcode]).to eq(1)
         # starts with Write-Output and Write-Debug messages
@@ -656,7 +655,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
         result = manager.execute('(Get-Location).Path', nil, forward_work_dir)[:stdout]
 
-        expect(result).to eq("#{work_dir}#{line_end}")
+        expect(result).to match(/#{Regexp.escape(work_dir)}/i)
       end
 
       it 'uses a specific working directory if set' do
@@ -664,7 +663,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
         result = manager.execute('(Get-Location).Path', nil, work_dir)[:stdout]
 
-        expect(result).to eq("#{work_dir}#{line_end}")
+        expect(result).to match(/#{Regexp.escape(work_dir)}/i)
       end
 
       it 'does not reuse the same working directory between runs' do
@@ -757,9 +756,8 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'collects anything written to Error stream' do
-        pending('Powershell 7 changed Write-Error handling on linux - needs review') unless Pwsh::Util.on_windows?
         msg = SecureRandom.uuid.to_s.gsub('-', '')
-        result = manager.execute("Write-Error '#{msg}'")
+        result = manager.execute("$ErrorView = 'NormalView' ; Write-Error '#{msg}'")
 
         expect(result[:stdout]).to match(/Write-Error '#{msg}' : #{msg}/)
         expect(result[:exitcode]).to eq(0)
