@@ -68,6 +68,10 @@ Function ConvertTo-CanonicalResult {
               $Value = $null
           }
       }
+      elseif ($Result.$PropertyName.GetType().Name -match 'DateTime') {
+          # Handle DateTimes especially since they're an edge case
+          $Value = Get-Date $Result.$PropertyName -UFormat "%Y-%m-%dT%H:%M:%S%Z"
+      }
       else {
           # Looks like a nested CIM instance, recurse if we're not too deep in already.
           $RecursionLevel++
