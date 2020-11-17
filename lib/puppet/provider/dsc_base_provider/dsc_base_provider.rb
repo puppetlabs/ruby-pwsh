@@ -197,6 +197,8 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
       type_key = "dsc_#{key.downcase}".to_sym
       data[type_key] = data.delete(key)
       camelcase_hash_keys!(data[type_key]) if data[type_key].is_a?(Enumerable)
+      # Convert DateTime back to appropriate type
+      data[type_key] = Puppet::Pops::Time::Timestamp.parse(data[type_key]) if context.type.attributes[type_key][:mof_type] =~ /DateTime/i
       # PowerShell does not distinguish between a return of empty array/string
       #  and null but Puppet does; revert to those values if specified.
       if data[type_key].nil? && query_props.keys.include?(type_key) && query_props[type_key].is_a?(Array)
@@ -548,18 +550,25 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
     resource[:parameters].each do |property_name, property_hash|
       # strip dsc_ from the beginning of the property name declaration
       name = property_name.to_s.gsub(/^dsc_/, '').to_sym
-      params[:Property][name] = if property_hash[:mof_type] == 'PSCredential'
+      params[:Property][name] = case property_hash[:mof_type]
+                                when 'PSCredential'
                                   # format can't unwrap Sensitive strings nested in arbitrary hashes/etc, so make
                                   # the Credential hash interpolable as it will be replaced by a variable reference.
                                   {
                                     'user' => property_hash[:value]['user'],
                                     'password' => escape_quotes(property_hash[:value]['password'].unwrap)
                                   }
+                                when 'DateTime'
+                                  # These have to be handled specifically because they rely on the *Puppet* DateTime,
+                                  # not a generic ruby data type (and so can't go in the shared util in ruby-pwsh)
+                                  "[DateTime]#{property_hash[:value].format('%FT%T%z')}"
                                 else
                                   property_hash[:value]
                                 end
     end
     params_block = interpolate_variables("$InvokeParams = #{format(params)}")
+    # Move the Apostrophe for DateTime declarations
+    params_block = params_block.gsub("'[DateTime]", "[DateTime]'")
     # HACK: Handle intentionally empty arrays - need to strongly type them because
     # CIM instances do not do a consistent job of casting an empty array properly.
     empty_array_parameters = resource[:parameters].select { |_k, v| v[:value].empty? }
