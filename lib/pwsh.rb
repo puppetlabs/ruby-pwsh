@@ -16,8 +16,7 @@ module Pwsh
   class Error < StandardError; end
   # Create an instance of a PowerShell host and manage execution of PowerShell code inside that host.
   class Manager
-    attr_reader :powershell_command
-    attr_reader :powershell_arguments
+    attr_reader :powershell_command, :powershell_arguments
 
     # We actually want this to be a class variable.
     @@instances = {} # rubocop:disable Style/ClassVars
@@ -70,7 +69,7 @@ module Pwsh
     def self.win32console_enabled?
       @win32console_enabled ||= defined?(Win32) &&
                                 defined?(Win32::Console) &&
-                                Win32::Console.class == Class
+                                Win32::Console.instance_of?(Class)
     end
 
     # TODO: This thing isn't called anywhere and the variable it sets is never referenced...

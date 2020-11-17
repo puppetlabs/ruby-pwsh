@@ -15,6 +15,7 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
     @@cached_canonicalized_resource = []
     @@cached_query_results = []
     @@logon_failures = []
+    super
   end
 
   # Look through a cache to retrieve the hashes specified, if they have been cached.
@@ -158,9 +159,7 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
     context.debug("retrieving #{name_hash.inspect}")
 
     # Do not bother running if the logon credentials won't work
-    unless name_hash[:dsc_psdscrunascredential].nil?
-      return name_hash if logon_failed_already?(name_hash[:dsc_psdscrunascredential])
-    end
+    return name_hash if !name_hash[:dsc_psdscrunascredential].nil? && logon_failed_already?(name_hash[:dsc_psdscrunascredential])
 
     query_props = name_hash.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
     resource = should_to_resource(query_props, context, 'get')
@@ -194,10 +193,15 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
     # Canonicalize the results to match the type definition representation;
     # failure to do so will prevent the resource_api from comparing the result
     # to the should hash retrieved from the resource definition in the manifest.
-    data.keys.each do |key|
+    data.keys.each do |key| # rubocop:disable Style/HashEachMethods
       type_key = "dsc_#{key.downcase}".to_sym
       data[type_key] = data.delete(key)
       camelcase_hash_keys!(data[type_key]) if data[type_key].is_a?(Enumerable)
+      # PowerShell does not distinguish between a return of empty array/string
+      #  and null but Puppet does; revert to those values if specified.
+      if data[type_key].nil? && query_props.keys.include?(type_key) && query_props[type_key].is_a?(Array)
+        data[type_key] = query_props[type_key].empty? ? query_props[type_key] : []
+      end
     end
     # If a resource is found, it's present, so refill these two Puppet-only keys
     data.merge!({ name: name_hash[:name] })
@@ -229,9 +233,7 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
     context.debug("Invoking Set Method for '#{name}' with #{should.inspect}")
 
     # Do not bother running if the logon credentials won't work
-    unless should[:dsc_psdscrunascredential].nil?
-      return nil if logon_failed_already?(should[:dsc_psdscrunascredential])
-    end
+    return nil if !should[:dsc_psdscrunascredential].nil? && logon_failed_already?(should[:dsc_psdscrunascredential])
 
     apply_props = should.select { |k, _v| k.to_s =~ /^dsc_/ }
     resource = should_to_resource(apply_props, context, 'set')
@@ -283,9 +285,9 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
     # During a Puppet agent run, the code lives in the cache so we can use the file expansion to discover the correct folder.
     root_module_path = $LOAD_PATH.select { |path| path.match?(%r{#{resource[:dscmeta_module_name].downcase}/lib}) }.first
     resource[:vendored_modules_path] = if root_module_path.nil?
-                                         File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + 'puppet_x/dsc_resources')
+                                         File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + 'puppet_x/dsc_resources') # rubocop:disable Style/StringConcatenation
                                        else
-                                         File.expand_path(root_module_path + '/puppet_x/dsc_resources')
+                                         File.expand_path("#{root_module_path}/puppet_x/dsc_resources")
                                        end
     resource[:attributes] = nil
     context.debug("should_to_resource: #{resource.inspect}")
@@ -331,7 +333,7 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
   # @return [Enumerable] returns the input object with hash keys recursively camelCased
   def camelcase_hash_keys!(enumerable)
     if enumerable.is_a?(Hash)
-      enumerable.keys.each do |key|
+      enumerable.keys.each do |key| # rubocop:disable Style/HashEachMethods
         name = key.dup
         name[0] = name[0].downcase
         enumerable[name] = enumerable.delete(key)
@@ -441,8 +443,7 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
   # @param credential_hash [Hash] the Properties which define the PSCredential Object
   # @return [String] A line of PowerShell which defines the PSCredential object and stores it to a variable
   def format_pscredential(variable_name, credential_hash)
-    definition = "$#{variable_name} = New-PSCredential -User #{credential_hash['user']} -Password '#{credential_hash['password']}' # PuppetSensitive"
-    definition
+    "$#{variable_name} = New-PSCredential -User #{credential_hash['user']} -Password '#{credential_hash['password']}' # PuppetSensitive"
   end
 
   # Parses a resource definition (as from `should_to_resource`) for any properties which are CIM instances
@@ -522,8 +523,7 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
     # EVEN WORSE HACK - this one we can't even be sure it's a cim instance...
     # but I don't _think_ anything but nested cim instances show up as hashes inside an array
     definition = definition.gsub('@(@{', '[CimInstance[]]@(@{')
-    definition = interpolate_variables(definition)
-    definition
+    interpolate_variables(definition)
   end
 
   # Munge a resource definition (as from `should_to_resource`) into valid PowerShell which represents
@@ -560,6 +560,13 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
                                 end
     end
     params_block = interpolate_variables("$InvokeParams = #{format(params)}")
+    # HACK: Handle intentionally empty arrays - need to strongly type them because
+    # CIM instances do not do a consistent job of casting an empty array properly.
+    empty_array_parameters = resource[:parameters].select { |_k, v| v[:value].empty? }
+    empty_array_parameters.each do |name, properties|
+      param_block_name = name.to_s.gsub(/^dsc_/, '')
+      params_block = params_block.gsub("#{param_block_name} = @()", "#{param_block_name} = [#{properties[:mof_type]}]@()")
+    end
     # HACK: make CIM instances work:
     resource[:parameters].select { |_key, hash| hash[:mof_is_embedded] && hash[:mof_type] =~ /\[\]/ }.each do |_property_name, property_hash|
       formatted_property_hash = interpolate_variables(format(property_hash[:value]))
@@ -577,11 +584,11 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
   def ps_script_content(resource)
     template_path = File.expand_path('../', __FILE__)
     # Defines the helper functions
-    functions     = File.new(template_path + '/invoke_dsc_resource_functions.ps1').read
+    functions     = File.new("#{template_path}/invoke_dsc_resource_functions.ps1").read
     # Defines the response hash and the runtime settings
-    preamble      = File.new(template_path + '/invoke_dsc_resource_preamble.ps1').read
+    preamble      = File.new("#{template_path}/invoke_dsc_resource_preamble.ps1").read
     # The postscript defines the invocation error and result handling; expects `$InvokeParams` to be defined
-    postscript    = File.new(template_path + '/invoke_dsc_resource_postscript.ps1').read
+    postscript    = File.new("#{template_path}/invoke_dsc_resource_postscript.ps1").read
     # The blocks define the variables to define for the postscript.
     credential_block = prepare_credentials(resource)
     cim_instances_block = prepare_cim_instances(resource)
@@ -589,8 +596,7 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
     # clean them out of the temporary cache now that they're not needed; failure to do so can goof up future executions in this run
     clear_instantiated_variables!
 
-    content = [functions, preamble, credential_block, cim_instances_block, parameters_block, postscript].join("\n")
-    content
+    [functions, preamble, credential_block, cim_instances_block, parameters_block, postscript].join("\n")
   end
 
   # Convert a Puppet/Ruby value into a PowerShell representation. Requires some slight additional
@@ -614,15 +620,16 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
   # @param value [Object] The object to unwrap sensitive data inside of
   # @return [Object] The object with any sensitive strings unwrapped and annotated
   def unwrap(value)
-    if value.class.name == 'Puppet::Pops::Types::PSensitiveType::Sensitive'
+    case value
+    when Puppet::Pops::Types::PSensitiveType::Sensitive
       "#{value.unwrap}#PuppetSensitive"
-    elsif value.class.name == 'Hash'
+    when Hash
       unwrapped = {}
       value.each do |k, v|
         unwrapped[k] = unwrap(v)
       end
       unwrapped
-    elsif value.class.name == 'Array'
+    when Array
       unwrapped = []
       value.each do |v|
         unwrapped << unwrap(v)
