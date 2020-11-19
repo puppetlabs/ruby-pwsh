@@ -1,12 +1,11 @@
 # frozen_string_literal: true
 
-require 'puppet/resource_api/simple_provider'
 require 'securerandom'
 require 'ruby-pwsh'
 require 'pathname'
 require 'json'
 
-class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
+class Puppet::Provider::DscBaseProvider
   # Initializes the provider, preparing the class variables which cache:
   # - the canonicalized resources across calls
   # - query results
@@ -108,6 +107,77 @@ class Puppet::Provider::DscBaseProvider < Puppet::ResourceApi::SimpleProvider
       name = { name: name } if name.is_a? String
       invoke_get_method(context, name.merge(mandatory_properties))
     end
+  end
+
+  # Determines whether a resource is ensurable and which message to write (create, update, or delete),
+  # then passes the appropriate values along to the various sub-methods which themselves call the Set
+  # method of Invoke-DscResource. Implementation borrowed directly from the Resource API Simple Provider
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param changes [Hash] the hash of whose key is the name_hash and value is the is and should hashes
+  def set(context, changes)
+    changes.each do |name, change|
+      is = change.key?(:is) ? change[:is] : (get(context, [name]) || []).find { |r| r[:name] == name }
+      context.type.check_schema(is) unless change.key?(:is)
+
+      should = change[:should]
+
+      name_hash = if context.type.namevars.length > 1
+                    # pass a name_hash containing the values of all namevars
+                    name_hash = {}
+                    context.type.namevars.each do |namevar|
+                      name_hash[namevar] = change[:should][namevar]
+                    end
+                    name_hash
+                  else
+                    name
+                  end
+
+      # for compatibility sake, we use dsc_ensure instead of ensure, so context.type.ensurable? does not work
+      if !context.type.attributes.key?(:dsc_ensure)
+        is = create_absent(:name, name) if is.nil?
+        should = create_absent(:name, name) if should.nil?
+
+        # HACK: If the DSC Resource is ensurable but doesn't report a default value
+        # for ensure, we assume it to be `Present` - this is the most common pattern.
+        should_ensure = should[:dsc_ensure].nil? ? 'Present' : should[:dsc_ensure].to_s
+        is_ensure = is[:dsc_ensure].to_s
+
+        if is_ensure == 'Absent' && should_ensure == 'Present'
+          context.creating(name) do
+            create(context, name_hash, should)
+          end
+        elsif is_ensure == 'Present' && should_ensure == 'Present'
+          context.updating(name) do
+            update(context, name_hash, should)
+          end
+        elsif is_ensure == 'Present' && should_ensure == 'Absent'
+          context.deleting(name) do
+            delete(context, name_hash)
+          end
+        end
+      else
+        context.updating(name) do
+          update(context, name_hash, should)
+        end
+      end
+    end
+  end
+
+  # Creates a hash with the name / name_hash and sets dsc_ensure to absent for comparison
+  # purposes; this handles cases where the resource isn't found on the node.
+  #
+  # @param namevar [Object] the name of the variable being used for the resource name
+  # @param title [Hash] the hash of namevar properties and their values
+  # @return [Hash] returns a hash representing the absent state of the resource
+  def create_absent(namevar, title)
+    result = if title.is_a? Hash
+               title.dup
+             else
+               { namevar => title }
+             end
+    result[:dsc_ensure] = 'Absent'
+    result
   end
 
   # Attempts to set an instance of the DSC resource, invoking the `Set` method and thinly wrapping
