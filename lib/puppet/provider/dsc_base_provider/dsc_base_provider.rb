@@ -259,7 +259,9 @@ class Puppet::Provider::DscBaseProvider
     # DSC gives back information we don't care about; filter down to only
     # those properties exposed in the type definition.
     valid_attributes = context.type.attributes.keys.collect(&:to_s)
+    parameters = context.type.attributes.select { |_name, properties| [properties[:behaviour]].collect.include?(:parameter) }.keys.collect(&:to_s)
     data.select! { |key, _value| valid_attributes.include?("dsc_#{key.downcase}") }
+    data.reject! { |key, _value| parameters.include?("dsc_#{key.downcase}") }
     # Canonicalize the results to match the type definition representation;
     # failure to do so will prevent the resource_api from comparing the result
     # to the should hash retrieved from the resource definition in the manifest.
@@ -278,13 +280,6 @@ class Puppet::Provider::DscBaseProvider
     # If a resource is found, it's present, so refill this Puppet-only key
     data.merge!({ name: name_hash[:name] })
 
-    # TODO: Handle PSDscRunAsCredential flapping
-    # Resources do not return the account under which they were discovered, so re-add that
-    if name_hash[:dsc_psdscrunascredential].nil?
-      data.delete(:dsc_psdscrunascredential)
-    else
-      data.merge!({ dsc_psdscrunascredential: name_hash[:dsc_psdscrunascredential] })
-    end
     # Cache the query to prevent a second lookup
     @@cached_query_results << data.dup if fetch_cached_hashes(@@cached_query_results, [data]).empty?
     context.debug("Returned to Puppet as #{data}")
