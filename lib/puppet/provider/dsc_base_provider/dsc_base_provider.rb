@@ -275,12 +275,9 @@ class Puppet::Provider::DscBaseProvider
         data[type_key] = query_props[type_key].empty? ? query_props[type_key] : []
       end
     end
-    # If a resource is found, it's present, so refill these two Puppet-only keys
+    # If a resource is found, it's present, so refill this Puppet-only key
     data.merge!({ name: name_hash[:name] })
-    if ensurable?(context)
-      ensure_value = data.key?(:dsc_ensure) ? data[:dsc_ensure].downcase : 'present'
-      data.merge!({ ensure: ensure_value })
-    end
+
     # TODO: Handle PSDscRunAsCredential flapping
     # Resources do not return the account under which they were discovered, so re-add that
     if name_hash[:dsc_psdscrunascredential].nil?
@@ -339,7 +336,6 @@ class Puppet::Provider::DscBaseProvider
       resource[k] = context.type.definition[k]
     end
     should.each do |k, v|
-      next if k == :ensure
       # PSDscRunAsCredential is considered a namevar and will always be passed, even if nil
       # To prevent flapping during runs, remove it from the resource definition unless specified
       next if k == :dsc_psdscrunascredential && v.nil?
@@ -435,14 +431,6 @@ class Puppet::Provider::DscBaseProvider
     else
       object
     end
-  end
-
-  # Checks to see whether the DSC resource being managed is defined as ensurable
-  #
-  # @param context [Object] the Puppet runtime context to operate in and send feedback to
-  # @return [Bool] returns true if the DSC Resource is ensurable, otherwise false.
-  def ensurable?(context)
-    context.type.attributes.keys.include?(:ensure)
   end
 
   # Parses the DSC resource type definition to retrieve the names of any attributes which are specified as mandatory for get operations
