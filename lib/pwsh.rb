@@ -14,6 +14,7 @@ require 'logger'
 module Pwsh
   # Standard errors
   class Error < StandardError; end
+
   # Create an instance of a PowerShell host and manage execution of PowerShell code inside that host.
   class Manager
     attr_reader :powershell_command, :powershell_arguments
