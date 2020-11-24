@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [0.6.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.6.0) (2020-11-24)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.5.1...0.6.0)
+
+### Added
+
+- \(GH-81\) Handle parameters in the dsc base provider [\#62](https://github.com/puppetlabs/ruby-pwsh/pull/62) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-74\) Remove special handling for ensure in the dsc base provider [\#61](https://github.com/puppetlabs/ruby-pwsh/pull/61) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-59\) Refactor away from Simple Provider [\#60](https://github.com/puppetlabs/ruby-pwsh/pull/60) ([michaeltlombardi](https://github.com/michaeltlombardi))
+
+### Fixed
+
+- \(GH-57\) Handle datetimes in dsc [\#58](https://github.com/puppetlabs/ruby-pwsh/pull/58) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-55\) Handle intentionally empty arrays [\#56](https://github.com/puppetlabs/ruby-pwsh/pull/56) ([michaeltlombardi](https://github.com/michaeltlombardi))
+
 ## [0.5.1](https://github.com/puppetlabs/ruby-pwsh/tree/0.5.1) (2020-09-25)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.5.0...0.5.1)
