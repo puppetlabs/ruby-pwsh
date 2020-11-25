@@ -5,7 +5,7 @@
   "summary": "Provide library code for interoperating with PowerShell.",
   "license": "MIT",
   "source": "https://github.com/puppetlabs/ruby-pwsh",
-  "project_page": "https://github.com/puppetlabs/ruby-pwsh/blob/master/pwshlib.md",
+  "project_page": "https://github.com/puppetlabs/ruby-pwsh/blob/main/pwshlib.md",
   "issues_url": "https://github.com/puppetlabs/ruby-pwsh/issues",
   "dependencies": [
 

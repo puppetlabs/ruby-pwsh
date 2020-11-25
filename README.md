@@ -74,9 +74,9 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 Steps to release an update to the gem and module include:
 
-1. Ensure that the release branch is up to date with the master:
+1. Ensure that the release branch is up to date with the main:
    ```bash
-   git push upstream upstream/master:release --force
+   git push upstream upstream/main:release --force
    ```
 1. Checkout a new working branch for the release prep (where xyz is the appropriate version, sans periods):
    ```bash
@@ -114,6 +114,6 @@ Steps to release an update to the gem and module include:
    bundle exec rake build_module
    ```
 1. Publish the updated module version (found in the `pkg` folder) to [the Forge](https://forge.puppet.com/puppetlabs/pwshlib).
-1. Submit the [mergeback PR from the release branch to master](https://github.com/puppetlabs/ruby-pwsh/compare/master...release).
+1. Submit the [mergeback PR from the release branch to main](https://github.com/puppetlabs/ruby-pwsh/compare/main...release).
 
 ## Known Issues
