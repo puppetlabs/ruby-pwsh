@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [0.6.1](https://github.com/puppetlabs/ruby-pwsh/tree/0.6.1) (2020-11-25)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.6.0...0.6.1)
+
+### Fixed
+
+- \(maint\) - Removal of inappropriate terminology [\#70](https://github.com/puppetlabs/ruby-pwsh/pull/70) ([pmcmaw](https://github.com/pmcmaw))
+- \(Maint\) Fix ensurability in the dsc base provider [\#69](https://github.com/puppetlabs/ruby-pwsh/pull/69) ([michaeltlombardi](https://github.com/michaeltlombardi))
+
 ## [0.6.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.6.0) (2020-11-24)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.5.1...0.6.0)
