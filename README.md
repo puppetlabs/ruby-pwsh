@@ -96,7 +96,7 @@ Steps to release an update to the gem and module include:
    ```
 1. Push your changes and submit a pull request for review _against the **release** branch_:
    ```bash
-   git push -u origin maint/release-prep-xyz
+   git push -u origin maint/release/prep-xyz
    ```
 1. Ensure tests pass and the code is merged to `release`.
 1. Grab the commit hash from the merge commit on release, use that as the tag for the version (replacing `x.y.z` with the appropriate version and  `commithash` with the relevant one), then push the tags to upstream:
