@@ -79,7 +79,7 @@ process as easy as possible.
 
 2.  Sending your patches
 
-    To submit your changes via a GitHub pull request, we _highly_ recommend that you have them on a topic branch, instead of directly on "master".
+    To submit your changes via a GitHub pull request, we _highly_ recommend that you have them on a topic branch, instead of directly on "main".
     It makes things much easier to keep track of, especially if you decide to work on another thing before your first change is merged in.
 
     GitHub has some pretty good [general documentation](http://help.github.com/) on using their site.
