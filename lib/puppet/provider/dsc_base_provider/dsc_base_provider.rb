@@ -134,7 +134,7 @@ class Puppet::Provider::DscBaseProvider
                   end
 
       # for compatibility sake, we use dsc_ensure instead of ensure, so context.type.ensurable? does not work
-      if !context.type.attributes.key?(:dsc_ensure)
+      if context.type.attributes.key?(:dsc_ensure)
         is = create_absent(:name, name) if is.nil?
         should = create_absent(:name, name) if should.nil?
 
@@ -279,6 +279,15 @@ class Puppet::Provider::DscBaseProvider
     end
     # If a resource is found, it's present, so refill this Puppet-only key
     data.merge!({ name: name_hash[:name] })
+
+    # Have to check for this to avoid a weird canonicalization warning
+    # The Resource API calls canonicalize against the current state which
+    # will lead to dsc_ensure being set to absent in the name_hash even if
+    # it was set to present in the manifest
+    name_hash_has_nil_keys = name_hash.select { |_k, v| v.nil? }.count.positive?
+    # We want to throw away all of the empty keys if and only if the manifest
+    # declaration is for an absent resource and the resource is actually absent
+    data.reject! { |_k, v| v.nil? } if data[:dsc_ensure] == 'Absent' && name_hash[:dsc_ensure] == 'Absent' && !name_hash_has_nil_keys
 
     # Cache the query to prevent a second lookup
     @@cached_query_results << data.dup if fetch_cached_hashes(@@cached_query_results, [data]).empty?
