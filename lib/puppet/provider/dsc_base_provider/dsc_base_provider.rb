@@ -50,7 +50,7 @@ class Puppet::Provider::DscBaseProvider
           canonicalized = r.dup
           @@cached_canonicalized_resource << r.dup
         else
-          parameters = r.select{ |name,_properties| parameter_attributes(context).include?(name)}
+          parameters = r.select { |name, _properties| parameter_attributes(context).include?(name) }
           canonicalized.merge!(parameters)
           canonicalized[:name] = r[:name]
           if r[:dsc_psdscrunascredential].nil?
@@ -468,7 +468,7 @@ class Puppet::Provider::DscBaseProvider
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @return [Array] returns an array of attribute names as symbols which are parameters
   def parameter_attributes(context)
-    context.type.attributes.select{|name,properties| properties[:behaviour] == :parameter}.keys
+    context.type.attributes.select { |_name, properties| properties[:behaviour] == :parameter }.keys
   end
 
   # Look through a fully formatted string, replacing all instances where a value matches the formatted properties
