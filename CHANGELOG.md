@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [0.6.2](https://github.com/puppetlabs/ruby-pwsh/tree/0.6.2) (2020-12-09)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.6.1...0.6.2)
+
+### Fixed
+
+- \(MAINT\) Ensure parameters are canonicalized [\#75](https://github.com/puppetlabs/ruby-pwsh/pull/75) ([michaeltlombardi](https://github.com/michaeltlombardi))
+
 ## [0.6.1](https://github.com/puppetlabs/ruby-pwsh/tree/0.6.1) (2020-11-25)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.6.0...0.6.1)
