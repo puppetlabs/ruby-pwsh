@@ -143,7 +143,8 @@ class Puppet::Provider::DscBaseProvider
         # HACK: If the DSC Resource is ensurable but doesn't report a default value
         # for ensure, we assume it to be `Present` - this is the most common pattern.
         should_ensure = should[:dsc_ensure].nil? ? 'Present' : should[:dsc_ensure].to_s
-        is_ensure = is[:dsc_ensure].to_s
+        # HACK: Sometimes dsc_ensure is removed???? If it's gone, pretend it's absent??
+        is_ensure = is[:dsc_ensure].nil? ? 'Absent' : is[:dsc_ensure].to_s
 
         if is_ensure == 'Absent' && should_ensure == 'Present'
           context.creating(name) do
