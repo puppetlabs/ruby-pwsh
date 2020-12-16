@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [0.6.3](https://github.com/puppetlabs/ruby-pwsh/tree/0.6.3) (2020-12-16)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.6.2...0.6.3)
+
+### Fixed
+
+- \(MAINT\) Add handling for when dsc\_ensure is stripped [\#78](https://github.com/puppetlabs/ruby-pwsh/pull/78) ([michaeltlombardi](https://github.com/michaeltlombardi))
+
 ## [0.6.2](https://github.com/puppetlabs/ruby-pwsh/tree/0.6.2) (2020-12-09)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.6.1...0.6.2)
@@ -61,10 +69,6 @@ All notable changes to this project will be documented in this file.The format i
 ## [0.4.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.4.0) (2020-01-14)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.3.0...0.4.0)
-
-### Added
-
-- \(MODULES-10389\) Add puppet feature for dependent modules to leverage [\#20](https://github.com/puppetlabs/ruby-pwsh/pull/20) ([sanfrancrisko](https://github.com/sanfrancrisko))
 
 ## [0.3.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.3.0) (2019-12-04)
 
