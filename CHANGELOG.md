@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [0.6.3](https://github.com/puppetlabs/ruby-pwsh/tree/0.6.3) (2020-12-16)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.6.2...0.6.3)
+
+### Fixed
+
+- \(MAINT\) Add handling for when dsc\_ensure is stripped [\#78](https://github.com/puppetlabs/ruby-pwsh/pull/78) ([michaeltlombardi](https://github.com/michaeltlombardi))
+
 ## [0.6.2](https://github.com/puppetlabs/ruby-pwsh/tree/0.6.2) (2020-12-09)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.6.1...0.6.2)
@@ -9,6 +17,10 @@ All notable changes to this project will be documented in this file.The format i
 ### Fixed
 
 - \(MAINT\) Ensure parameters are canonicalized [\#75](https://github.com/puppetlabs/ruby-pwsh/pull/75) ([michaeltlombardi](https://github.com/michaeltlombardi))
+
+### UNCATEGORIZED PRS; GO LABEL THEM
+
+- \(MAINT\) Prep for 0.6.2 release [\#76](https://github.com/puppetlabs/ruby-pwsh/pull/76) ([michaeltlombardi](https://github.com/michaeltlombardi))
 
 ## [0.6.1](https://github.com/puppetlabs/ruby-pwsh/tree/0.6.1) (2020-11-25)
 
