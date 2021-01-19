@@ -364,9 +364,39 @@ class Puppet::Provider::DscBaseProvider
                                        else
                                          File.expand_path("#{root_module_path}/puppet_x/dsc_resources")
                                        end
+
+    # This handles setting the vendored_modules_path to include the puppet module name
+    # We now add the puppet module name into the path to allow multiple modules to with shared dsc_resources to be installed side by side
+    # The old vendored_modules_path: puppet_x/dsc_resources
+    # The new vendored_modules_path: puppet_x/powershellget/dsc_resources
+    unless File.exist? resource[:vendored_modules_path]
+      resource[:vendored_modules_path] = if root_module_path.nil?
+                                           File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + "puppet_x/#{puppetize_name(resource[:dscmeta_module_name])}/dsc_resources") # rubocop:disable Style/StringConcatenation
+                                         else
+                                           File.expand_path("#{root_module_path}/puppet_x/#{puppetize_name(resource[:dscmeta_module_name])}/dsc_resources")
+                                         end
+    end
+
+    # A warning is thrown if the something went wrong and the file was not created
+    raise "Unable to find expected vendored DSC Resource #{resource[:vendored_modules_path]}" unless File.exist? resource[:vendored_modules_path]
+
     resource[:attributes] = nil
+
     context.debug("should_to_resource: #{resource.inspect}")
     resource
+  end
+
+  # Return a String containing a puppetized name. A puppetized name is a string that only
+  # includes lowercase letters, digits, underscores and cannot start with a digit.
+  #
+  # @return [String] with a puppeized module name
+  def puppetize_name(name)
+    # Puppet module names must be lower case
+    name = name.downcase
+    # Puppet module names must only include lowercase letters, digits and underscores
+    name = name.gsub(/[^a-z0-9_]/, '_')
+    # Puppet module names must not start with a number so if it does, append the letter 'a' to the name. Eg: '7zip' becomes 'a7zip'
+    name = name.match?(/^\d/) ? "a#{name}" : name # rubocop:disable Lint/UselessAssignment
   end
 
   # Return a UUID with the dashes turned into underscores to enable the specifying of guaranteed-unique
