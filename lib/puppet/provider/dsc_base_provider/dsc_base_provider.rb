@@ -368,7 +368,7 @@ class Puppet::Provider::DscBaseProvider
     # This handles setting the vendored_modules_path to include the puppet module name
     # We now add the puppet module name into the path to allow multiple modules to with shared dsc_resources to be installed side by side
     # The old vendored_modules_path: puppet_x/dsc_resources
-    # The new vendored_modules_path: puppet_x/powershellget/dsc_resources
+    # The new vendored_modules_path: puppet_x/<module_name>/dsc_resources
     unless File.exist? resource[:vendored_modules_path]
       resource[:vendored_modules_path] = if root_module_path.nil?
                                            File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + "puppet_x/#{puppetize_name(resource[:dscmeta_module_name])}/dsc_resources") # rubocop:disable Style/StringConcatenation
