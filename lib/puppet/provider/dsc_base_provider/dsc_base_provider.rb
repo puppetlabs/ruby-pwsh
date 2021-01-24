@@ -563,6 +563,7 @@ class Puppet::Provider::DscBaseProvider
     cim_instances_block = []
     resource[:parameters].each do |_property_name, property_hash|
       next unless property_hash[:mof_is_embedded]
+      next if property_hash[:mof_type] == 'PSCredential' # Credentials are handled separately
 
       # strip dsc_ from the beginning of the property name declaration
       # name = property_name.to_s.gsub(/^dsc_/, '').to_sym
