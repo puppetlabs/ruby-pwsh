@@ -535,8 +535,8 @@ class Puppet::Provider::DscBaseProvider
         'user' => property_hash[:value]['user'],
         'password' => escape_quotes(property_hash[:value]['password'].unwrap)
       }
-      instantiated_variables.merge!(variable_name => credential_hash)
       credentials_block << format_pscredential(variable_name, credential_hash)
+      instantiated_variables.merge!(variable_name => credential_hash)
     end
     credentials_block.join("\n")
     credentials_block == [] ? '' : credentials_block
@@ -563,6 +563,7 @@ class Puppet::Provider::DscBaseProvider
     cim_instances_block = []
     resource[:parameters].each do |_property_name, property_hash|
       next unless property_hash[:mof_is_embedded]
+      next if property_hash[:mof_type] == 'PSCredential' # Credentials are handled separately
 
       # strip dsc_ from the beginning of the property name declaration
       # name = property_name.to_s.gsub(/^dsc_/, '').to_sym
@@ -573,10 +574,10 @@ class Puppet::Provider::DscBaseProvider
       unless cim_instance_hashes.count.zero?
         cim_instance_hashes.each do |instance|
           variable_name = random_variable_name
-          instantiated_variables.merge!(variable_name => instance)
           class_name = instance['cim_instance_type']
           properties = instance.reject { |k, _v| k == 'cim_instance_type' }
           cim_instances_block << format_ciminstance(variable_name, class_name, properties)
+          instantiated_variables.merge!(variable_name => instance)
         end
       end
       # We have to handle arrays of CIM instances slightly differently
@@ -584,14 +585,14 @@ class Puppet::Provider::DscBaseProvider
         class_name = property_hash[:mof_type].gsub('[]', '')
         property_hash[:value].each do |hash|
           variable_name = random_variable_name
-          instantiated_variables.merge!(variable_name => hash)
           cim_instances_block << format_ciminstance(variable_name, class_name, hash)
+          instantiated_variables.merge!(variable_name => hash)
         end
       else
         variable_name = random_variable_name
-        instantiated_variables.merge!(variable_name => property_hash[:value])
         class_name = property_hash[:mof_type]
         cim_instances_block << format_ciminstance(variable_name, class_name, property_hash[:value])
+        instantiated_variables.merge!(variable_name => property_hash[:value])
       end
     end
     cim_instances_block == [] ? '' : cim_instances_block.join("\n")
