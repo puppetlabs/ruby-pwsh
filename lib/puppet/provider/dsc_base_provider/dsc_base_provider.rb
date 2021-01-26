@@ -675,7 +675,7 @@ class Puppet::Provider::DscBaseProvider
     params_block = params_block.gsub("'[DateTime]", "[DateTime]'")
     # HACK: Handle intentionally empty arrays - need to strongly type them because
     # CIM instances do not do a consistent job of casting an empty array properly.
-    empty_array_parameters = resource[:parameters].select { |_k, v| v[:value].empty? }
+    empty_array_parameters = resource[:parameters].select { |_k, v| v[:value].is_a?(Array) && v[:value].empty? }
     empty_array_parameters.each do |name, properties|
       param_block_name = name.to_s.gsub(/^dsc_/, '')
       params_block = params_block.gsub("#{param_block_name} = @()", "#{param_block_name} = [#{properties[:mof_type]}]@()")
