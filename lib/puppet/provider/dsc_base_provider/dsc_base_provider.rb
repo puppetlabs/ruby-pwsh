@@ -359,22 +359,24 @@ class Puppet::Provider::DscBaseProvider
     # Because Puppet adds all of the modules to the LOAD_PATH we can be sure that the appropriate module lives here during an apply;
     # PROBLEM: This currently uses the downcased name, we need to capture the module name in the metadata I think.
     # During a Puppet agent run, the code lives in the cache so we can use the file expansion to discover the correct folder.
-    root_module_path = $LOAD_PATH.select { |path| path.match?(%r{#{puppetize_name(resource[:dscmeta_module_name])}/lib}) }.first
-    resource[:vendored_modules_path] = if root_module_path.nil?
-                                         File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + 'puppet_x/dsc_resources') # rubocop:disable Style/StringConcatenation
-                                       else
-                                         File.expand_path("#{root_module_path}/puppet_x/dsc_resources")
-                                       end
-
-    # This handles setting the vendored_modules_path to include the puppet module name
-    # We now add the puppet module name into the path to allow multiple modules to with shared dsc_resources to be installed side by side
+    # This handles setting the vendored_modules_path to include the puppet module name; we now add the puppet module name into the
+    # path to allow multiple modules to with shared dsc_resources to be installed side by side
     # The old vendored_modules_path: puppet_x/dsc_resources
     # The new vendored_modules_path: puppet_x/<module_name>/dsc_resources
+    root_module_path = $LOAD_PATH.select { |path| path.match?(%r{#{puppetize_name(resource[:dscmeta_module_name])}/lib}) }.first
+    resource[:vendored_modules_path] = if root_module_path.nil?
+                                         File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + "puppet_x/#{puppetize_name(resource[:dscmeta_module_name])}/dsc_resources") # rubocop:disable Style/StringConcatenation
+                                       else
+                                         File.expand_path("#{root_module_path}/puppet_x/#{puppetize_name(resource[:dscmeta_module_name])}/dsc_resources")
+                                       end
+
+    # Check for the old vendored_modules_path second - if there is a mix of modules with the old and new pathing,
+    # checking for this first will always work and so the more specific search will never run.
     unless File.exist? resource[:vendored_modules_path]
       resource[:vendored_modules_path] = if root_module_path.nil?
-                                           File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + "puppet_x/#{puppetize_name(resource[:dscmeta_module_name])}/dsc_resources") # rubocop:disable Style/StringConcatenation
+                                           File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + 'puppet_x/dsc_resources') # rubocop:disable Style/StringConcatenation
                                          else
-                                           File.expand_path("#{root_module_path}/puppet_x/#{puppetize_name(resource[:dscmeta_module_name])}/dsc_resources")
+                                           File.expand_path("#{root_module_path}/puppet_x/dsc_resources")
                                          end
     end
 
