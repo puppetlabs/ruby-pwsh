@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [0.7.1](https://github.com/puppetlabs/ruby-pwsh/tree/0.7.1) (2021-02-01)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.7.0...0.7.1)
+
+### Fixed
+
+- \(MAINT\) Correctly canonicalize enumerable values in dsc [\#92](https://github.com/puppetlabs/ruby-pwsh/pull/92) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(MAINT\) Ensure vendored path check works with mix of module builds [\#91](https://github.com/puppetlabs/ruby-pwsh/pull/91) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-84\) Fix empty array parameter check [\#90](https://github.com/puppetlabs/ruby-pwsh/pull/90) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(MAINT\) Minor fixes to CIM instance handling [\#89](https://github.com/puppetlabs/ruby-pwsh/pull/89) ([michaeltlombardi](https://github.com/michaeltlombardi))
+
 ## [0.7.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.7.0) (2021-01-20)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.6.3...0.7.0)
