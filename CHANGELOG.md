@@ -2,7 +2,16 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
-## [0.7.1](https://github.com/puppetlabs/ruby-pwsh/tree/0.7.1) (2021-02-01)
+## [0.7.2](https://github.com/puppetlabs/ruby-pwsh/tree/0.7.2) (2021-02-03)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.7.1...0.7.2)
+
+### Fixed
+
+- \(GH-97\) Memoize class variables in initialize [\#98](https://github.com/puppetlabs/ruby-pwsh/pull/98) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(MAINT\) Ensure is\_same check works for nil manifest values [\#96](https://github.com/puppetlabs/ruby-pwsh/pull/96) ([bwilcox](https://github.com/bwilcox))
+
+## [0.7.1](https://github.com/puppetlabs/ruby-pwsh/tree/0.7.1) (2021-02-02)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.7.0...0.7.1)
 
