@@ -11,9 +11,9 @@ class Puppet::Provider::DscBaseProvider
   # - query results
   # - logon failures
   def initialize
-    @@cached_canonicalized_resource = []
-    @@cached_query_results = []
-    @@logon_failures = []
+    @@cached_canonicalized_resource ||= []
+    @@cached_query_results ||= []
+    @@logon_failures ||= []
     super
   end
 
