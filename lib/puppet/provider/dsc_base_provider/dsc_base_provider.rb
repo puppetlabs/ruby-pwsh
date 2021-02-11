@@ -44,7 +44,10 @@ class Puppet::Provider::DscBaseProvider
   def canonicalize(context, resources)
     canonicalized_resources = []
     resources.collect do |r|
-      if fetch_cached_hashes(@@cached_canonicalized_resource, [r]).empty?
+      # During RSAPI refresh runs mandatory parameters are stripped and not available;
+      # Instead of checking again and failing, search the cache for a namevar match.
+      namevarized_r = r.select { |k, _v| namevar_attributes(context).include?(k) }
+      if fetch_cached_hashes(@@cached_canonicalized_resource, [namevarized_r]).empty?
         canonicalized = invoke_get_method(context, r)
         if canonicalized.nil?
           canonicalized = r.dup
