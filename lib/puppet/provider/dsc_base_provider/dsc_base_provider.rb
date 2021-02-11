@@ -162,6 +162,12 @@ class Puppet::Provider::DscBaseProvider
           context.deleting(name) do
             delete(context, name_hash)
           end
+        else
+          # In this case we are not sure if the resource is being created/updated/removed
+          # as with ensure "latest" or a specific version number, so default to update.
+          context.updating(name) do
+            update(context, name_hash, should)
+          end
         end
       else
         context.updating(name) do
