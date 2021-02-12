@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [0.7.4](https://github.com/puppetlabs/ruby-pwsh/tree/0.7.4) (2021-02-11)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.7.3...0.7.4)
+
+### Fixed
+
+- \(GH-105\) Ensure set runs on ambiguous ensure states [\#108](https://github.com/puppetlabs/ruby-pwsh/pull/108) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-105\) Ensure canonicalized\_cache check validates against namevar [\#107](https://github.com/puppetlabs/ruby-pwsh/pull/107) ([michaeltlombardi](https://github.com/michaeltlombardi))
+
 ## [0.7.3](https://github.com/puppetlabs/ruby-pwsh/tree/0.7.3) (2021-02-03)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.7.2...0.7.3)
@@ -97,6 +106,7 @@ All notable changes to this project will be documented in this file.The format i
 ### Added
 
 - \(IAC-1045\) Add the DSC base Puppet provider to pwshlib [\#39](https://github.com/puppetlabs/ruby-pwsh/pull/39) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(MODULES-10389\) Add puppet feature for dependent modules to leverage [\#20](https://github.com/puppetlabs/ruby-pwsh/pull/20) ([sanfrancrisko](https://github.com/sanfrancrisko))
 
 ## [0.4.1](https://github.com/puppetlabs/ruby-pwsh/tree/0.4.1) (2020-02-13)
 
@@ -112,7 +122,7 @@ All notable changes to this project will be documented in this file.The format i
 
 ### Added
 
-- \(MODULES-10389\) Add puppet feature for dependent modules to leverage [\#20](https://github.com/puppetlabs/ruby-pwsh/pull/20) ([sanfrancrisko](https://github.com/sanfrancrisko))
+- \(FM-8422\) Make library releasable as a Puppet module [\#8](https://github.com/puppetlabs/ruby-pwsh/pull/8) ([michaeltlombardi](https://github.com/michaeltlombardi))
 
 ## [0.3.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.3.0) (2019-12-04)
 
@@ -133,7 +143,6 @@ All notable changes to this project will be documented in this file.The format i
 ### Added
 
 - \(FEAT\) Add quality of life utilities [\#11](https://github.com/puppetlabs/ruby-pwsh/pull/11) ([michaeltlombardi](https://github.com/michaeltlombardi))
-- \(FM-8422\) Make library releasable as a Puppet module [\#8](https://github.com/puppetlabs/ruby-pwsh/pull/8) ([michaeltlombardi](https://github.com/michaeltlombardi))
 
 
 
