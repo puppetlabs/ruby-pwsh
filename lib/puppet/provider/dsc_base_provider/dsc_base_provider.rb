@@ -99,6 +99,13 @@ class Puppet::Provider::DscBaseProvider
     cached_results = fetch_cached_hashes(@@cached_query_results, names)
     return cached_results unless cached_results.empty?
 
+    # Backup validation just on name which should always be unique
+    cached_results = @@cached_query_results.select do |key, _value|
+      puppet_name = names.first.is_a?(String) ? names.first : names.first[:name]
+      key[:name] == puppet_name
+    end
+    return cached_results unless cached_results.empty?
+
     if @@cached_canonicalized_resource.empty?
       mandatory_properties = {}
     else
