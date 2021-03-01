@@ -117,3 +117,15 @@ Steps to release an update to the gem and module include:
 1. Submit the [mergeback PR from the release branch to main](https://github.com/puppetlabs/ruby-pwsh/compare/main...release).
 
 ## Known Issues
+
+## Supported Operating Systems
+
+The following platforms are supported:
+
+- Windows
+- CentOS
+- Debian
+- Fedora
+- OSX
+- RedHat
+- Ubuntu
