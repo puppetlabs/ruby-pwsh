@@ -64,7 +64,14 @@ class Puppet::Provider::DscBaseProvider
           downcased_result = recursively_downcase(canonicalized)
           downcased_resource = recursively_downcase(r)
           downcased_result.each do |key, value|
-            is_same = value.is_a?(Enumerable) & !downcased_resource[key].nil? ? downcased_resource[key].sort == value.sort : downcased_resource[key] == value
+            is_same = case @value
+            when Hash
+                !downcased_resource[key].nil? ? downcased_resource[key].sort_by { |element| element.keys.first } == value.sort_by { |element| element.keys.first } : downcased_resource[key] == value
+            when Array
+                !downcased_resource[key].nil? ? downcased_resource[key].sort == value.sort : downcased_resource[key] == value
+            else
+                downcased_resource[key] == value
+            end	   
             canonicalized[key] = r[key] unless is_same
             canonicalized.delete(key) unless downcased_resource.keys.include?(key)
           end
