@@ -64,15 +64,7 @@ class Puppet::Provider::DscBaseProvider
           downcased_result = recursively_downcase(canonicalized)
           downcased_resource = recursively_downcase(r)
           downcased_result.each do |key, value|
-            is_same = case @value
-                      when Hash
-                        !downcased_resource[key].nil? ? downcased_resource[key].sort_by { |element| element.keys.first } == value.sort_by { |element| element.keys.first } : downcased_resource[key] == value
-                      when Array
-                        !downcased_resource[key].nil? ? downcased_resource[key].sort == value.sort : downcased_resource[key] == value
-                      else
-                        downcased_resource[key] == value
-                      end	   
-            canonicalized[key] = r[key] unless is_same
+            canonicalized[key] = r[key] unless same?(value, downcased_resource[key])
             canonicalized.delete(key) unless downcased_resource.keys.include?(key)
           end
           # Cache the actually canonicalized resource separately
@@ -486,6 +478,22 @@ class Puppet::Provider::DscBaseProvider
       transformed
     else
       object
+    end
+  end
+
+  # Check equality, sort if necessary
+  #
+  # @param value1 [object] a string, array, hash, or other object to sort and compare to value2
+  # @param value2 [object] a string, array, hash, or other object to sort and compare to value1
+  # @return [bool] returns equality
+  def same?(value1, value2)
+    case @value1
+    when Hash
+      !value2.nil? ? value2.sort_by { |element| element.keys.first } == value1.sort_by { |element| element.keys.first } : value2 == value1
+    when Array
+      !value2.nil? ? value2.sort == value1.sort : value2 == value1
+    else
+      value2 == value1
     end
   end
 
