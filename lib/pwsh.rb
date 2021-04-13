@@ -391,12 +391,15 @@ Invoke-PowerShellUserCode @params
 
       # If we're on Windows, try the default installation locations as a last resort.
       # https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-windows?view=powershell-6#msi
+      # https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-windows?view=powershell-7.1
       if Pwsh::Util.on_windows?
-        # TODO: What about PS 7? or 8?
+        # TODO: What about PS 8?
         # TODO: Need to check on French/Turkish windows if ENV['PROGRAMFILES'] parses UTF8 names correctly
         # TODO: Need to ensure ENV['PROGRAMFILES'] is case insensitive, i.e. ENV['PROGRAMFiles'] should also resolve on Windows
         search_paths += ";#{ENV['PROGRAMFILES']}\\PowerShell\\6" \
-                        ";#{ENV['PROGRAMFILES(X86)']}\\PowerShell\\6"
+                        ";#{ENV['PROGRAMFILES(X86)']}\\PowerShell\\6" \
+                        ";#{ENV['PROGRAMFILES']}\\PowerShell\\7" \
+                        ";#{ENV['PROGRAMFILES(X86)']}\\PowerShell\\7"
       end
       raise 'No paths discovered to search for Powershell!' if search_paths.split(File::PATH_SEPARATOR).empty?
 
