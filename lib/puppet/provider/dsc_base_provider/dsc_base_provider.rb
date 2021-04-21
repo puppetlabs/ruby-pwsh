@@ -13,8 +13,13 @@ class Puppet::Provider::DscBaseProvider
   def initialize
     @@cached_canonicalized_resource ||= []
     @@cached_query_results ||= []
+    @@cached_test_results ||= []
     @@logon_failures ||= []
     super
+  end
+
+  def cached_test_results
+    @@cached_test_results
   end
 
   # Look through a cache to retrieve the hashes specified, if they have been cached.
@@ -270,6 +275,24 @@ class Puppet::Provider::DscBaseProvider
     data
   end
 
+  # Determine if the DSC Resource is in the desired state, invoking the `Test` method unless it's
+  #   already been run for the resource, in which case reuse the result instead of checking for each
+  #   property. This behavior is only triggered if the validation_mode is set to resource; by default
+  #   it is set to property and uses the default property comparison logic in Puppet::Property.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param name [String] the name of the resource being tested
+  # @param is_hash [Hash] the current state of the resource on the system
+  # @param should_hash [Hash] the desired state of the resource per the manifest
+  # @return [Boolean, Void] returns true/false if the resource is/isn't in the desired state and
+  #   the validation mode is set to resource, otherwise nil.
+  def insync?(context, name, _property_name, _is_hash, should_hash)
+    return nil if should_hash[:validation_mode] != 'resource'
+
+    prior_result = fetch_cached_hashes(@@cached_test_results, [name])
+    prior_result.empty? ? invoke_test_method(context, name, should_hash) : prior_result.first[:in_desired_state]
+  end
+
   # Invokes the `Get` method, passing the name_hash as the properties to use with `Invoke-DscResource`
   # The PowerShell script returns a JSON representation of the DSC Resource's CIM Instance munged as
   # best it can be for Ruby. Once that JSON is parsed into a hash this method further munges it to
@@ -355,6 +378,31 @@ class Puppet::Provider::DscBaseProvider
 
     # TODO: Implement this functionality for notifying a DSC reboot?
     # notify_reboot_pending if data['rebootrequired'] == true
+  end
+
+  # Invokes the `Test` method, passing the should hash as the properties to use with `Invoke-DscResource`
+  #   The PowerShell script returns a JSON hash with key-value pairs indicating whether or not the resource
+  #   is in the desired state and any error messages captured.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param should [Hash] the desired state represented definition to pass as properties to Invoke-DscResource
+  # @return [Boolean] returns true if the resource is in the desired state, otherwise false
+  def invoke_test_method(context, name, should)
+    context.debug("Relying on DSC Test method for validating if '#{name}' is in the desired state")
+    context.debug("Invoking Test Method for '#{name}' with #{should.inspect}")
+
+    test_props = should.select { |k, _v| k.to_s =~ /^dsc_/ }
+    data = invoke_dsc_resource(context, name, test_props, 'test')
+    # Something went wrong with Invoke-DscResource; fall back on property state comparisons
+    return nil if data.nil?
+
+    in_desired_state = data['indesiredstate']
+    @@cached_test_results << name.merge({ in_desired_state: in_desired_state })
+
+    return in_desired_state if in_desired_state
+
+    change_log = 'DSC reported that this resource is not in the desired state; treating all properties as out-of-sync'
+    [in_desired_state, change_log]
   end
 
   # Converts a Puppet resource hash into a hash with the information needed to call Invoke-DscResource,

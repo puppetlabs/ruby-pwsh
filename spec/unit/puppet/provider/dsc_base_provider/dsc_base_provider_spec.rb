@@ -3,6 +3,7 @@
 require 'spec_helper'
 require 'puppet/type'
 require 'puppet/provider/dsc_base_provider/dsc_base_provider'
+require 'json'
 
 RSpec.describe Puppet::Provider::DscBaseProvider do
   subject(:provider) { described_class.new }
@@ -10,13 +11,13 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   let(:context) { instance_double('Puppet::ResourceApi::PuppetContext') }
   let(:type) { instance_double('Puppet::ResourceApi::TypeDefinition') }
   let(:ps_manager) { instance_double('Pwsh::Manager') }
-  let(:command) { 'command' }
   let(:execute_response) { { stdout: nil, stderr: nil, exitcode: 0 } }
 
   # Reset the caches after each run
   after(:each) do
     described_class.class_variable_set(:@@cached_canonicalized_resource, nil) # rubocop:disable Style/ClassVars
     described_class.class_variable_set(:@@cached_query_results, nil) # rubocop:disable Style/ClassVars
+    described_class.class_variable_set(:@@cached_test_results, nil) # rubocop:disable Style/ClassVars
     described_class.class_variable_set(:@@logon_failures, nil) # rubocop:disable Style/ClassVars
   end
 
@@ -32,8 +33,20 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'initializes the cached_query_results class variable' do
       expect(described_class.class_variable_get(:@@cached_query_results)).to eq([])
     end
+    it 'initializes the cached_test_results class variable' do
+      expect(described_class.class_variable_get(:@@cached_test_results)).to eq([])
+    end
     it 'initializes the logon_failures class variable' do
       expect(described_class.class_variable_get(:@@logon_failures)).to eq([])
+    end
+  end
+
+  context '.cached_test_results' do
+    let(:cache_value) { %w[foo bar] }
+
+    it 'returns the value of the @@cached_test_results class variable' do
+      described_class.class_variable_set(:@@cached_test_results, cache_value) # rubocop:disable Style/ClassVars
+      expect(provider.cached_test_results).to eq(cache_value)
     end
   end
 
@@ -351,6 +364,35 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       allow(context).to receive(:debug)
       expect(provider).to receive(:invoke_set_method)
       expect { provider.delete(context, { foo: 1 }) }.not_to raise_error
+    end
+  end
+
+  context '.insync?' do
+    let(:name)               { { name: 'foo' } }
+    let(:attribute_name)     { :foo }
+    let(:is_hash)            { { name: 'foo', foo: 1 } }
+    let(:cached_test_result) { [{ name: 'foo', in_desired_state: true }] }
+    let(:should_hash_validate_by_property) { { name: 'foo', foo: 1, validation_mode: 'property' } }
+    let(:should_hash_validate_by_resource) { { name: 'foo', foo: 1, validation_mode: 'resource' } }
+
+    context 'when the validation_mode is "resource"' do
+      it 'calls invoke_test_method if the result of a test is not already cached' do
+        expect(provider).to receive(:fetch_cached_hashes).and_return([])
+        expect(provider).to receive(:invoke_test_method).and_return(true)
+        expect(provider.send(:insync?, context, name, attribute_name, is_hash, should_hash_validate_by_resource)).to be true
+      end
+      it 'does not call invoke_test_method if the result of a test is already cached' do
+        expect(provider).to receive(:fetch_cached_hashes).and_return(cached_test_result)
+        expect(provider).not_to receive(:invoke_test_method)
+        expect(provider.send(:insync?, context, name, attribute_name, is_hash, should_hash_validate_by_resource)).to be true
+      end
+    end
+    context 'when the validation_mode is "property"' do
+      it 'does not call invoke_test_method and returns nil' do
+        expect(provider).not_to receive(:fetch_cached_hashes)
+        expect(provider).not_to receive(:invoke_test_method)
+        expect(provider.send(:insync?, context, name, attribute_name, is_hash, should_hash_validate_by_property)).to be nil
+      end
     end
   end
 
@@ -905,6 +947,56 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   context '.load_path' do
     it 'returns the ruby LOAD_PATH global variable' do
       expect(provider.load_path).to eq($LOAD_PATH)
+    end
+  end
+
+  context '.invoke_test_method' do
+    subject(:result) { provider.invoke_test_method(context, name, should) }
+
+    let(:name) { { name: 'foo', dsc_name: 'bar' } }
+    let(:should) { name.merge(dsc_ensure: 'present') }
+    let(:test_properties) { should.reject { |k, _v| k == :name } }
+    let(:invoke_dsc_resource_data) { nil }
+
+    before(:each) do
+      allow(context).to receive(:notice)
+      allow(context).to receive(:debug)
+      allow(provider).to receive(:invoke_dsc_resource).with(context, name, test_properties, 'test').and_return(invoke_dsc_resource_data)
+    end
+
+    after(:each) do
+      described_class.class_variable_set(:@@cached_test_results, []) # rubocop:disable Style/ClassVars
+    end
+
+    context 'when something went wrong calling Invoke-DscResource' do
+      it 'falls back on property-by-property state comparison and does not cache anything' do
+        expect(context).not_to receive(:err)
+        expect(result).to be(nil)
+        expect(provider.cached_test_results).to eq([])
+      end
+    end
+
+    context 'when the DSC Resource is in the desired state' do
+      let(:invoke_dsc_resource_data) { { 'indesiredstate' => true, 'errormessage' => '' } }
+
+      it 'returns true and caches the result' do
+        expect(context).not_to receive(:err)
+        expect(result).to eq(true)
+        expect(provider.cached_test_results).to eq([name.merge(in_desired_state: true)])
+      end
+    end
+
+    context 'when the DSC Resource is not in the desired state' do
+      let(:invoke_dsc_resource_data) { { 'indesiredstate' => false, 'errormessage' => '' } }
+
+      it 'returns false and caches the result' do
+        expect(context).not_to receive(:err)
+        # Resource is not in the desired state
+        expect(result.first).to eq(false)
+        # Custom out-of-sync message passed
+        expect(result.last).to match(/not in the desired state/)
+        expect(provider.cached_test_results).to eq([name.merge(in_desired_state: false)])
+      end
     end
   end
 
