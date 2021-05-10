@@ -325,52 +325,19 @@ namespace Puppet
 Add-Type -TypeDefinition $hostSource -Language CSharp
 $global:DefaultWorkingDirectory = (Get-Location -PSProvider FileSystem).Path
 
+# Cache initial Environment Variables and values prior to any munging:
+$global:CachedEnvironmentVariables = Get-ChildItem -Path Env:\
+
 #this is a string so we can import into our dynamic PS instance
 $global:ourFunctions = @'
-function Get-ProcessEnvironmentVariables {
-  $processVars = [Environment]::GetEnvironmentVariables('Process').Keys |
-    ForEach-Object -Begin { $h = @{} } -Process { $h.$_ = (Get-Item Env:\$_).Value } -End { $h }
-
-  # eliminate Machine / User vars so that we have only process vars
-  'Machine', 'User' |
-    ForEach-Object -Process { [Environment]::GetEnvironmentVariables($_).GetEnumerator() } |
-    Where-Object -FilterScript { $processVars.ContainsKey($_.Name) -and ($processVars[$_.Name] -eq $_.Value) } |
-    ForEach-Object -Process { $processVars.Remove($_.Name) }
-
-  $processVars.GetEnumerator() | Sort-Object Name
-}
-
 function Reset-ProcessEnvironmentVariables {
-  param($processVars)
+  param($CachedEnvironmentVariables)
 
-  # query Machine vars from registry, ensuring expansion EXCEPT for PATH
-  $vars = [Environment]::GetEnvironmentVariables('Machine').GetEnumerator() |
-    ForEach-Object -Begin { $h = @{} } -Process {
-      $v = if ($_.Name -eq 'Path') {
-        $_.Value
-      } else {
-        [Environment]::GetEnvironmentVariable($_.Name, 'Machine')
-      }
-      $h."$($_.Name)" = $v
-    } -End { $h }
-
-  # query User vars from registry, ensuring expansion EXCEPT for PATH
-  [Environment]::GetEnvironmentVariables('User').GetEnumerator() |
-    ForEach-Object -Process {
-      if ($_.Name -eq 'Path') {
-        $vars[$_.Name] += ';' + $_.Value
-      } else {
-        $value = [Environment]::GetEnvironmentVariable($_.Name, 'User')
-        $vars[$_.Name] = $value
-      }
-    }
-
-  $processVars.GetEnumerator() |
-    ForEach-Object -Process { $vars[$_.Name] = $_.Value }
-
+  # Delete existing environment variables
   Remove-Item -Path Env:\* -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -Recurse
 
-  $vars.GetEnumerator() |
+  # Re-add the cached environment variables
+  $CachedEnvironmentVariables |
     ForEach-Object -Process { Set-Item -Path "Env:\$($_.Name)" -Value $_.Value }
 }
 
@@ -437,10 +404,9 @@ function Invoke-PowerShellUserCode {
       [Void]$ps.Runspace.SessionStateProxy.Path.SetLocation($WorkingDirectory)
     }
 
-    if (-not $global:environmentVariables) {
-      $ps.Commands.Clear()
-      $global:environmentVariables = $ps.AddCommand('Get-ProcessEnvironmentVariables').Invoke()
-    }
+    $ps.Commands.Clear()
+    [Void]$ps.AddCommand('Reset-ProcessEnvironmentVariables').AddParameter('CachedEnvironmentVariables', $global:CachedEnvironmentVariables)
+    $ps.Invoke()
 
     if ($PSVersionTable.PSVersion -le [Version]'2.0'){
       if (-not $global:psVariables){
@@ -455,10 +421,6 @@ function Invoke-PowerShellUserCode {
       [void]$ps.AddCommand('Reset-ProcessPowerShellVariables').AddParameter('psVariables', $global:psVariables)
       $ps.Invoke()
     }
-
-    $ps.Commands.Clear()
-    [Void]$ps.AddCommand('Reset-ProcessEnvironmentVariables').AddParameter('processVars', $global:environmentVariables)
-    $ps.Invoke()
 
     # Set any exec level environment variables
     if ($ExecEnvironmentVariables -ne $null) {
