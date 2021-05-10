@@ -327,59 +327,67 @@ $global:DefaultWorkingDirectory = (Get-Location -PSProvider FileSystem).Path
 
 #this is a string so we can import into our dynamic PS instance
 $global:ourFunctions = @'
-function Get-ProcessEnvironmentVariables
-{
+function Get-ProcessEnvironmentVariables {
   $processVars = [Environment]::GetEnvironmentVariables('Process').Keys |
-    % -Begin { $h = @{} } -Process { $h.$_ = (Get-Item Env:\$_).Value } -End { $h }
+    ForEach-Object -Begin { $h = @{} } -Process { $h.$_ = (Get-Item Env:\$_).Value } -End { $h }
 
   # eliminate Machine / User vars so that we have only process vars
   'Machine', 'User' |
-    % { [Environment]::GetEnvironmentVariables($_).GetEnumerator() } |
-    ? { $processVars.ContainsKey($_.Name) -and ($processVars[$_.Name] -eq $_.Value) } |
-    % { $processVars.Remove($_.Name) }
+    ForEach-Object -Process { [Environment]::GetEnvironmentVariables($_).GetEnumerator() } |
+    Where-Object -FilterScript { $processVars.ContainsKey($_.Name) -and ($processVars[$_.Name] -eq $_.Value) } |
+    ForEach-Object -Process { $processVars.Remove($_.Name) }
 
   $processVars.GetEnumerator() | Sort-Object Name
 }
 
-function Reset-ProcessEnvironmentVariables
-{
+function Reset-ProcessEnvironmentVariables {
   param($processVars)
 
   # query Machine vars from registry, ensuring expansion EXCEPT for PATH
   $vars = [Environment]::GetEnvironmentVariables('Machine').GetEnumerator() |
-    % -Begin { $h = @{} } -Process { $v = if ($_.Name -eq 'Path') { $_.Value } else { [Environment]::GetEnvironmentVariable($_.Name, 'Machine') }; $h."$($_.Name)" = $v } -End { $h }
+    ForEach-Object -Begin { $h = @{} } -Process {
+      $v = if ($_.Name -eq 'Path') {
+        $_.Value
+      } else {
+        [Environment]::GetEnvironmentVariable($_.Name, 'Machine')
+      }
+      $h."$($_.Name)" = $v
+    } -End { $h }
 
   # query User vars from registry, ensuring expansion EXCEPT for PATH
-  [Environment]::GetEnvironmentVariables('User').GetEnumerator() | % {
-      if ($_.Name -eq 'Path') { $vars[$_.Name] += ';' + $_.Value }
-      else
-      {
+  [Environment]::GetEnvironmentVariables('User').GetEnumerator() |
+    ForEach-Object -Process {
+      if ($_.Name -eq 'Path') {
+        $vars[$_.Name] += ';' + $_.Value
+      } else {
         $value = [Environment]::GetEnvironmentVariable($_.Name, 'User')
         $vars[$_.Name] = $value
       }
     }
 
-  $processVars.GetEnumerator() | % { $vars[$_.Name] = $_.Value }
+  $processVars.GetEnumerator() |
+    ForEach-Object -Process { $vars[$_.Name] = $_.Value }
 
   Remove-Item -Path Env:\* -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -Recurse
 
-  $vars.GetEnumerator() | % { Set-Item -Path "Env:\$($_.Name)" -Value $_.Value }
+  $vars.GetEnumerator() |
+    ForEach-Object -Process { Set-Item -Path "Env:\$($_.Name)" -Value $_.Value }
 }
 
-function Reset-ProcessPowerShellVariables
-{
+function Reset-ProcessPowerShellVariables {
   param($psVariables)
-  $psVariables | %{
-    $tempVar = $_
-    if(-not(Get-Variable -Name $_.Name -ErrorAction SilentlyContinue)){
-      New-Variable -Name $_.Name -Value $_.Value -Description $_.Description -Option $_.Options -Visibility $_.Visibility
+
+  $psVariables |
+    ForEach-Object -Process {
+      $tempVar = $_
+      if (-not(Get-Variable -Name $_.Name -ErrorAction SilentlyContinue)) {
+        New-Variable -Name $_.Name -Value $_.Value -Description $_.Description -Option $_.Options -Visibility $_.Visibility
+      }
     }
-  }
 }
 '@
 
-function Invoke-PowerShellUserCode
-{
+function Invoke-PowerShellUserCode {
   [CmdletBinding()]
   param(
     [String]
@@ -399,7 +407,7 @@ function Invoke-PowerShellUserCode
     # CreateDefault2 requires PS3
     if ([System.Management.Automation.Runspaces.InitialSessionState].GetMethod('CreateDefault2')){
       $sessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
-    }else{
+    } else {
       $sessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
     }
 
@@ -408,8 +416,7 @@ function Invoke-PowerShellUserCode
     $global:runspace.Open()
   }
 
-  try
-  {
+  try {
     $ps = $null
     $global:puppetPSHost.ResetExitStatus()
     $global:puppetPSHost.ResetConsoleStreams()
@@ -430,13 +437,13 @@ function Invoke-PowerShellUserCode
       [Void]$ps.Runspace.SessionStateProxy.Path.SetLocation($WorkingDirectory)
     }
 
-    if(!$global:environmentVariables){
+    if (-not $global:environmentVariables) {
       $ps.Commands.Clear()
       $global:environmentVariables = $ps.AddCommand('Get-ProcessEnvironmentVariables').Invoke()
     }
 
-    if($PSVersionTable.PSVersion -le [Version]'2.0'){
-      if(!$global:psVariables){
+    if ($PSVersionTable.PSVersion -le [Version]'2.0'){
+      if (-not $global:psVariables){
         $global:psVariables = $ps.AddScript('Get-Variable').Invoke()
       }
 
@@ -455,7 +462,8 @@ function Invoke-PowerShellUserCode
 
     # Set any exec level environment variables
     if ($ExecEnvironmentVariables -ne $null) {
-      $ExecEnvironmentVariables.GetEnumerator() | % { Set-Item -Path "Env:\$($_.Name)" -Value $_.Value }
+      $ExecEnvironmentVariables.GetEnumerator() |
+        ForEach-Object -Process { Set-Item -Path "Env:\$($_.Name)" -Value $_.Value }
     }
 
     # we clear the commands before each new command
@@ -466,33 +474,33 @@ function Invoke-PowerShellUserCode
     # out-default and MergeMyResults takes all output streams
     # and writes it to the PSHost we create
     # this needs to be the last thing executed
-    [void]$ps.AddCommand("out-default");
+    [void]$ps.AddCommand("out-default")
 
     # if the call operator & established an exit code, exit with it
     [Void]$ps.AddScript('if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }')
 
-    if($PSVersionTable.PSVersion -le [Version]'2.0'){
-      $ps.Commands.Commands[0].MergeMyResults([System.Management.Automation.Runspaces.PipelineResultTypes]::Error, [System.Management.Automation.Runspaces.PipelineResultTypes]::Output);
-    }else{
-      $ps.Commands.Commands[0].MergeMyResults([System.Management.Automation.Runspaces.PipelineResultTypes]::All, [System.Management.Automation.Runspaces.PipelineResultTypes]::Output);
+    if ($PSVersionTable.PSVersion -le [Version]'2.0') {
+      $ps.Commands.Commands[0].MergeMyResults([System.Management.Automation.Runspaces.PipelineResultTypes]::Error,
+                                              [System.Management.Automation.Runspaces.PipelineResultTypes]::Output)
+    } else {
+      $ps.Commands.Commands[0].MergeMyResults([System.Management.Automation.Runspaces.PipelineResultTypes]::All,
+                                              [System.Management.Automation.Runspaces.PipelineResultTypes]::Output)
     }
     $asyncResult = $ps.BeginInvoke()
 
-    if (!$asyncResult.AsyncWaitHandle.WaitOne($TimeoutMilliseconds)){
+    if (-not $asyncResult.AsyncWaitHandle.WaitOne($TimeoutMilliseconds)) {
       # forcibly terminate execution of pipeline
       $ps.Stop()
       throw "Catastrophic failure: PowerShell module timeout ($TimeoutMilliseconds ms) exceeded while executing"
     }
 
-    try
-    {
+    try {
       $ps.EndInvoke($asyncResult)
     } catch [System.Management.Automation.IncompleteParseException] {
       # https://msdn.microsoft.com/en-us/library/system.management.automation.incompleteparseexception%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
       throw $_.Exception.Message
     } catch {
-      if ($_.Exception.InnerException -ne $null)
-      {
+      if ($null -ne $_.Exception.InnerException) {
         throw $_.Exception.InnerException
       } else {
         throw $_.Exception
@@ -507,19 +515,15 @@ function Invoke-PowerShellUserCode
       errormessage = $null;
     }
   }
-  catch
-  {
-    try
-    {
+  catch {
+    try {
       if ($global:runspace) { $global:runspace.Dispose() }
-    }
-    finally
-    {
+    } finally {
       $global:runspace = $null
     }
-    if(($global:puppetPSHost -ne $null) -and $global:puppetPSHost.ExitCode){
+    if (($global:puppetPSHost -ne $null) -and $global:puppetPSHost.ExitCode) {
       $ec = $global:puppetPSHost.ExitCode
-    }else{
+    } else {
       # This is technically not true at this point as we do not
       # know what exitcode we should return as an unexpected exception
       # happened and the user did not set an exitcode. Our best guess
@@ -527,16 +531,23 @@ function Invoke-PowerShellUserCode
       $ec = 1
     }
 
-    if ($_.Exception.ErrorRecord.InvocationInfo -ne $null)
-    {
+    if ($_.Exception.ErrorRecord.InvocationInfo -ne $null) {
       $output = $_.Exception.Message + "`n`r" + $_.Exception.ErrorRecord.InvocationInfo.PositionMessage
     } else {
       $output = $_.Exception.Message | Out-String
     }
 
     # make an attempt to read Output / StdErr as it may contain partial output / info about failures
-    try { $out = $global:puppetPSHost.UI.Output } catch { $out = $null }
-    try { $err = $global:puppetPSHost.UI.StdErr } catch { $err = $null }
+    try {
+      $out = $global:puppetPSHost.UI.Output
+    } catch {
+      $out = $null
+    }
+    try {
+      $err = $global:puppetPSHost.UI.StdErr
+    } catch {
+      $err = $null
+    }
 
     return @{
       exitcode = $ec;
@@ -544,15 +555,12 @@ function Invoke-PowerShellUserCode
       stderr = $err;
       errormessage = $output;
     }
-  }
-  finally
-  {
+  } finally {
     if ($ps -ne $null) { [Void]$ps.Dispose() }
   }
 }
 
-function Write-SystemDebugMessage
-{
+function Write-SystemDebugMessage {
   [CmdletBinding()]
   param(
     [Parameter(Mandatory = $true)]
@@ -560,14 +568,12 @@ function Write-SystemDebugMessage
     $Message
   )
 
-  if ($script:EmitDebugOutput -or ($DebugPreference -ne 'SilentlyContinue'))
-  {
+  if ($script:EmitDebugOutput -or ($DebugPreference -ne 'SilentlyContinue')) {
     [System.Diagnostics.Debug]::WriteLine($Message)
   }
 }
 
-function Signal-Event
-{
+function Signal-Event {
   [CmdletBinding()]
   param(
     [String]
@@ -585,8 +591,7 @@ function Signal-Event
   Write-SystemDebugMessage -Message "Signaled event $EventName"
 }
 
-function ConvertTo-LittleEndianBytes
-{
+function ConvertTo-LittleEndianBytes {
   [CmdletBinding()]
   param (
     [Parameter(Mandatory = $true)]
@@ -595,13 +600,12 @@ function ConvertTo-LittleEndianBytes
   )
 
   $bytes = [BitConverter]::GetBytes($Value)
-  if (![BitConverter]::IsLittleEndian) { [Array]::Reverse($bytes) }
+  if (-not [BitConverter]::IsLittleEndian) { [Array]::Reverse($bytes) }
 
   return $bytes
 }
 
-function ConvertTo-ByteArray
-{
+function ConvertTo-ByteArray {
   [CmdletBinding()]
   param (
     [Parameter(Mandatory = $true)]
@@ -617,7 +621,7 @@ function ConvertTo-ByteArray
   $result = [Byte[]]@()
   # and add length / name / length / value from Hashtable
   $Hash.GetEnumerator() |
-    % {
+    ForEach-Object -Process {
       $name = $Encoding.GetBytes($_.Name)
       $result += (ConvertTo-LittleEndianBytes $name.Length) + $name
 
@@ -629,8 +633,7 @@ function ConvertTo-ByteArray
   return $result
 }
 
-function Write-StreamResponse
-{
+function Write-StreamResponse {
   [CmdletBinding()]
   param (
     [Parameter(Mandatory = $true)]
@@ -654,8 +657,7 @@ function Write-StreamResponse
   Write-SystemDebugMessage -Message "Wrote $($bytes.Length) bytes of data to Stream"
 }
 
-function Read-Int32FromStream
-{
+function Read-Int32FromStream {
   [CmdletBinding()]
   param (
    [Parameter(Mandatory = $true)]
@@ -667,7 +669,7 @@ function Read-Int32FromStream
   # Read blocks until all 4 bytes available
   $Stream.Read($length, 0, 4) | Out-Null
   # value is sent in Little Endian, but if the CPU is not, in-place reverse the array
-  if (![BitConverter]::IsLittleEndian) { [Array]::Reverse($length) }
+  if (-not [BitConverter]::IsLittleEndian) { [Array]::Reverse($length) }
   $value = [BitConverter]::ToInt32($length, 0)
 
   Write-SystemDebugMessage -Message "Read Byte[] $length from stream as Int32 $value"
@@ -683,8 +685,7 @@ function Read-Int32FromStream
 # [optional] 4 bytes - Little Endian encoded 32-bit code block length for execute
 #                      Intel CPUs are little endian, hence the .NET Framework typically is
 # [optional] variable length - code block
-function ConvertTo-PipeCommand
-{
+function ConvertTo-PipeCommand {
   [CmdletBinding()]
   param (
     [Parameter(Mandatory = $true)]
@@ -705,8 +706,7 @@ function ConvertTo-PipeCommand
 
   Write-SystemDebugMessage -Message "Command id $command read from pipe"
 
-  switch ($command)
-  {
+  switch ($command) {
     # Exit
     # ReadByte returns a -1 when the pipe is closed on the other end
     { @(0, -1) -contains $_ } { return @{ Command = 'Exit' }}
@@ -728,8 +728,7 @@ function ConvertTo-PipeCommand
     $attempt = $attempt + 1
     # This will block if there's not enough data in the pipe
     $read = $Stream.Read($parsed.RawData, $readBytes, $parsed.Length - $readBytes)
-    if ($read -eq 0)
-    {
+    if ($read -eq 0) {
       throw "Catastrophic failure: Expected $($parsed.Length - $readBytesh) raw bytes, but the pipe reached an end of stream"
     }
 
@@ -737,8 +736,7 @@ function ConvertTo-PipeCommand
     Write-SystemDebugMessage -Message "Read $($read) bytes from the pipe"
   } while ($readBytes -lt $parsed.Length)
 
-  if ($readBytes -lt $parsed.Length)
-  {
+  if ($readBytes -lt $parsed.Length) {
     throw "Catastrophic failure: Expected $($parsed.Length) raw bytes, only received $readBytes"
   }
 
@@ -748,8 +746,7 @@ function ConvertTo-PipeCommand
   return $parsed
 }
 
-function Start-PipeServer
-{
+function Start-PipeServer {
   [CmdletBinding()]
   param (
     [Parameter(Mandatory = $true)]
@@ -767,8 +764,7 @@ function Start-PipeServer
   $server = New-Object System.IO.Pipes.NamedPipeServerStream($CommandChannelPipeName,
     [System.IO.Pipes.PipeDirection]::InOut)
 
-  try
-  {
+  try {
     # block until Ruby process connects
     $server.WaitForConnection()
 
@@ -776,15 +772,13 @@ function Start-PipeServer
 
     # Infinite Loop to process commands until EXIT received
     $running = $true
-    while ($running)
-    {
+    while ($running) {
       # throws if an unxpected command id is read from pipe
       $response = ConvertTo-PipeCommand -Stream $server -Encoding $Encoding
 
       Write-SystemDebugMessage -Message "Received $($response.Command) command from client"
 
-      switch ($response.Command)
-      {
+      switch ($response.Command) {
         'Execute' {
           Write-SystemDebugMessage -Message "[Execute] Invoking user code:`n`n $($response.Code)"
 
@@ -799,21 +793,15 @@ function Start-PipeServer
         'Exit' { $running = $false }
       }
     }
-  }
-  catch [Exception]
-  {
+  } catch [Exception] {
     Write-SystemDebugMessage -Message "PowerShell Pipe Server Failed!`n`n$_"
     throw
-  }
-  finally
-  {
-    if ($global:runspace -ne $null)
-    {
+  } finally {
+    if ($global:runspace -ne $null) {
       $global:runspace.Dispose()
       Write-SystemDebugMessage -Message "PowerShell Runspace Disposed`n`n$_"
     }
-    if ($server -ne $null)
-    {
+    if ($server -ne $null) {
       $server.Dispose()
       Write-SystemDebugMessage -Message "NamedPipeServerStream Disposed`n`n$_"
     }
