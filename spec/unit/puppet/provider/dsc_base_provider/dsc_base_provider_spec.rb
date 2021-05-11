@@ -173,6 +173,83 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider).to receive(:fetch_cached_hashes).with([], [resource_name_hash]).and_return(canonicalized_resource)
       expect(provider.canonicalize(context, [resource])).to eq([canonicalized_resource])
     end
+    context 'when an ensurable resource is specified' do
+      context 'when it should be present' do
+        let(:resource) do
+          {
+            name: 'foo',
+            dsc_name: 'foo',
+            dsc_ensure: 'present',
+            dsc_property: 'bar',
+            dsc_other: 'baz',
+          }
+        end
+        let(:actual_resource) do
+          {
+            name: 'foo',
+            dsc_name: 'foo',
+            dsc_ensure: ensure_state,
+            dsc_property: nil,
+            dsc_other: 'Baz',
+          }
+        end
+        context 'when it is not returned from invoke_get_method' do
+          it 'treats the manifest as canonical' do
+            allow(context).to receive(:debug)
+            expect(provider).to receive(:namevar_attributes).exactly(5).times.and_return(namevar_keys)
+            expect(provider).to receive(:fetch_cached_hashes).with([], [resource_name_hash]).and_return([])
+            expect(provider).to receive(:invoke_get_method).and_return(nil)
+            expect(provider.canonicalize(context, [resource])).to eq([resource])
+          end
+        end
+        context 'when it is returned from invoke_get_method with ensure set to absent' do
+          let(:ensure_state) { 'absent' }
+          it 'treats the manifest as canonical' do
+            allow(context).to receive(:debug)
+            expect(provider).to receive(:namevar_attributes).exactly(5).times.and_return(namevar_keys)
+            expect(provider).to receive(:fetch_cached_hashes).with([], [resource_name_hash]).and_return([])
+            expect(provider).to receive(:invoke_get_method).and_return(actual_resource)
+            expect(provider.canonicalize(context, [resource])).to eq([resource])
+          end
+        end
+        context 'when it is returned from invoke_get_method with ensure set to present' do
+          let(:ensure_state) { 'present' }
+          let(:canonicalized_resource) do
+            {
+              name: 'foo',
+              dsc_name: 'foo',
+              dsc_ensure: 'present',
+              dsc_property: 'bar',
+              dsc_other: 'Baz',
+            }
+          end
+          it 'is case insensitive but case preserving' do
+            allow(context).to receive(:debug)
+            expect(provider).to receive(:namevar_attributes).exactly(5).times.and_return(namevar_keys)
+            expect(provider).to receive(:fetch_cached_hashes).with([], [resource_name_hash]).and_return([])
+            expect(provider).to receive(:invoke_get_method).and_return(actual_resource)
+            expect(provider).to receive(:parameter_attributes).exactly(5).times.and_return(parameter_keys)
+            expect(provider.canonicalize(context, [resource])).to eq([canonicalized_resource])
+          end
+        end
+      end
+      context 'when it should be absent' do
+        let(:resource) do
+          {
+            name: 'foo',
+            dsc_name: 'foo',
+            dsc_ensure: 'absent',
+          }
+        end
+        it 'treats the manifest as canonical' do
+          allow(context).to receive(:debug)
+          expect(provider).to receive(:namevar_attributes).exactly(3).times.and_return(namevar_keys)
+          expect(provider).to receive(:fetch_cached_hashes).with([], [resource_name_hash]).and_return([])
+          expect(provider).not_to receive(:invoke_get_method)
+          expect(provider.canonicalize(context, [resource])).to eq([resource])
+        end
+      end
+    end
     it 'retrieves the resource from the machine if it is not in the cache' do
       allow(context).to receive(:debug)
       expect(provider).to receive(:namevar_attributes).exactly(4).times.and_return(namevar_keys)
