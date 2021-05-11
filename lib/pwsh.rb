@@ -143,7 +143,7 @@ module Pwsh
       # never try to connect to a pipe and error out as if a timeout occurred.
       sleep_interval = 0.2
       (pipe_timeout / sleep_interval).to_int.times do
-        begin
+        begin # rubocop:disable Style/RedundantBegin
           @pipe = if Pwsh::Util.on_windows?
                     # Pipe is opened in binary mode and must always <- always what??
                     File.open(pipe_path, 'r+b')
