@@ -47,7 +47,8 @@ class Puppet::Provider::DscBaseProvider
       # During RSAPI refresh runs mandatory parameters are stripped and not available;
       # Instead of checking again and failing, search the cache for a namevar match.
       namevarized_r = r.select { |k, _v| namevar_attributes(context).include?(k) }
-      if fetch_cached_hashes(@@cached_canonicalized_resource, [namevarized_r]).empty?
+      cached_result = fetch_cached_hashes(@@cached_canonicalized_resource, [namevarized_r])
+      if cached_result.empty?
         canonicalized = invoke_get_method(context, r)
         if canonicalized.nil?
           canonicalized = r.dup
@@ -71,7 +72,7 @@ class Puppet::Provider::DscBaseProvider
           @@cached_canonicalized_resource << canonicalized.dup
         end
       else
-        canonicalized = r
+        canonicalized = cached_result
       end
       canonicalized_resources << canonicalized
     end

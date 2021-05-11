@@ -7,6 +7,7 @@ require 'puppet/provider/dsc_base_provider/dsc_base_provider'
 RSpec.describe Puppet::Provider::DscBaseProvider do
   subject(:provider) { described_class.new }
 
+  let(:context) { instance_double('Context') }
   let(:ps_manager) { instance_double('PSManager') }
   let(:command) { 'command' }
   let(:execute_response) do
@@ -78,14 +79,147 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   context '.canonicalize' do
-    it 'returns the specified resource if it is in the canonicalized resource cache'
-    it 'retrieves the resource from the machine if it is not in the cache'
-    it 'caches caches the specified resource if the retrieval returns nil'
-    it 'removes the dsc_psdscrunascredential from the resource if not specified'
-    it 'sets the dsc_psdscrunascredential to the value from the input, if specified'
-    it 'assigns the value of the discovered resource if it is a downcased match for the specified resource'
-    it 'assigns the value of the specified resource if it differs from the discovered resource by more than just casing'
-    it 'returns the array of canonicalized resources'
+    let(:resource) do
+      {
+        name: 'foo',
+        dsc_name: 'foo',
+        dsc_property: 'bar',
+        dsc_parameter: 'baz'
+      }
+    end
+    let(:resource_with_credential) do
+      {
+        name: 'foo',
+        dsc_name: 'foo',
+        dsc_property: 'bar',
+        dsc_parameter: 'baz',
+        dsc_psdscrunascredential: {
+          'user' => 'foo',
+          'password' => 'bar'
+        }
+      }
+    end
+    let(:canonicalized_resource) do
+      {
+        name: 'foo',
+        dsc_name: 'foo',
+        dsc_property: 'bar',
+        dsc_parameter: 'baz'
+      }
+    end
+    let(:canonicalized_resource_different_case) do
+      {
+        name: 'foo',
+        dsc_name: 'foo',
+        dsc_property: 'Bar',
+        dsc_parameter: 'baz'
+      }
+    end
+    let(:canonicalized_resource_with_credential) do
+      {
+        name: 'foo',
+        dsc_name: 'foo',
+        dsc_property: 'bar',
+        dsc_parameter: 'baz',
+        dsc_psdscrunascredential: {
+          'user' => 'foo',
+          'password' => 'bar'
+        }
+      }
+    end
+    let(:resource_name_hash) do
+      {
+        name: 'foo',
+        dsc_name: 'foo'
+      }
+    end
+    let(:resource_actual_state) do
+      {
+        dsc_name: 'foo',
+        dsc_property: 'bar',
+        dsc_unused: 1,
+        dsc_psdscrunascredential: nil
+      }
+    end
+    let(:resource_actual_state_different_case) do
+      {
+        dsc_name: 'foo',
+        dsc_property: 'Bar',
+        dsc_unused: 1,
+        dsc_psdscrunascredential: nil
+      }
+    end
+    let(:resource_actual_state_different_value) do
+      {
+        dsc_name: 'foo',
+        dsc_property: 'DIFFERENT',
+        dsc_unused: 1,
+        dsc_psdscrunascredential: nil
+      }
+    end
+    let(:namevar_keys) { %i[name dsc_name] }
+    let(:parameter_keys) { %i[dsc_parameter dsc_psdscrunascredential] }
+
+    before(:each) do
+      described_class.class_variable_set(:@@cached_canonicalized_resource, []) # rubocop:disable Style/ClassVars
+    end
+    after(:all) do
+      described_class.class_variable_set(:@@cached_canonicalized_resource, []) # rubocop:disable Style/ClassVars
+    end
+
+    it 'returns the specified resource if it is in the canonicalized resource cache' do
+      allow(context).to receive(:debug)
+      expect(provider).to receive(:namevar_attributes).exactly(4).times.and_return(namevar_keys)
+      expect(provider).to receive(:fetch_cached_hashes).with([], [resource_name_hash]).and_return(canonicalized_resource)
+      expect(provider.canonicalize(context, [resource])).to eq([canonicalized_resource])
+    end
+    it 'retrieves the resource from the machine if it is not in the cache' do
+      allow(context).to receive(:debug)
+      expect(provider).to receive(:namevar_attributes).exactly(4).times.and_return(namevar_keys)
+      expect(provider).to receive(:fetch_cached_hashes).with([], [resource_name_hash]).and_return([])
+      expect(provider).to receive(:invoke_get_method).and_return(resource_actual_state)
+      expect(provider).to receive(:parameter_attributes).exactly(4).times.and_return(parameter_keys)
+      expect(provider.canonicalize(context, [resource])).to eq([canonicalized_resource])
+    end
+    it 'caches the specified resource if the retrieval returns nil' do
+      allow(context).to receive(:debug)
+      expect(provider).to receive(:namevar_attributes).exactly(4).times.and_return(namevar_keys)
+      expect(provider).to receive(:fetch_cached_hashes).with([], [resource_name_hash]).and_return([])
+      expect(provider).to receive(:invoke_get_method).and_return(nil)
+      expect(provider.canonicalize(context, [resource])).to eq([resource])
+    end
+    it 'removes the dsc_psdscrunascredential from the resource if not specified' do
+      allow(context).to receive(:debug)
+      expect(provider).to receive(:namevar_attributes).exactly(4).times.and_return(namevar_keys)
+      expect(provider).to receive(:fetch_cached_hashes).with([], [resource_name_hash]).and_return([])
+      expect(provider).to receive(:invoke_get_method).and_return(resource_actual_state)
+      expect(provider).to receive(:parameter_attributes).exactly(4).times.and_return(parameter_keys)
+      expect(provider.canonicalize(context, [resource])).to eq([canonicalized_resource])
+    end
+    it 'sets the dsc_psdscrunascredential to the value from the input, if specified' do
+      allow(context).to receive(:debug)
+      expect(provider).to receive(:namevar_attributes).exactly(5).times.and_return(namevar_keys)
+      expect(provider).to receive(:fetch_cached_hashes).with([], [resource_name_hash]).and_return([])
+      expect(provider).to receive(:invoke_get_method).and_return(resource_actual_state)
+      expect(provider).to receive(:parameter_attributes).exactly(5).times.and_return(parameter_keys)
+      expect(provider.canonicalize(context, [resource_with_credential])).to eq([canonicalized_resource_with_credential])
+    end
+    it 'assigns the value of the discovered resource if it is a downcased match for the specified resource' do
+      allow(context).to receive(:debug)
+      expect(provider).to receive(:namevar_attributes).exactly(4).times.and_return(namevar_keys)
+      expect(provider).to receive(:fetch_cached_hashes).with([], [resource_name_hash]).and_return([])
+      expect(provider).to receive(:invoke_get_method).and_return(resource_actual_state_different_case)
+      expect(provider).to receive(:parameter_attributes).exactly(4).times.and_return(parameter_keys)
+      expect(provider.canonicalize(context, [resource])).to eq([canonicalized_resource_different_case])
+    end
+    it 'assigns the value of the specified resource if it differs from the discovered resource by more than just casing' do
+      allow(context).to receive(:debug)
+      expect(provider).to receive(:namevar_attributes).exactly(4).times.and_return(namevar_keys)
+      expect(provider).to receive(:fetch_cached_hashes).with([], [resource_name_hash]).and_return([])
+      expect(provider).to receive(:invoke_get_method).and_return(resource_actual_state_different_value)
+      expect(provider).to receive(:parameter_attributes).exactly(4).times.and_return(parameter_keys)
+      expect(provider.canonicalize(context, [resource])).to eq([canonicalized_resource])
+    end
   end
   context '.get' do
     it 'checks the cached results, returning if one exists for the specified names'
