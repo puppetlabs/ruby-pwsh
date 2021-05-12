@@ -150,7 +150,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
 
         context 'when handling dsc_psdscrunascredential' do
-            let(:actual_resource) { base_resource.merge({ dsc_psdscrunascredential: nil }) }
+          let(:actual_resource) { base_resource.merge({ dsc_psdscrunascredential: nil }) }
 
           context 'when it is specified in the resource' do
             let(:manifest_resource) { base_resource.merge({ dsc_psdscrunascredential: credential_hash }) }

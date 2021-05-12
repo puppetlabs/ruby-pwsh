@@ -59,6 +59,7 @@ class Puppet::Provider::DscBaseProvider
           canonicalized = invoke_get_method(context, r)
           # If the resource could not be found or was returned as absent, skip case munging and
           # treat the manifest values as canonical since the resource is being created.
+          # rubocop:disable Metrics/BlockNesting
           if canonicalized.nil? || canonicalized[:dsc_ensure] == 'absent'
             canonicalized = r.dup
             @@cached_canonicalized_resource << r.dup
@@ -80,6 +81,7 @@ class Puppet::Provider::DscBaseProvider
             # Cache the actually canonicalized resource separately
             @@cached_canonicalized_resource << canonicalized.dup
           end
+          # rubocop:enable Metrics/BlockNesting
         end
       else
         canonicalized = cached_result
