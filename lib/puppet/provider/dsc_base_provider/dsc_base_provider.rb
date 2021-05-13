@@ -75,7 +75,11 @@ class Puppet::Provider::DscBaseProvider
             downcased_result = recursively_downcase(canonicalized)
             downcased_resource = recursively_downcase(r)
             downcased_result.each do |key, value|
-              canonicalized[key] = r[key] unless same?(value, downcased_resource[key])
+              # Canonicalize to the manifest value unless the downcased strings match and the attribute is not an enum:
+              # - When the values don't match at all, the manifest value is desired;
+              # - When the values match case insensitively but the attribute is an enum, prefer the casing of the manifest enum.
+              # - When the values match case insensitively and the attribute is not an enum, prefer the casing from invoke_get_method
+              canonicalized[key] = r[key] unless same?(value, downcased_resource[key]) && !enum_attributes(context).include?(key)
               canonicalized.delete(key) unless downcased_resource.keys.include?(key)
             end
             # Cache the actually canonicalized resource separately
@@ -540,6 +544,16 @@ class Puppet::Provider::DscBaseProvider
   # @return [Array] returns an array of attribute names as symbols which are parameters
   def parameter_attributes(context)
     context.type.attributes.select { |_name, properties| properties[:behaviour] == :parameter }.keys
+  end
+
+  # Parses the DSC resource type definition to retrieve the names of any attributes which are specified as enums
+  # Note that for complex types, especially those that have nested CIM instances, this will return for any data
+  # type which *includes* an Enum, not just for simple `Enum[]` or `Optional[Enum[]]` data types.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @return [Array] returns an array of attribute names as symbols which are enums
+  def enum_attributes(context)
+    context.type.attributes.select { |_name, properties| properties[:type].match(/Enum\[/) }.keys
   end
 
   # Look through a fully formatted string, replacing all instances where a value matches the formatted properties
