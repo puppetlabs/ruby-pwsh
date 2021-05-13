@@ -16,6 +16,13 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     }
   end
 
+  # Reset the caches after each run
+  after(:each) do
+    described_class.class_variable_set(:@@cached_canonicalized_resource, nil) # rubocop:disable Style/ClassVars
+    described_class.class_variable_set(:@@cached_query_results, nil) # rubocop:disable Style/ClassVars
+    described_class.class_variable_set(:@@logon_failures, nil) # rubocop:disable Style/ClassVars
+  end
+
   context '.initialize' do
     before(:each) do
       # Need to initialize the provider to load the class variables
@@ -91,11 +98,6 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       allow(context).to receive(:debug)
       allow(provider).to receive(:namevar_attributes).and_return(namevar_keys)
       allow(provider).to receive(:fetch_cached_hashes).and_return(cached_canonicalized_resource)
-      described_class.class_variable_set(:@@cached_canonicalized_resource, []) # rubocop:disable Style/ClassVars
-    end
-
-    after(:all) do
-      described_class.class_variable_set(:@@cached_canonicalized_resource, []) # rubocop:disable Style/ClassVars
     end
 
     context 'when a manifest resource is in the canonicalized resource cache' do
