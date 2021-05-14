@@ -8,6 +8,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   subject(:provider) { described_class.new }
 
   let(:context) { instance_double('Context') }
+  let(:type_definition) { instance_double('Puppet::ResourceApi::TypeDefinition') }
   let(:ps_manager) { instance_double('PSManager') }
   let(:command) { 'command' }
   let(:execute_response) do
@@ -129,6 +130,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       context 'when invoke_get_method returns a resource' do
         before(:each) do
           allow(provider).to receive(:parameter_attributes).and_return(parameter_keys)
+          allow(provider).to receive(:enum_attributes).and_return([])
         end
 
         context 'when canonicalizing property values' do
@@ -165,6 +167,19 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
             it 'treats the manifest value as canonical' do
               expect(canonicalized_resource.first[:dsc_property]).to eq('bar')
+            end
+          end
+
+          context 'when the property is an enum and the casing differs' do
+            let(:manifest_resource) { base_resource.merge({ dsc_property: 'Dword' }) }
+            let(:actual_resource) { base_resource.merge({ dsc_property: 'DWord' }) }
+
+            before(:each) do
+              allow(provider).to receive(:enum_attributes).and_return([:dsc_property])
+            end
+
+            it 'treats the manifest value as canonical' do
+              expect(canonicalized_resource.first[:dsc_property]).to eq('Dword')
             end
           end
         end
@@ -352,6 +367,24 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   context '.namevar_attributes' do
     it 'returns the list of attributes from the type where the attribute has the namevar behavior'
   end
+
+  context '.enum_attributes' do
+    let(:enum_test_attributes) do
+      {
+        name: { type: 'String' },
+        dsc_ensure: { type: "[Enum['Present', 'Absent']]" },
+        dsc_enum: { type: "Optional[Enum['Trusted', 'Untrusted']]" },
+        dsc_string: { type: 'Optional[String]' }
+      }
+    end
+
+    it 'returns the list of attributes from the type where the attribute data type is an enum' do
+      expect(context).to receive(:type).and_return(type_definition)
+      expect(type_definition).to receive(:attributes).and_return(enum_test_attributes)
+      expect(provider.enum_attributes(context)).to eq(%i[dsc_ensure dsc_enum])
+    end
+  end
+
   context '.interpolate_variables' do
     it 'replaces all discovered pointers to a variable with the variable'
   end
