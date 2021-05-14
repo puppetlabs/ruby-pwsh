@@ -149,6 +149,24 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
               expect(canonicalized_resource.first[:dsc_property]).to eq('bar')
             end
           end
+
+          context 'when the value should be nil and the actual state is not' do
+            let(:manifest_resource) { base_resource.merge({ dsc_property: nil }) }
+            let(:actual_resource) { base_resource.merge({ dsc_property: 'Bar' }) }
+
+            it 'treats the manifest value as canonical' do
+              expect(canonicalized_resource.first[:dsc_property]).to eq(nil)
+            end
+          end
+
+          context 'when the value should not be nil and the actual state is nil' do
+            let(:manifest_resource) { base_resource.merge({ dsc_property: 'bar' }) }
+            let(:actual_resource) { base_resource.merge({ dsc_property: nil }) }
+
+            it 'treats the manifest value as canonical' do
+              expect(canonicalized_resource.first[:dsc_property]).to eq('bar')
+            end
+          end
         end
 
         context 'when handling dsc_psdscrunascredential' do
