@@ -7,12 +7,20 @@ require 'puppet/provider/dsc_base_provider/dsc_base_provider'
 RSpec.describe Puppet::Provider::DscBaseProvider do
   subject(:provider) { described_class.new }
 
+  let(:context) { instance_double('Context') }
   let(:ps_manager) { instance_double('PSManager') }
   let(:command) { 'command' }
   let(:execute_response) do
     {
       stdout: nil, stderr: nil, exitcode: 0
     }
+  end
+
+  # Reset the caches after each run
+  after(:each) do
+    described_class.class_variable_set(:@@cached_canonicalized_resource, nil) # rubocop:disable Style/ClassVars
+    described_class.class_variable_set(:@@cached_query_results, nil) # rubocop:disable Style/ClassVars
+    described_class.class_variable_set(:@@logon_failures, nil) # rubocop:disable Style/ClassVars
   end
 
   context '.initialize' do
@@ -78,14 +86,124 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   context '.canonicalize' do
-    it 'returns the specified resource if it is in the canonicalized resource cache'
-    it 'retrieves the resource from the machine if it is not in the cache'
-    it 'caches caches the specified resource if the retrieval returns nil'
-    it 'removes the dsc_psdscrunascredential from the resource if not specified'
-    it 'sets the dsc_psdscrunascredential to the value from the input, if specified'
-    it 'assigns the value of the discovered resource if it is a downcased match for the specified resource'
-    it 'assigns the value of the specified resource if it differs from the discovered resource by more than just casing'
-    it 'returns the array of canonicalized resources'
+    subject(:canonicalized_resource) { provider.canonicalize(context, [manifest_resource]) }
+
+    let(:resource_name_hash) { { name: 'foo', dsc_name: 'foo' } }
+    let(:namevar_keys) { %i[name dsc_name] }
+    let(:parameter_keys) { %i[dsc_parameter dsc_psdscrunascredential] }
+    let(:credential_hash) { { 'username' => 'foo', 'password' => 'bar' } }
+    let(:base_resource) { resource_name_hash.dup }
+
+    before(:each) do
+      allow(context).to receive(:debug)
+      allow(provider).to receive(:namevar_attributes).and_return(namevar_keys)
+      allow(provider).to receive(:fetch_cached_hashes).and_return(cached_canonicalized_resource)
+    end
+
+    context 'when a manifest resource is in the canonicalized resource cache' do
+      let(:manifest_resource) { base_resource.merge({ dsc_property: 'FooBar' }) }
+      let(:expected_resource) { base_resource.merge({ dsc_property: 'foobar' }) }
+      let(:cached_canonicalized_resource) { expected_resource.dup }
+
+      it 'returns the cached resource' do
+        expect(canonicalized_resource).to eq([expected_resource])
+      end
+    end
+
+    context 'when a manifest resource not in the canonicalized resource cache' do
+      let(:cached_canonicalized_resource) { [] }
+
+      before(:each) do
+        allow(provider).to receive(:invoke_get_method).and_return(actual_resource)
+      end
+
+      context 'when invoke_get_method returns nil for the manifest resource' do
+        let(:manifest_resource) { base_resource.merge({ dsc_property: 'FooBar' }) }
+        let(:actual_resource) { nil }
+
+        it 'treats the manifest as canonical' do
+          expect(canonicalized_resource).to eq([manifest_resource])
+        end
+      end
+
+      context 'when invoke_get_method returns a resource' do
+        before(:each) do
+          allow(provider).to receive(:parameter_attributes).and_return(parameter_keys)
+        end
+
+        context 'when canonicalizing property values' do
+          let(:manifest_resource) { base_resource.merge({ dsc_property: 'bar' }) }
+
+          context 'when the value is a downcased match' do
+            let(:actual_resource) { base_resource.merge({ dsc_property: 'Bar' }) }
+
+            it 'assigns the value of the discovered resource for that property' do
+              expect(canonicalized_resource.first[:dsc_property]).to eq('Bar')
+            end
+          end
+
+          context 'when the value is not a downcased match' do
+            let(:actual_resource) { base_resource.merge({ dsc_property: 'Baz' }) }
+
+            it 'assigns the value of the manifest resource for that property' do
+              expect(canonicalized_resource.first[:dsc_property]).to eq('bar')
+            end
+          end
+        end
+
+        context 'when handling dsc_psdscrunascredential' do
+          let(:actual_resource) { base_resource.merge({ dsc_psdscrunascredential: nil }) }
+
+          context 'when it is specified in the resource' do
+            let(:manifest_resource) { base_resource.merge({ dsc_psdscrunascredential: credential_hash }) }
+
+            it 'is included from the manifest resource' do
+              expect(canonicalized_resource.first[:dsc_psdscrunascredential]).not_to be_nil
+            end
+          end
+
+          context 'when it is not specified in the resource' do
+            let(:manifest_resource) { base_resource.dup }
+
+            it 'is not included in the canonicalized resource' do
+              expect(canonicalized_resource.first[:dsc_psdscrunascredential]).to be_nil
+            end
+          end
+        end
+
+        context 'when an ensurable resource is specified' do
+          context 'when it should be present' do
+            let(:manifest_resource) { base_resource.merge({ dsc_ensure: 'present', dsc_property: 'bar' }) }
+
+            context 'when the actual state is set to absent' do
+              let(:actual_resource) { base_resource.merge({ dsc_ensure: 'absent', dsc_property: nil }) }
+
+              it 'treats the manifest as canonical' do
+                expect(canonicalized_resource).to eq([manifest_resource])
+              end
+            end
+
+            context 'when it is returned from invoke_get_method with ensure set to present' do
+              let(:actual_resource) { base_resource.merge({ dsc_ensure: 'present', dsc_property: 'Bar' }) }
+
+              it 'is case insensitive but case preserving' do
+                expect(canonicalized_resource.first[:dsc_property]).to eq('Bar')
+              end
+            end
+          end
+
+          context 'when it should be absent' do
+            let(:manifest_resource) { base_resource.merge({ dsc_ensure: 'absent' }) }
+            let(:actual_resource) { base_resource.merge({ dsc_ensure: 'present', dsc_property: 'Bar' }) }
+
+            it 'treats the manifest as canonical' do
+              expect(provider).not_to receive(:invoke_get_method)
+              expect(canonicalized_resource).to eq([manifest_resource])
+            end
+          end
+        end
+      end
+    end
   end
   context '.get' do
     it 'checks the cached results, returning if one exists for the specified names'

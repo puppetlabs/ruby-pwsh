@@ -47,31 +47,44 @@ class Puppet::Provider::DscBaseProvider
       # During RSAPI refresh runs mandatory parameters are stripped and not available;
       # Instead of checking again and failing, search the cache for a namevar match.
       namevarized_r = r.select { |k, _v| namevar_attributes(context).include?(k) }
-      if fetch_cached_hashes(@@cached_canonicalized_resource, [namevarized_r]).empty?
-        canonicalized = invoke_get_method(context, r)
-        if canonicalized.nil?
+      cached_result = fetch_cached_hashes(@@cached_canonicalized_resource, [namevarized_r])
+      if cached_result.empty?
+        # If the resource is meant to be absent, skip canonicalization and rely on the manifest
+        # value; there's no reason to compare system state to desired state for casing if the
+        # resource is being removed.
+        if r[:dsc_ensure] == 'absent'
           canonicalized = r.dup
           @@cached_canonicalized_resource << r.dup
         else
-          parameters = r.select { |name, _properties| parameter_attributes(context).include?(name) }
-          canonicalized.merge!(parameters)
-          canonicalized[:name] = r[:name]
-          if r[:dsc_psdscrunascredential].nil?
-            canonicalized.delete(:dsc_psdscrunascredential)
+          canonicalized = invoke_get_method(context, r)
+          # If the resource could not be found or was returned as absent, skip case munging and
+          # treat the manifest values as canonical since the resource is being created.
+          # rubocop:disable Metrics/BlockNesting
+          if canonicalized.nil? || canonicalized[:dsc_ensure] == 'absent'
+            canonicalized = r.dup
+            @@cached_canonicalized_resource << r.dup
           else
-            canonicalized[:dsc_psdscrunascredential] = r[:dsc_psdscrunascredential]
+            parameters = r.select { |name, _properties| parameter_attributes(context).include?(name) }
+            canonicalized.merge!(parameters)
+            canonicalized[:name] = r[:name]
+            if r[:dsc_psdscrunascredential].nil?
+              canonicalized.delete(:dsc_psdscrunascredential)
+            else
+              canonicalized[:dsc_psdscrunascredential] = r[:dsc_psdscrunascredential]
+            end
+            downcased_result = recursively_downcase(canonicalized)
+            downcased_resource = recursively_downcase(r)
+            downcased_result.each do |key, value|
+              canonicalized[key] = r[key] unless same?(value, downcased_resource[key])
+              canonicalized.delete(key) unless downcased_resource.keys.include?(key)
+            end
+            # Cache the actually canonicalized resource separately
+            @@cached_canonicalized_resource << canonicalized.dup
           end
-          downcased_result = recursively_downcase(canonicalized)
-          downcased_resource = recursively_downcase(r)
-          downcased_result.each do |key, value|
-            canonicalized[key] = r[key] unless same?(value, downcased_resource[key])
-            canonicalized.delete(key) unless downcased_resource.keys.include?(key)
-          end
-          # Cache the actually canonicalized resource separately
-          @@cached_canonicalized_resource << canonicalized.dup
+          # rubocop:enable Metrics/BlockNesting
         end
       else
-        canonicalized = r
+        canonicalized = cached_result
       end
       canonicalized_resources << canonicalized
     end
