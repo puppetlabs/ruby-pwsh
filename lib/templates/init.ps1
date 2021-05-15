@@ -15,6 +15,7 @@ param (
 
 $script:EmitDebugOutput = $EmitDebugOutput
 # Necessary for [System.Console]::Error.WriteLine to roundtrip with UTF-8
+# Need to ensure we ignore encoding from other places and are consistent internally
 [System.Console]::OutputEncoding = $Encoding
 
 $hostSource = @"
@@ -322,7 +323,10 @@ namespace Puppet
 }
 "@
 
+# Load the Custom PowerShell Host CSharp code
 Add-Type -TypeDefinition $hostSource -Language CSharp
+
+# Cache the current directory as the working directory for the Dynamic PowerShell session
 $global:DefaultWorkingDirectory = (Get-Location -PSProvider FileSystem).Path
 
 # Cache initial Environment Variables and values prior to any munging:
@@ -370,8 +374,11 @@ function Invoke-PowerShellUserCode {
     $ExecEnvironmentVariables
   )
 
+  # Instantiate the PowerShell Host and a new runspace to use if one is not already defined.
   if ($global:runspace -eq $null){
     # CreateDefault2 requires PS3
+    # Setup Initial Session State - can be modified later, defaults to only core PowerShell
+    # commands loaded/available. Everything else will dynamically load when needed.
     if ([System.Management.Automation.Runspaces.InitialSessionState].GetMethod('CreateDefault2')){
       $sessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
     } else {
@@ -384,19 +391,27 @@ function Invoke-PowerShellUserCode {
   }
 
   try {
+    # Reset the PowerShell handle, exit status, and streams.
     $ps = $null
     $global:puppetPSHost.ResetExitStatus()
     $global:puppetPSHost.ResetConsoleStreams()
 
+    # This resets the variables from prior runs, clearing them from memory.
     if ($PSVersionTable.PSVersion -ge [Version]'3.0') {
       $global:runspace.ResetRunspaceState()
     }
 
+    # Create a new instance of the PowerShell handle and drop into our reused runspace.
     $ps = [System.Management.Automation.PowerShell]::Create()
     $ps.Runspace = $global:runspace
+
+    # Preload our own functions; this could be moved into the array of startup scripts in the
+    # InitialSessionState, once implemented.
     [Void]$ps.AddScript($global:ourFunctions)
     $ps.Invoke()
 
+    # Set the working directory for the runspace; if not specified, use default; If it doesn't
+    # exist, terminate the execution and report the error back.
     if ([string]::IsNullOrEmpty($WorkingDirectory)) {
       [Void]$ps.Runspace.SessionStateProxy.Path.SetLocation($global:DefaultWorkingDirectory)
     } else {
@@ -404,10 +419,14 @@ function Invoke-PowerShellUserCode {
       [Void]$ps.Runspace.SessionStateProxy.Path.SetLocation($WorkingDirectory)
     }
 
+    # Reset the environment variables to those cached at the instantiation of the PowerShell Host.
     $ps.Commands.Clear()
     [Void]$ps.AddCommand('Reset-ProcessEnvironmentVariables').AddParameter('CachedEnvironmentVariables', $global:CachedEnvironmentVariables)
     $ps.Invoke()
 
+    # This code is the companion to the code at L403-405 and clears variables from prior runs.
+    # Because ResetRunspaceState does not work on v2 and earlier, it must be called here, after
+    # a new handle to PowerShell is created in prior steps.
     if ($PSVersionTable.PSVersion -le [Version]'2.0'){
       if (-not $global:psVariables){
         $global:psVariables = $ps.AddScript('Get-Variable').Invoke()
@@ -422,25 +441,29 @@ function Invoke-PowerShellUserCode {
       $ps.Invoke()
     }
 
-    # Set any exec level environment variables
+    # Set any provided environment variables; this variable should be renamed as the implementation
+    # is no longer tied to the PowerShell exec provider in Puppet.
     if ($ExecEnvironmentVariables -ne $null) {
       $ExecEnvironmentVariables.GetEnumerator() |
         ForEach-Object -Process { Set-Item -Path "Env:\$($_.Name)" -Value $_.Value }
     }
 
-    # we clear the commands before each new command
-    # to avoid command pollution
+    # We clear the commands before each new command to avoid command pollution This does not need
+    # to be a single command, it works the same if you pass a string with multiple lines of
+    # PowerShell code. The user supplies a string and this gives it to the Host to execute.
     $ps.Commands.Clear()
     [Void]$ps.AddScript($Code)
 
-    # out-default and MergeMyResults takes all output streams
-    # and writes it to the PSHost we create
-    # this needs to be the last thing executed
+    # Out-Default and MergeMyResults takes all output streams and writes it to the  PowerShell Host
+    # we create this needs to be the last thing executed.
     [void]$ps.AddCommand("out-default")
 
-    # if the call operator & established an exit code, exit with it
+    # if the call operator & established an exit code, exit with it; if this is NOT included, exit
+    # codes for scripts will not work; anything that does not throw will exit 0.
     [Void]$ps.AddScript('if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }')
 
+    # This is the code that ensures the output from the Host is interleaved; this ensures
+    # everything written to the streams in the Host is returned.
     if ($PSVersionTable.PSVersion -le [Version]'2.0') {
       $ps.Commands.Commands[0].MergeMyResults([System.Management.Automation.Runspaces.PipelineResultTypes]::Error,
                                               [System.Management.Automation.Runspaces.PipelineResultTypes]::Output)
@@ -448,6 +471,10 @@ function Invoke-PowerShellUserCode {
       $ps.Commands.Commands[0].MergeMyResults([System.Management.Automation.Runspaces.PipelineResultTypes]::All,
                                               [System.Management.Automation.Runspaces.PipelineResultTypes]::Output)
     }
+
+    # The asynchronous execution enables a user to set a timeout for the execution of their
+    # provided code; this keeps the process from hanging eternally until an external caller
+    # times out or the user kills the process.
     $asyncResult = $ps.BeginInvoke()
 
     if (-not $asyncResult.AsyncWaitHandle.WaitOne($TimeoutMilliseconds)) {
@@ -459,9 +486,12 @@ function Invoke-PowerShellUserCode {
     try {
       $ps.EndInvoke($asyncResult)
     } catch [System.Management.Automation.IncompleteParseException] {
+      # This surfaces an error for when syntactically incorrect code is passed
       # https://msdn.microsoft.com/en-us/library/system.management.automation.incompleteparseexception%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
       throw $_.Exception.Message
     } catch {
+      # This catches any execution errors from the passed code, drops out of execution here and
+      # throws the most specific exception available.
       if ($null -ne $_.Exception.InnerException) {
         throw $_.Exception.InnerException
       } else {
@@ -478,6 +508,8 @@ function Invoke-PowerShellUserCode {
     }
   }
   catch {
+    # if an execution or parse error is surfaced, dispose of the runspace and clear the global
+    # runspace; it will be rebuilt on the next execution.
     try {
       if ($global:runspace) { $global:runspace.Dispose() }
     } finally {
@@ -493,6 +525,8 @@ function Invoke-PowerShellUserCode {
       $ec = 1
     }
 
+    # Format the exception message; this could be improved to surface more functional messaging
+    # to the user; right now it dumps the exception message as a string.
     if ($_.Exception.ErrorRecord.InvocationInfo -ne $null) {
       $output = $_.Exception.Message + "`n`r" + $_.Exception.ErrorRecord.InvocationInfo.PositionMessage
     } else {
@@ -500,6 +534,7 @@ function Invoke-PowerShellUserCode {
     }
 
     # make an attempt to read Output / StdErr as it may contain partial output / info about failures
+    # The PowerShell Host could be entirely dead and broken at this stage.
     try {
       $out = $global:puppetPSHost.UI.Output
     } catch {
@@ -511,6 +546,7 @@ function Invoke-PowerShellUserCode {
       $err = $null
     }
 
+    # Make sure we return the expected data structure for what happened.
     return @{
       exitcode = $ec;
       stdout = $out;
@@ -518,6 +554,8 @@ function Invoke-PowerShellUserCode {
       errormessage = $output;
     }
   } finally {
+    # Dispose of the shell regardless of success/failure. This clears state and memory both.
+    # To enable conditional keeping of state, this would need an additional condition.
     if ($ps -ne $null) { [Void]$ps.Dispose() }
   }
 }
@@ -531,10 +569,14 @@ function Write-SystemDebugMessage {
   )
 
   if ($script:EmitDebugOutput -or ($DebugPreference -ne 'SilentlyContinue')) {
+    # This writes to the console, not to the PowerShell streams.
+    # This is captured for communications with the pipe server.
     [System.Diagnostics.Debug]::WriteLine($Message)
   }
 }
 
+# This is not called anywhere else in the project. It may be dead code for
+# event handling used in an earlier implementation. Or magic?
 function Signal-Event {
   [CmdletBinding()]
   param(
@@ -770,5 +812,6 @@ function Start-PipeServer {
   }
 }
 
+# Start the pipe server and wait for it to close.
 Start-PipeServer -CommandChannelPipeName $NamedPipeName -Encoding $Encoding
 Write-SystemDebugMessage -Message "Start-PipeServer Finished`n`n$_"
