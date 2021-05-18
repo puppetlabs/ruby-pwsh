@@ -136,7 +136,7 @@ module Pwsh
       stdin, @stdout, @stderr, @ps_process = Open3.popen3("#{native_cmd} #{ps_args.join(' ')}")
       stdin.close
 
-      # Puppet.debug "#{Time.now} #{cmd} is running as pid: #{@ps_process[:pid]}"
+      # TODO: Log a debug for "#{Time.now} #{cmd} is running as pid: #{@ps_process[:pid]}"
 
       # Wait up to 180 seconds in 0.2 second intervals to be able to open the pipe.
       # If the pipe_timeout is ever specified as less than the sleep interval it will
@@ -157,7 +157,7 @@ module Pwsh
       end
       if @pipe.nil?
         # Tear down and kill the process if unable to connect to the pipe; failure to do so
-        # results in zombie processes being left after the puppet run. We discovered that
+        # results in zombie processes being left after a caller run. We discovered that
         # closing @ps_process via .kill instead of using this method actually kills the
         # watcher and leaves an orphaned process behind. Failing to close stdout and stderr
         # also leaves clutter behind, so explicitly close those too.
@@ -166,7 +166,8 @@ module Pwsh
         Process.kill('KILL', @ps_process[:pid]) if @ps_process.alive?
         raise "Failure waiting for PowerShell process #{@ps_process[:pid]} to start pipe server"
       end
-      # Puppet.debug "#{Time.now} PowerShell initialization complete for pid: #{@ps_process[:pid]}"
+
+      # TODO: Log a debug for "#{Time.now} PowerShell initialization complete for pid: #{@ps_process[:pid]}"
 
       at_exit { exit }
     end
@@ -211,42 +212,13 @@ module Pwsh
       out
     end
 
-    # TODO: Is this needed in the code manager? When brought into the module, should this be
-    #       added as helper code leveraging this gem?
-    # Executes PowerShell code using the settings from a populated Puppet Exec Resource Type
-    # def execute_resource(powershell_code, working_dir, timeout_ms, environment)
-    #   working_dir = resource[:cwd]
-    #   if (!working_dir.nil?)
-    #     fail "Working directory '#{working_dir}' does not exist" unless File.directory?(working_dir)
-    #   end
-    #   timeout_ms = resource[:timeout].nil? ? nil : resource[:timeout] * 1000
-    #   environment_variables = resource[:environment].nil? ? [] : resource[:environment]
-
-    #   result = execute(powershell_code, timeout_ms, working_dir, environment_variables)
-
-    #   stdout     = result[:stdout]
-    #   native_out = result[:native_out]
-    #   stderr     = result[:stderr]
-    #   exit_code  = result[:exit_code]
-
-    #   # unless stderr.nil?
-    #   #   stderr.each { |e| Puppet.debug "STDERR: #{e.chop}" unless e.empty? }
-    #   # end
-
-    #   # Puppet.debug "STDERR: #{result[:errormessage]}" unless result[:errormessage].nil?
-
-    #   output = Puppet::Util::Execution::ProcessOutput.new(stdout.to_s + native_out.to_s, exit_code)
-
-    #   return output, output
-    # end
-
     # Tear down the instance of the manager, shutting down the pipe and process.
     #
     # @return nil
     def exit
       @usable = false
 
-      # Puppet.debug "Pwsh exiting..."
+      # TODO: Log a debug for "Pwsh exiting..."
 
       # Ask PowerShell pipe server to shutdown if its still running
       # rather than expecting the pipe.close to terminate it
@@ -313,27 +285,26 @@ module Pwsh
             env_name = Regexp.last_match(1)
             value    = Regexp.last_match(2)
             if environment.include?(env_name) || environment.include?(env_name.to_sym)
-              # Puppet.warning("Overriding environment setting '#{env_name}' with '#{value}'")
+              # TODO: log a warning for "Overriding environment setting '#{env_name}' with '#{value}'"
             end
             environment[env_name] = value
           else # rubocop:disable Style/EmptyElse
-            # TODO: Implement logging
-            # Puppet.warning("Cannot understand environment setting #{setting.inspect}")
+            # TODO: log a warning for "Cannot understand environment setting #{setting.inspect}"
           end
         end
       end
       # Convert the Ruby Hashtable into PowerShell syntax
-      exec_environment_variables = '@{'
+      additional_environment_variables = '@{'
       unless environment.empty?
         environment.each do |name, value|
           # PowerShell escapes single quotes inside a single quoted string by just adding
           # another single quote i.e. a value of foo'bar turns into 'foo''bar' when single quoted.
           ps_name  = name.gsub('\'', '\'\'')
           ps_value = value.gsub('\'', '\'\'')
-          exec_environment_variables += " '#{ps_name}' = '#{ps_value}';"
+          additional_environment_variables += " '#{ps_name}' = '#{ps_value}';"
         end
       end
-      exec_environment_variables += '}'
+      additional_environment_variables += '}'
 
       # PS Side expects Invoke-PowerShellUserCode is always the return value here
       # TODO: Refactor to use <<~ as soon as we can :sob:
@@ -344,7 +315,7 @@ $params = @{
 '@
   TimeoutMilliseconds      = #{timeout_ms}
   WorkingDirectory         = "#{working_dir}"
-  ExecEnvironmentVariables = #{exec_environment_variables}
+  AdditionalEnvironmentVariables = #{additional_environment_variables}
 }
 
 Invoke-PowerShellUserCode @params
@@ -546,7 +517,7 @@ Invoke-PowerShellUserCode @params
     def read_from_pipe(pipe, timeout = 0.1, &_block)
       if self.class.readable?(pipe, timeout)
         l = pipe.readpartial(4096)
-        # Puppet.debug "#{Time.now} PIPE> #{l}"
+        # TODO: Log a debug for "#{Time.now} PIPE> #{l}"
         # Since readpartial may return a nil at EOF, skip returning that value
         yield l unless l.nil?
       end
@@ -604,7 +575,7 @@ Invoke-PowerShellUserCode @params
         buffer
       end
 
-      # Puppet.debug "Waited #{Time.now - start_time} total seconds."
+      # TODO: Log a debug for "Waited #{Time.now - start_time} total seconds."
 
       # Block until sysread has completed or errors
       begin
