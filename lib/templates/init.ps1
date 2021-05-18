@@ -371,7 +371,7 @@ function Invoke-PowerShellUserCode {
     $WorkingDirectory,
 
     [Hashtable]
-    $ExecEnvironmentVariables
+    $AdditionalEnvironmentVariables
   )
 
   # Instantiate the PowerShell Host and a new runspace to use if one is not already defined.
@@ -441,10 +441,9 @@ function Invoke-PowerShellUserCode {
       $ps.Invoke()
     }
 
-    # Set any provided environment variables; this variable should be renamed as the implementation
-    # is no longer tied to the PowerShell exec provider in Puppet.
-    if ($ExecEnvironmentVariables -ne $null) {
-      $ExecEnvironmentVariables.GetEnumerator() |
+    # Set any provided environment variables
+    if ($AdditionalEnvironmentVariables -ne $null) {
+      $AdditionalEnvironmentVariables.GetEnumerator() |
         ForEach-Object -Process { Set-Item -Path "Env:\$($_.Name)" -Value $_.Value }
     }
 
