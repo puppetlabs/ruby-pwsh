@@ -30,11 +30,11 @@ using System.Security;
 using System.Text;
 using System.Threading;
 
-namespace Puppet
+namespace RubyPwsh
 {
-  public class PuppetPSHostRawUserInterface : PSHostRawUserInterface
+  public class RubyPwshPSHostRawUserInterface : PSHostRawUserInterface
   {
-    public PuppetPSHostRawUserInterface()
+    public RubyPwshPSHostRawUserInterface()
     {
       buffersize      = new Size(120, 120);
       backgroundcolor = ConsoleColor.Black;
@@ -145,14 +145,14 @@ namespace Puppet
     }
   }
 
-  public class PuppetPSHostUserInterface : PSHostUserInterface
+  public class RubyPwshPSHostUserInterface : PSHostUserInterface
   {
-    private PuppetPSHostRawUserInterface _rawui;
+    private RubyPwshPSHostRawUserInterface _rawui;
     private StringBuilder _sb;
     private StringWriter _errWriter;
     private StringWriter _outWriter;
 
-    public PuppetPSHostUserInterface()
+    public RubyPwshPSHostUserInterface()
     {
       _sb = new StringBuilder();
       _errWriter = new StringWriter(new StringBuilder());
@@ -167,7 +167,7 @@ namespace Puppet
       get
       {
         if ( _rawui == null){
-          _rawui = new PuppetPSHostRawUserInterface();
+          _rawui = new RubyPwshPSHostRawUserInterface();
         }
         return _rawui;
       }
@@ -271,15 +271,15 @@ namespace Puppet
     }
   }
 
-  public class PuppetPSHost : PSHost
+  public class RubyPwshPSHost : PSHost
   {
     private Guid _hostId = Guid.NewGuid();
     private bool shouldExit;
     private int exitCode;
 
-    private readonly PuppetPSHostUserInterface _ui = new PuppetPSHostUserInterface();
+    private readonly RubyPwshPSHostUserInterface _ui = new RubyPwshPSHostUserInterface();
 
-    public PuppetPSHost () {}
+    public RubyPwshPSHost () {}
 
     public bool ShouldExit { get { return this.shouldExit; } }
     public int ExitCode { get { return this.exitCode; } }
@@ -294,7 +294,7 @@ namespace Puppet
     }
 
     public override Guid InstanceId { get { return _hostId; } }
-    public override string Name { get { return "PuppetPSHost"; } }
+    public override string Name { get { return "RubyPwshPSHost"; } }
     public override Version Version { get { return new Version(1, 1); } }
     public override PSHostUserInterface UI
     {
@@ -385,16 +385,16 @@ function Invoke-PowerShellUserCode {
       $sessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
     }
 
-    $global:puppetPSHost = New-Object Puppet.PuppetPSHost
-    $global:runspace = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace($global:puppetPSHost, $sessionState)
+    $global:RubyPwshPSHost = New-Object RubyPwsh.RubyPwshPSHost
+    $global:runspace = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace($global:RubyPwshPSHost, $sessionState)
     $global:runspace.Open()
   }
 
   try {
     # Reset the PowerShell handle, exit status, and streams.
     $ps = $null
-    $global:puppetPSHost.ResetExitStatus()
-    $global:puppetPSHost.ResetConsoleStreams()
+    $global:RubyPwshPSHost.ResetExitStatus()
+    $global:RubyPwshPSHost.ResetConsoleStreams()
 
     # This resets the variables from prior runs, clearing them from memory.
     if ($PSVersionTable.PSVersion -ge [Version]'3.0') {
@@ -499,9 +499,9 @@ function Invoke-PowerShellUserCode {
       }
     }
 
-    [Puppet.PuppetPSHostUserInterface]$ui = $global:puppetPSHost.UI
+    [RubyPwsh.RubyPwshPSHostUserInterface]$ui = $global:RubyPwshPSHost.UI
     return @{
-      exitcode = $global:puppetPSHost.Exitcode;
+      exitcode = $global:RubyPwshPSHost.Exitcode;
       stdout = $ui.Output;
       stderr = $ui.StdErr;
       errormessage = $null;
@@ -515,13 +515,13 @@ function Invoke-PowerShellUserCode {
     } finally {
       $global:runspace = $null
     }
-    if (($global:puppetPSHost -ne $null) -and $global:puppetPSHost.ExitCode) {
-      $ec = $global:puppetPSHost.ExitCode
+    if (($global:RubyPwshPSHost -ne $null) -and $global:RubyPwshPSHost.ExitCode) {
+      $ec = $global:RubyPwshPSHost.ExitCode
     } else {
       # This is technically not true at this point as we do not
       # know what exitcode we should return as an unexpected exception
       # happened and the user did not set an exitcode. Our best guess
-      # is to return 1 so that we ensure Puppet reports this run as an error.
+      # is to return 1 so that we ensure ruby treats this run as an error.
       $ec = 1
     }
 
@@ -536,12 +536,12 @@ function Invoke-PowerShellUserCode {
     # make an attempt to read Output / StdErr as it may contain partial output / info about failures
     # The PowerShell Host could be entirely dead and broken at this stage.
     try {
-      $out = $global:puppetPSHost.UI.Output
+      $out = $global:RubyPwshPSHost.UI.Output
     } catch {
       $out = $null
     }
     try {
-      $err = $global:puppetPSHost.UI.StdErr
+      $err = $global:RubyPwshPSHost.UI.StdErr
     } catch {
       $err = $null
     }
