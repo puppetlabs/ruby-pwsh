@@ -381,6 +381,15 @@ class Puppet::Provider::DscBaseProvider
     end
     resource[:dsc_invoke_method] = dsc_invoke_method
 
+    resource[:vendored_modules_path] = vendored_modules_path(resource[:dscmeta_module_name])
+
+    resource[:attributes] = nil
+
+    context.debug("should_to_resource: #{resource.inspect}")
+    resource
+  end
+
+  def vendored_modules_path(module_name)
     # Because Puppet adds all of the modules to the LOAD_PATH we can be sure that the appropriate module lives here during an apply;
     # PROBLEM: This currently uses the downcased name, we need to capture the module name in the metadata I think.
     # During a Puppet agent run, the code lives in the cache so we can use the file expansion to discover the correct folder.
@@ -388,30 +397,35 @@ class Puppet::Provider::DscBaseProvider
     # path to allow multiple modules to with shared dsc_resources to be installed side by side
     # The old vendored_modules_path: puppet_x/dsc_resources
     # The new vendored_modules_path: puppet_x/<module_name>/dsc_resources
-    root_module_path = $LOAD_PATH.select { |path| path.match?(%r{#{puppetize_name(resource[:dscmeta_module_name])}/lib}) }.first
-    resource[:vendored_modules_path] = if root_module_path.nil?
-                                         File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + "puppet_x/#{puppetize_name(resource[:dscmeta_module_name])}/dsc_resources") # rubocop:disable Style/StringConcatenation
-                                       else
-                                         File.expand_path("#{root_module_path}/puppet_x/#{puppetize_name(resource[:dscmeta_module_name])}/dsc_resources")
-                                       end
+    root_module_path = load_path.select { |path| path.match?(%r{#{puppetize_name(module_name)}/lib}) }.first
+    vendored_path = if root_module_path.nil?
+                      File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + "puppet_x/#{puppetize_name(module_name)}/dsc_resources") # rubocop:disable Style/StringConcatenation
+                    else
+                      File.expand_path("#{root_module_path}/puppet_x/#{puppetize_name(module_name)}/dsc_resources")
+                    end
 
     # Check for the old vendored_modules_path second - if there is a mix of modules with the old and new pathing,
     # checking for this first will always work and so the more specific search will never run.
-    unless File.exist? resource[:vendored_modules_path]
-      resource[:vendored_modules_path] = if root_module_path.nil?
-                                           File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + 'puppet_x/dsc_resources') # rubocop:disable Style/StringConcatenation
-                                         else
-                                           File.expand_path("#{root_module_path}/puppet_x/dsc_resources")
-                                         end
+    unless File.exist? vendored_path
+      vendored_path = if root_module_path.nil?
+                        File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + 'puppet_x/dsc_resources') # rubocop:disable Style/StringConcatenation
+                      else
+                        File.expand_path("#{root_module_path}/puppet_x/dsc_resources")
+                      end
     end
 
     # A warning is thrown if the something went wrong and the file was not created
-    raise "Unable to find expected vendored DSC Resource #{resource[:vendored_modules_path]}" unless File.exist? resource[:vendored_modules_path]
+    raise "Unable to find expected vendored DSC Resource #{vendored_path}" unless File.exist? vendored_path
 
-    resource[:attributes] = nil
+    vendored_path
+  end
 
-    context.debug("should_to_resource: #{resource.inspect}")
-    resource
+  # Return the ruby $LOAD_PATH variable; this method exists to make testing vendored
+  # resource path discovery easier.
+  #
+  # @return [Array] The absolute file paths to available/known ruby code paths
+  def load_path
+    $LOAD_PATH
   end
 
   # Return a String containing a puppetized name. A puppetized name is a string that only

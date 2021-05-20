@@ -710,11 +710,170 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   context '.should_to_resource' do
-    it 'retrieves the metadata from the type definition for the resource'
-    it 'does not pass dsc_psdscrunascredential if nil'
-    it 'adds the mof information if required'
-    it 'searches the load path for the relevant module where the vendored DSC resources are'
-    it 'returns the resource'
+    subject(:result) { provider.should_to_resource(should_hash, context, 'Get') }
+
+    let(:definition) do
+      {
+        name: 'dsc_foo',
+        dscmeta_resource_friendly_name: 'Foo',
+        dscmeta_resource_name: 'PUPPET_Foo',
+        dscmeta_module_name: 'PuppetDsc',
+        dscmeta_module_version: '1.2.3.4',
+        docs: 'The DSC Foo resource type. Automatically generated from version 1.2.3.4',
+        features: %w[simple_get_filter canonicalize],
+        attributes: {
+          name: {
+            type: 'String',
+            desc: 'Description of the purpose for this resource declaration.',
+            behaviour: :namevar
+          },
+          dsc_name: {
+            type: 'String',
+            desc: 'The unique name of the Foo resource to manage',
+            behaviour: :namevar,
+            mandatory_for_get: true,
+            mandatory_for_set: true,
+            mof_type: 'String',
+            mof_is_embedded: false
+          },
+          dsc_psdscrunascredential: {
+            type: 'Optional[Struct[{ user => String[1], password => Sensitive[String[1]] }]]',
+            desc: 'The Credential to run DSC under',
+            behaviour: :parameter,
+            mandatory_for_get: false,
+            mandatory_for_set: false,
+            mof_type: 'PSCredential',
+            mof_is_embedded: true
+          },
+          dsc_ensure: {
+            type: "Optional[Enum['Present', 'Absent']]",
+            desc: 'Whether Foo should be absent from or present on the system',
+            mandatory_for_get: false,
+            mandatory_for_set: false,
+            mof_type: 'String',
+            mof_is_embedded: false
+          }
+        }
+      }
+    end
+    let(:should_hash) { { dsc_name: 'foo' } }
+    let(:vendored_modules_path) { 'C:/code/puppetlabs/gems/ruby-pwsh/lib/puppet_x/puppetdsc/dsc_resources' }
+
+    before(:each) do
+      allow(context).to receive(:debug)
+      allow(context).to receive(:type).and_return(type)
+      allow(type).to receive(:definition).and_return(definition)
+      allow(provider).to receive(:vendored_modules_path).and_return(vendored_modules_path)
+    end
+
+    it 'retrieves the metadata from the type definition for the resource' do
+      expect(result[:name]).to eq(definition[:name])
+      expect(result[:dscmeta_resource_friendly_name]).to eq(definition[:dscmeta_resource_friendly_name])
+      expect(result[:dscmeta_resource_name]).to eq(definition[:dscmeta_resource_name])
+      expect(result[:dscmeta_module_name]).to eq(definition[:dscmeta_module_name])
+      expect(result[:dscmeta_module_version]).to eq(definition[:dscmeta_module_version])
+    end
+
+    it 'includes the specified parameter and its value' do
+      expect(result[:parameters][:dsc_name][:value]).to eq('foo')
+    end
+
+    it 'adds the mof information to a parameter if required' do
+      expect(result[:parameters][:dsc_name][:mof_type]).to eq('String')
+      expect(result[:parameters][:dsc_name][:mof_is_embedded]).to be false
+    end
+
+    context 'handling dsc_psdscrunascredential' do
+      context 'when it is not specified in the should hash' do
+        it 'is not included in the resource hash' do
+          expect(result[:parameters].keys).not_to include(:dsc_psdscrunascredential)
+        end
+      end
+
+      context 'when it is nil in the should hash' do
+        let(:should_hash) { { dsc_name: 'foo', dsc_psdscrunascredential: nil } }
+
+        it 'is not included in the resource hash' do
+          expect(result[:parameters].keys).not_to include(:dsc_psdscrunascredential)
+        end
+      end
+
+      context 'when it is specified fully in the should hash' do
+        let(:should_hash) { { dsc_name: 'foo', dsc_psdscrunascredential: { 'user' => 'foo', 'password' => 'bar' } } }
+
+        it 'is added to the parameters of the resource hash' do
+          expect(result[:parameters][:dsc_psdscrunascredential][:value]).to eq({ 'user' => 'foo', 'password' => 'bar' })
+        end
+      end
+    end
+  end
+
+  context '.vendored_modules_path' do
+    let(:load_path) { [] }
+    let(:new_path_nil_root_module) { 'C:/code/puppetlabs/gems/ruby-pwsh/lib/puppet_x/puppetdsc/dsc_resources' }
+
+    before(:each) do
+      allow(provider).to receive(:load_path).and_return(load_path)
+      allow(File).to receive(:exist?).and_call_original
+    end
+
+    it 'raises an error when the vendored resources cannot be found' do
+      expect { provider.vendored_modules_path('NeverGonnaFindMe') }.to raise_error(/Unable to find expected vendored DSC Resource/)
+    end
+
+    context 'when the vendored resources are in puppet_x/<module_name>/dsc_resources' do
+      context 'when the root module path can be found' do
+        let(:load_path) { ['/Puppet/modules/puppetdsc/lib'] }
+        let(:vendored_path) { File.expand_path('/Puppet/modules/puppetdsc/lib/puppet_x/puppetdsc/dsc_resources') }
+
+        it 'returns the constructed path' do
+          expect(File).to receive(:exist?).twice.with(vendored_path).and_return(true)
+          expect(provider.vendored_modules_path('PuppetDsc')).to eq(vendored_path)
+        end
+      end
+
+      context 'when the root module path cannot be found' do
+        # This is awkward but necessary to get to /path/to/gem/lib/puppet_x/
+        let(:vendored_path) { File.expand_path(Pathname.new(__FILE__).dirname + '../../../../../' + 'lib/puppet_x/puppetdsc/dsc_resources') } # rubocop:disable Style/StringConcatenation
+
+        it 'returns the relative path' do
+          expect(File).to receive(:exist?).twice.with(vendored_path).and_return(true)
+          expect(provider.vendored_modules_path('PuppetDsc')).to eq(vendored_path)
+        end
+      end
+    end
+
+    context 'when the vendored resources are in puppet_x/dsc_resources' do
+      context 'when the root module path can be found' do
+        let(:load_path) { ['/Puppet/modules/puppetdsc/lib'] }
+        let(:namespaced_vendored_path) { File.expand_path('/Puppet/modules/puppetdsc/lib/puppet_x/puppetdsc/dsc_resources') }
+        let(:legacy_vendored_path) { File.expand_path('/Puppet/modules/puppetdsc/lib/puppet_x/dsc_resources') }
+
+        it 'returns the constructed path' do
+          expect(File).to receive(:exist?).with(namespaced_vendored_path).and_return(false)
+          expect(File).to receive(:exist?).with(legacy_vendored_path).and_return(true)
+          expect(provider.vendored_modules_path('PuppetDsc')).to eq(legacy_vendored_path)
+        end
+      end
+
+      context 'when the root module path cannot be found' do
+        # This is awkward but necessary to get to /path/to/gem/lib/puppet_x/
+        let(:namespaced_vendored_path) { File.expand_path(Pathname.new(__FILE__).dirname + '../../../../../' + 'lib/puppet_x/puppetdsc/dsc_resources') } # rubocop:disable Style/StringConcatenation
+        let(:legacy_vendored_path) { File.expand_path(Pathname.new(__FILE__).dirname + '../../../../../' + 'lib/puppet_x/dsc_resources') } # rubocop:disable Style/StringConcatenation
+
+        it 'returns the constructed path' do
+          expect(File).to receive(:exist?).with(namespaced_vendored_path).and_return(false)
+          expect(File).to receive(:exist?).with(legacy_vendored_path).and_return(true)
+          expect(provider.vendored_modules_path('PuppetDsc')).to eq(legacy_vendored_path)
+        end
+      end
+    end
+  end
+
+  context '.load_path' do
+    it 'returns the ruby LOAD_PATH global variable' do
+      expect(provider.load_path).to eq($LOAD_PATH)
+    end
   end
 
   context '.random_variable_name' do
