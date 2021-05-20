@@ -139,11 +139,15 @@ class Puppet::Provider::DscBaseProvider
   # @param changes [Hash] the hash of whose key is the name_hash and value is the is and should hashes
   def set(context, changes)
     changes.each do |name, change|
+      # TODO: (GH-141) Can `is` ever *not* be passed? If not, can this code be removed?
+      # TODO: (GH-141) It is non functional because the find blows up (and isn't necessary)
       is = change.key?(:is) ? change[:is] : (get(context, [name]) || []).find { |r| r[:name] == name }
       context.type.check_schema(is) unless change.key?(:is)
 
       should = change[:should]
 
+      # TODO: (GH-141) This is not needed because invoke_set_method strips out unneccessary
+      #       namevars itself; this just strips them out before passing the name hash.
       name_hash = if context.type.namevars.length > 1
                     # pass a name_hash containing the values of all namevars
                     name_hash = {}
@@ -157,7 +161,9 @@ class Puppet::Provider::DscBaseProvider
 
       # for compatibility sake, we use dsc_ensure instead of ensure, so context.type.ensurable? does not work
       if context.type.attributes.key?(:dsc_ensure)
+        # TODO: (GH-141) Can `is` ever *not* be passed? If not, can this code be removed?
         is = create_absent(:name, name) if is.nil?
+        # TODO: (GH-141) Can `should` ever be nil? If not, can this code be removed? Is this even desired behavior?
         should = create_absent(:name, name) if should.nil?
 
         # HACK: If the DSC Resource is ensurable but doesn't report a default value
@@ -288,6 +294,8 @@ class Puppet::Provider::DscBaseProvider
     # DSC gives back information we don't care about; filter down to only
     # those properties exposed in the type definition.
     valid_attributes = context.type.attributes.keys.collect(&:to_s)
+    # TODO: (GH-142) This can be rewritten to use the parameter_attributes method:
+    #       parameters = parameter_attributes(context).collect(&:to_s)
     parameters = context.type.attributes.select { |_name, properties| [properties[:behaviour]].collect.include?(:parameter) }.keys.collect(&:to_s)
     data.select! { |key, _value| valid_attributes.include?("dsc_#{key.downcase}") }
     data.reject! { |key, _value| parameters.include?("dsc_#{key.downcase}") }
@@ -303,6 +311,7 @@ class Puppet::Provider::DscBaseProvider
       # PowerShell does not distinguish between a return of empty array/string
       #  and null but Puppet does; revert to those values if specified.
       if data[type_key].nil? && query_props.keys.include?(type_key) && query_props[type_key].is_a?(Array)
+        # TODO: (GH-142) Can this be simplified to just `data[type_key] = []`?
         data[type_key] = query_props[type_key].empty? ? query_props[type_key] : []
       end
     end
@@ -431,7 +440,7 @@ class Puppet::Provider::DscBaseProvider
   # Return a String containing a puppetized name. A puppetized name is a string that only
   # includes lowercase letters, digits, underscores and cannot start with a digit.
   #
-  # @return [String] with a puppeized module name
+  # @return [String] with a puppetized module name
   def puppetize_name(name)
     # Puppet module names must be lower case
     name = name.downcase
@@ -519,6 +528,12 @@ class Puppet::Provider::DscBaseProvider
   # @return [bool] returns equality
   def same?(value1, value2)
     case @value1
+    # TODO: (GH-144) Figure out a way to deeply sort hashes and arrays.
+    # TODO: (GH-143) This was previously nonfunctional due to the typo above which evaluated @value1 instead
+    #       of value1 (and was therefore always nil, which triggered only the else condition). If
+    #       the code for Hash here is enabled, a hash without child hashes causes an error. Removing
+    #       this conditional keeps prior behaviour but does not solve the root problem of hashes with
+    #       the same values comparing as false if a child array is not sorted.
     when Hash
       !value2.nil? ? value2.sort_by { |element| element.keys.first } == value1.sort_by { |element| element.keys.first } : value2 == value1
     when Array
