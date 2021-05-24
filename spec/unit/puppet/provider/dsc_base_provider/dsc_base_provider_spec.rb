@@ -1035,7 +1035,6 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider.same?({ foo: [1, 2], bar: { baz: [1, 2] } }, { foo: [2, 1], bar: { baz: [2, 1] } })).to be true
     end
     it 'compares arrays regardless of order' do
-      pending('typo in case statement causes comparisons to be unsorted')
       expect(provider.same?([1, 2], [2, 1])).to be true
     end
     it 'compares arrays with nested arrays regardless of order' do

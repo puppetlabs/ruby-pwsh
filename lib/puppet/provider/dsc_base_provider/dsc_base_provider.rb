@@ -527,15 +527,15 @@ class Puppet::Provider::DscBaseProvider
   # @param value2 [object] a string, array, hash, or other object to sort and compare to value1
   # @return [bool] returns equality
   def same?(value1, value2)
-    case @value1
+    case value1
     # TODO: (GH-144) Figure out a way to deeply sort hashes and arrays.
     # TODO: (GH-143) This was previously nonfunctional due to the typo above which evaluated @value1 instead
     #       of value1 (and was therefore always nil, which triggered only the else condition). If
     #       the code for Hash here is enabled, a hash without child hashes causes an error. Removing
     #       this conditional keeps prior behaviour but does not solve the root problem of hashes with
     #       the same values comparing as false if a child array is not sorted.
-    when Hash
-      !value2.nil? ? value2.sort_by { |element| element.keys.first } == value1.sort_by { |element| element.keys.first } : value2 == value1
+    # when Hash
+    #   !value2.nil? ? value2.sort_by { |element| element.keys.first } == value1.sort_by { |element| element.keys.first } : value2 == value1
     when Array
       !value2.nil? ? value2.sort == value1.sort : value2 == value1
     else
