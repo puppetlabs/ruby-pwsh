@@ -139,11 +139,15 @@ class Puppet::Provider::DscBaseProvider
   # @param changes [Hash] the hash of whose key is the name_hash and value is the is and should hashes
   def set(context, changes)
     changes.each do |name, change|
+      # TODO: (GH-141) Can `is` ever *not* be passed? If not, can this code be removed?
+      # TODO: (GH-141) It is non functional because the find blows up (and isn't necessary)
       is = change.key?(:is) ? change[:is] : (get(context, [name]) || []).find { |r| r[:name] == name }
       context.type.check_schema(is) unless change.key?(:is)
 
       should = change[:should]
 
+      # TODO: (GH-141) This is not needed because invoke_set_method strips out unneccessary
+      #       namevars itself; this just strips them out before passing the name hash.
       name_hash = if context.type.namevars.length > 1
                     # pass a name_hash containing the values of all namevars
                     name_hash = {}
@@ -157,7 +161,9 @@ class Puppet::Provider::DscBaseProvider
 
       # for compatibility sake, we use dsc_ensure instead of ensure, so context.type.ensurable? does not work
       if context.type.attributes.key?(:dsc_ensure)
+        # TODO: (GH-141) Can `is` ever *not* be passed? If not, can this code be removed?
         is = create_absent(:name, name) if is.nil?
+        # TODO: (GH-141) Can `should` ever be nil? If not, can this code be removed? Is this even desired behavior?
         should = create_absent(:name, name) if should.nil?
 
         # HACK: If the DSC Resource is ensurable but doesn't report a default value
@@ -288,6 +294,8 @@ class Puppet::Provider::DscBaseProvider
     # DSC gives back information we don't care about; filter down to only
     # those properties exposed in the type definition.
     valid_attributes = context.type.attributes.keys.collect(&:to_s)
+    # TODO: (GH-142) This can be rewritten to use the parameter_attributes method:
+    #       parameters = parameter_attributes(context).collect(&:to_s)
     parameters = context.type.attributes.select { |_name, properties| [properties[:behaviour]].collect.include?(:parameter) }.keys.collect(&:to_s)
     data.select! { |key, _value| valid_attributes.include?("dsc_#{key.downcase}") }
     data.reject! { |key, _value| parameters.include?("dsc_#{key.downcase}") }
@@ -303,6 +311,7 @@ class Puppet::Provider::DscBaseProvider
       # PowerShell does not distinguish between a return of empty array/string
       #  and null but Puppet does; revert to those values if specified.
       if data[type_key].nil? && query_props.keys.include?(type_key) && query_props[type_key].is_a?(Array)
+        # TODO: (GH-142) Can this be simplified to just `data[type_key] = []`?
         data[type_key] = query_props[type_key].empty? ? query_props[type_key] : []
       end
     end
@@ -381,32 +390,7 @@ class Puppet::Provider::DscBaseProvider
     end
     resource[:dsc_invoke_method] = dsc_invoke_method
 
-    # Because Puppet adds all of the modules to the LOAD_PATH we can be sure that the appropriate module lives here during an apply;
-    # PROBLEM: This currently uses the downcased name, we need to capture the module name in the metadata I think.
-    # During a Puppet agent run, the code lives in the cache so we can use the file expansion to discover the correct folder.
-    # This handles setting the vendored_modules_path to include the puppet module name; we now add the puppet module name into the
-    # path to allow multiple modules to with shared dsc_resources to be installed side by side
-    # The old vendored_modules_path: puppet_x/dsc_resources
-    # The new vendored_modules_path: puppet_x/<module_name>/dsc_resources
-    root_module_path = $LOAD_PATH.select { |path| path.match?(%r{#{puppetize_name(resource[:dscmeta_module_name])}/lib}) }.first
-    resource[:vendored_modules_path] = if root_module_path.nil?
-                                         File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + "puppet_x/#{puppetize_name(resource[:dscmeta_module_name])}/dsc_resources") # rubocop:disable Style/StringConcatenation
-                                       else
-                                         File.expand_path("#{root_module_path}/puppet_x/#{puppetize_name(resource[:dscmeta_module_name])}/dsc_resources")
-                                       end
-
-    # Check for the old vendored_modules_path second - if there is a mix of modules with the old and new pathing,
-    # checking for this first will always work and so the more specific search will never run.
-    unless File.exist? resource[:vendored_modules_path]
-      resource[:vendored_modules_path] = if root_module_path.nil?
-                                           File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + 'puppet_x/dsc_resources') # rubocop:disable Style/StringConcatenation
-                                         else
-                                           File.expand_path("#{root_module_path}/puppet_x/dsc_resources")
-                                         end
-    end
-
-    # A warning is thrown if the something went wrong and the file was not created
-    raise "Unable to find expected vendored DSC Resource #{resource[:vendored_modules_path]}" unless File.exist? resource[:vendored_modules_path]
+    resource[:vendored_modules_path] = vendored_modules_path(resource[:dscmeta_module_name])
 
     resource[:attributes] = nil
 
@@ -414,10 +398,49 @@ class Puppet::Provider::DscBaseProvider
     resource
   end
 
+  def vendored_modules_path(module_name)
+    # Because Puppet adds all of the modules to the LOAD_PATH we can be sure that the appropriate module lives here during an apply;
+    # PROBLEM: This currently uses the downcased name, we need to capture the module name in the metadata I think.
+    # During a Puppet agent run, the code lives in the cache so we can use the file expansion to discover the correct folder.
+    # This handles setting the vendored_modules_path to include the puppet module name; we now add the puppet module name into the
+    # path to allow multiple modules to with shared dsc_resources to be installed side by side
+    # The old vendored_modules_path: puppet_x/dsc_resources
+    # The new vendored_modules_path: puppet_x/<module_name>/dsc_resources
+    root_module_path = load_path.select { |path| path.match?(%r{#{puppetize_name(module_name)}/lib}) }.first
+    vendored_path = if root_module_path.nil?
+                      File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + "puppet_x/#{puppetize_name(module_name)}/dsc_resources") # rubocop:disable Style/StringConcatenation
+                    else
+                      File.expand_path("#{root_module_path}/puppet_x/#{puppetize_name(module_name)}/dsc_resources")
+                    end
+
+    # Check for the old vendored_modules_path second - if there is a mix of modules with the old and new pathing,
+    # checking for this first will always work and so the more specific search will never run.
+    unless File.exist? vendored_path
+      vendored_path = if root_module_path.nil?
+                        File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + 'puppet_x/dsc_resources') # rubocop:disable Style/StringConcatenation
+                      else
+                        File.expand_path("#{root_module_path}/puppet_x/dsc_resources")
+                      end
+    end
+
+    # A warning is thrown if the something went wrong and the file was not created
+    raise "Unable to find expected vendored DSC Resource #{vendored_path}" unless File.exist? vendored_path
+
+    vendored_path
+  end
+
+  # Return the ruby $LOAD_PATH variable; this method exists to make testing vendored
+  # resource path discovery easier.
+  #
+  # @return [Array] The absolute file paths to available/known ruby code paths
+  def load_path
+    $LOAD_PATH
+  end
+
   # Return a String containing a puppetized name. A puppetized name is a string that only
   # includes lowercase letters, digits, underscores and cannot start with a digit.
   #
-  # @return [String] with a puppeized module name
+  # @return [String] with a puppetized module name
   def puppetize_name(name)
     # Puppet module names must be lower case
     name = name.downcase
@@ -505,6 +528,12 @@ class Puppet::Provider::DscBaseProvider
   # @return [bool] returns equality
   def same?(value1, value2)
     case @value1
+    # TODO: (GH-144) Figure out a way to deeply sort hashes and arrays.
+    # TODO: (GH-143) This was previously nonfunctional due to the typo above which evaluated @value1 instead
+    #       of value1 (and was therefore always nil, which triggered only the else condition). If
+    #       the code for Hash here is enabled, a hash without child hashes causes an error. Removing
+    #       this conditional keeps prior behaviour but does not solve the root problem of hashes with
+    #       the same values comparing as false if a child array is not sorted.
     when Hash
       !value2.nil? ? value2.sort_by { |element| element.keys.first } == value1.sort_by { |element| element.keys.first } : value2 == value1
     when Array
