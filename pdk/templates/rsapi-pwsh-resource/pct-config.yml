@@ -1,0 +1,23 @@
+---
+template:
+  id: rsapi-pwsh-resource
+  type: item
+  display: Resource API Resource leveraging PowerShell
+  version: 0.1.0
+  url: https://github.com/puppetlabs/ruby-pwsh
+
+rsapi:
+  # Valid values: powershell, pwsh, both
+  powershell_support: both
+  ensurable: false
+  # This must be an empty array or replaced with the array values;
+  # not setting the features key leads to errors in template apply
+  features: []
+  # features:
+  #   - canonicalize
+  #   - custom_insync
+  #   - simple_get_filter
+  attributes:
+    - name: foo
+      type: String
+      desc: The foo of the resource you want to manage
