@@ -270,7 +270,7 @@ class Puppet::Provider::DscBaseProvider
     resource = should_to_resource(query_props, context, 'get')
     script_content = ps_script_content(resource)
     context.debug("Script:\n #{redact_secrets(script_content)}")
-    output = ps_manager.execute(script_content)[:stdout]
+    output = ps_manager.execute(remove_secret_identifiers(script_content))[:stdout]
     context.err('Nothing returned') if output.nil?
 
     data = JSON.parse(output)
@@ -351,7 +351,7 @@ class Puppet::Provider::DscBaseProvider
     script_content = ps_script_content(resource)
     context.debug("Script:\n #{redact_secrets(script_content)}")
 
-    output = ps_manager.execute(script_content)[:stdout]
+    output = ps_manager.execute(remove_secret_identifiers(script_content))[:stdout]
     context.err('Nothing returned') if output.nil?
 
     data = JSON.parse(output)
@@ -806,8 +806,8 @@ class Puppet::Provider::DscBaseProvider
   rescue RuntimeError => e
     raise unless e.message =~ /Sensitive \[value redacted\]/
 
-    string = Pwsh::Util.format_powershell_value(unwrap(value))
-    string.gsub(/#PuppetSensitive'}/, "'} # PuppetSensitive")
+    Pwsh::Util.format_powershell_value(unwrap(value))
+    # string.gsub(/#PuppetSensitive'}/, "'} # PuppetSensitive")
   end
 
   # Unwrap sensitive strings for formatting, even inside an enumerable, appending '#PuppetSensitive'
@@ -844,6 +844,11 @@ class Puppet::Provider::DscBaseProvider
     text.gsub("'", "''")
   end
 
+  # With multiple methods which need to discover secrets it is necessary to keep a single regex
+  # which can discover them. This will lazily match everything in a single-quoted string which
+  # ends with #PuppetSensitive and mark the actual contents of the string as the secret.
+  SECRET_DATA_REGEX = /'(?<secret>[^']+)+?#PuppetSensitive'/.freeze
+
   # While Puppet is aware of Sensitive data types, the PowerShell script is not
   # and so for debugging purposes must be redacted before being sent to debug
   # output but must *not* be redacted when sent to the PowerShell code manager.
@@ -851,15 +856,29 @@ class Puppet::Provider::DscBaseProvider
   # @param text [String] the text to redact
   # @return [String] the redacted text
   def redact_secrets(text)
-    # Every secret unwrapped in this module will unwrap as "'secret' # PuppetSensitive" and, currently,
-    # no known resources specify a SecureString instead of a PSCredential object. We therefore only
-    # need to redact strings which look like password declarations.
-    modified_text = text.gsub(/(?<=-Password )'.+' # PuppetSensitive/, "'#<Sensitive [value redacted]>'")
-    if modified_text =~ /'.+' # PuppetSensitive/
-      # Something has gone wrong, error loudly?
-    else
-      modified_text
-    end
+    # Every secret unwrapped in this module will unwrap as "'secret#PuppetSensitive'"
+    # Currently, no known resources specify a SecureString instead of a PSCredential object.
+    modified_text = text.gsub(SECRET_DATA_REGEX, "'#<Sensitive [value redacted]>'")
+
+    # Something has gone wrong, error loudly
+    raise "Unredacted sensitive data would've been leaked" if modified_text =~ /#PuppetSensitive/
+
+    modified_text
+  end
+
+  # While Puppet is aware of Sensitive data types, the PowerShell script is not
+  # and so the helper-id for sensitive data *must* be removed before sending to
+  # the PowerShell code manager.
+  #
+  # @param text [String] the text to strip of secret data identifiers
+  # @return [String] the modified text to pass to the PowerShell code manager
+  def remove_secret_identifiers(text)
+    modified_text = text.gsub(SECRET_DATA_REGEX, "'\\k<secret>'")
+
+    # Something has gone wrong, error loudly
+    raise "Unable to properly format text with sensitive data would've been leaked" if modified_text =~ /#PuppetSensitive/
+
+    modified_text
   end
 
   # Instantiate a PowerShell manager via the ruby-pwsh library and use it to invoke PowerShell.
