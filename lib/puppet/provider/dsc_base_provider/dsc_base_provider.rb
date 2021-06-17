@@ -219,30 +219,38 @@ class Puppet::Provider::DscBaseProvider
     invoke_set_method(context, name, name.merge({ dsc_ensure: 'Absent' }))
   end
 
-  # Invokes the `Get` method, passing the name_hash as the properties to use with `Invoke-DscResource`
-  # The PowerShell script returns a JSON representation of the DSC Resource's CIM Instance munged as
-  # best it can be for Ruby. Once that JSON is parsed into a hash this method further munges it to
-  # fit the expected property definitions. Finally, it returns the object for the Resource API to
-  # compare against and determine what future actions, if any, are needed.
+  # Invokes the given DSC method, passing the name_hash as the properties to use with `Invoke-DscResource`
+  # The PowerShell script returns a JSON hash with key-value pairs indicating the result of the given command.
+  # The hash is left untouched for the most part with any further parsing handled by the methods that call upon it.
   #
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @param name_hash [Hash] the hash of namevars to be passed as properties to `Invoke-DscResource`
-  # @return [Hash] returns a hash representing the DSC resource munged to the representation the Puppet Type expects
-  def invoke_get_method(context, name_hash)
-    context.debug("retrieving #{name_hash.inspect}")
-
+  # @param props [Hash] the properties to be passed to `Invoke-DscResource`
+  # @param method [String] the method to be specified
+  # @return [Hash] returns a hash representing the result of the DSC resource call
+  def invoke_dsc_resource(context, name_hash, props, method)
     # Do not bother running if the logon credentials won't work
-    return name_hash if !name_hash[:dsc_psdscrunascredential].nil? && logon_failed_already?(name_hash[:dsc_psdscrunascredential])
-
-    query_props = name_hash.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
-    resource = invocable_resource(query_props, context, 'get')
+    if !name_hash[:dsc_psdscrunascredential].nil? && logon_failed_already?(name_hash[:dsc_psdscrunascredential])
+      context.err('Logon credentials are invalid')
+      return nil
+    end
+    resource = invocable_resource(props, context, method)
     script_content = ps_script_content(resource)
     context.debug("Script:\n #{redact_secrets(script_content)}")
     output = ps_manager.execute(remove_secret_identifiers(script_content))[:stdout]
-    context.err('Nothing returned') if output.nil?
+    if output.nil?
+      context.err('Nothing returned')
+      return nil
+    end
 
-    data = JSON.parse(output)
+    begin
+      data = JSON.parse(output)
+    rescue => e
+      context.err(e)
+      return nil
+    end
     context.debug("raw data received: #{data.inspect}")
+
     error = data['errormessage']
     unless error.nil?
       # NB: We should have a way to stop processing this resource *now* without blowing up the whole Puppet run
@@ -259,6 +267,25 @@ class Puppet::Provider::DscBaseProvider
       # Either way, something went wrong and we didn't get back a good result, so return nil
       return nil
     end
+    data
+  end
+
+  # Invokes the `Get` method, passing the name_hash as the properties to use with `Invoke-DscResource`
+  # The PowerShell script returns a JSON representation of the DSC Resource's CIM Instance munged as
+  # best it can be for Ruby. Once that JSON is parsed into a hash this method further munges it to
+  # fit the expected property definitions. Finally, it returns the object for the Resource API to
+  # compare against and determine what future actions, if any, are needed.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param name_hash [Hash] the hash of namevars to be passed as properties to `Invoke-DscResource`
+  # @return [Hash] returns a hash representing the DSC resource munged to the representation the Puppet Type expects
+  def invoke_get_method(context, name_hash)
+    context.debug("retrieving #{name_hash.inspect}")
+
+    query_props = name_hash.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
+    data = invoke_dsc_resource(context, name_hash, query_props, 'get')
+    return nil if data.nil?
+
     # DSC gives back information we don't care about; filter down to only
     # those properties exposed in the type definition.
     valid_attributes = context.type.attributes.keys.collect(&:to_s)
@@ -320,24 +347,11 @@ class Puppet::Provider::DscBaseProvider
   def invoke_set_method(context, name, should)
     context.debug("Invoking Set Method for '#{name}' with #{should.inspect}")
 
-    # Do not bother running if the logon credentials won't work
-    return nil if !should[:dsc_psdscrunascredential].nil? && logon_failed_already?(should[:dsc_psdscrunascredential])
-
     apply_props = should.select { |k, _v| k.to_s =~ /^dsc_/ }
-    resource = invocable_resource(apply_props, context, 'set')
-    script_content = ps_script_content(resource)
-    context.debug("Script:\n #{redact_secrets(script_content)}")
+    invoke_dsc_resource(context, should, apply_props, 'set')
 
-    output = ps_manager.execute(remove_secret_identifiers(script_content))[:stdout]
-    context.err('Nothing returned') if output.nil?
-
-    data = JSON.parse(output)
-    context.debug(data)
-
-    context.err(data['errormessage']) unless data['errormessage'].empty?
     # TODO: Implement this functionality for notifying a DSC reboot?
     # notify_reboot_pending if data['rebootrequired'] == true
-    data
   end
 
   # Converts a Puppet resource hash into a hash with the information needed to call Invoke-DscResource,
