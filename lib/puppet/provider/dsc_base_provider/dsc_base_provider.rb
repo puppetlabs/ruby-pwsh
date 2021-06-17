@@ -111,7 +111,7 @@ class Puppet::Provider::DscBaseProvider
     # Relies on the get_simple_filter feature to pass the namevars
     # as an array containing the namevar parameters as a hash.
     # This hash is functionally the same as a should hash as
-    # passed to the should_to_resource method.
+    # passed to the invocable_resource method.
     context.debug('Collecting data from the DSC Resource')
 
     # If the resource has already been queried, do not bother querying for it again
@@ -235,7 +235,7 @@ class Puppet::Provider::DscBaseProvider
     return name_hash if !name_hash[:dsc_psdscrunascredential].nil? && logon_failed_already?(name_hash[:dsc_psdscrunascredential])
 
     query_props = name_hash.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
-    resource = should_to_resource(query_props, context, 'get')
+    resource = invocable_resource(query_props, context, 'get')
     script_content = ps_script_content(resource)
     context.debug("Script:\n #{redact_secrets(script_content)}")
     output = ps_manager.execute(remove_secret_identifiers(script_content))[:stdout]
@@ -324,7 +324,7 @@ class Puppet::Provider::DscBaseProvider
     return nil if !should[:dsc_psdscrunascredential].nil? && logon_failed_already?(should[:dsc_psdscrunascredential])
 
     apply_props = should.select { |k, _v| k.to_s =~ /^dsc_/ }
-    resource = should_to_resource(apply_props, context, 'set')
+    resource = invocable_resource(apply_props, context, 'set')
     script_content = ps_script_content(resource)
     context.debug("Script:\n #{redact_secrets(script_content)}")
 
@@ -348,7 +348,7 @@ class Puppet::Provider::DscBaseProvider
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @param dsc_invoke_method [String] the method to pass to Invoke-DscResource: get, set, or test
   # @return [Hash] a hash with the information needed to run `Invoke-DscResource`
-  def should_to_resource(should, context, dsc_invoke_method)
+  def invocable_resource(should, context, dsc_invoke_method)
     resource = {}
     resource[:parameters] = {}
     %i[name dscmeta_resource_friendly_name dscmeta_resource_name dscmeta_module_name dscmeta_module_version].each do |k|
@@ -371,7 +371,7 @@ class Puppet::Provider::DscBaseProvider
 
     resource[:attributes] = nil
 
-    context.debug("should_to_resource: #{resource.inspect}")
+    context.debug("invocable_resource: #{resource.inspect}")
     resource
   end
 
@@ -590,7 +590,7 @@ class Puppet::Provider::DscBaseProvider
     modified_string
   end
 
-  # Parses a resource definition (as from `should_to_resource`) for any properties which are PowerShell
+  # Parses a resource definition (as from `invocable_resource`) for any properties which are PowerShell
   # Credentials. As these values need to be serialized into PSCredential objects, return an array of
   # PowerShell lines, each of which instantiates a variable which holds the value as a PSCredential.
   # These credential variables can then be simply assigned in the parameter hash where needed.
@@ -624,7 +624,7 @@ class Puppet::Provider::DscBaseProvider
     "$#{variable_name} = New-PSCredential -User #{credential_hash['user']} -Password '#{credential_hash['password']}#{SECRET_POSTFIX}'"
   end
 
-  # Parses a resource definition (as from `should_to_resource`) for any properties which are CIM instances
+  # Parses a resource definition (as from `invocable_resource`) for any properties which are CIM instances
   # whether at the top level or nested inside of other CIM instances, and, where they are discovered, adds
   # those objects to the instantiated_variables hash as well as returning a line of PowerShell code which
   # will create the CIM object and store it in a variable. This then allows the CIM instances to be assigned
@@ -705,7 +705,7 @@ class Puppet::Provider::DscBaseProvider
     interpolate_variables(definition)
   end
 
-  # Munge a resource definition (as from `should_to_resource`) into valid PowerShell which represents
+  # Munge a resource definition (as from `invocable_resource`) into valid PowerShell which represents
   # the `InvokeParams` hash which will be splatted to `Invoke-DscResource`, interpolating all previously
   # defined variables into the hash.
   #
@@ -761,7 +761,7 @@ class Puppet::Provider::DscBaseProvider
     params_block
   end
 
-  # Given a resource definition (as from `should_to_resource`), return a PowerShell script which has
+  # Given a resource definition (as from `invocable_resource`), return a PowerShell script which has
   # all of the appropriate function and variable definitions, which will call Invoke-DscResource, and
   # will correct munge the results for returning to Puppet as a JSON object.
   #

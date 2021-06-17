@@ -459,7 +459,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     before(:each) do
       allow(context).to receive(:debug)
       allow(provider).to receive(:mandatory_get_attributes).and_return(mandatory_get_attributes)
-      allow(provider).to receive(:should_to_resource).with(query_props, context, 'get').and_return(resource)
+      allow(provider).to receive(:invocable_resource).with(query_props, context, 'get').and_return(resource)
       allow(provider).to receive(:ps_script_content).with(resource).and_return(script)
       allow(provider).to receive(:redact_secrets).with(script)
       allow(provider).to receive(:remove_secret_identifiers).with(script).and_return(script)
@@ -644,7 +644,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     before(:each) do
       allow(context).to receive(:debug)
-      allow(provider).to receive(:should_to_resource).with(apply_props, context, 'set').and_return(resource)
+      allow(provider).to receive(:invocable_resource).with(apply_props, context, 'set').and_return(resource)
       allow(provider).to receive(:ps_script_content).with(resource).and_return(script)
       allow(provider).to receive(:ps_manager).and_return(ps_manager)
       allow(provider).to receive(:remove_secret_identifiers).with(script).and_return(script)
@@ -699,8 +699,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.should_to_resource' do
-    subject(:result) { provider.should_to_resource(should_hash, context, 'Get') }
+  context '.invocable_resource' do
+    subject(:result) { provider.invocable_resource(should_hash, context, 'Get') }
 
     let(:definition) do
       {
