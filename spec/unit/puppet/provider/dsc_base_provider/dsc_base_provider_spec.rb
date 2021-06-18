@@ -483,6 +483,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       allow(provider).to receive(:should_to_resource).with(query_props, context, 'get').and_return(resource)
       allow(provider).to receive(:ps_script_content).with(resource).and_return(script)
       allow(provider).to receive(:redact_secrets).with(script)
+      allow(provider).to receive(:remove_secret_identifiers).with(script).and_return(script)
       allow(provider).to receive(:ps_manager).and_return(ps_manager)
       allow(context).to receive(:type).and_return(type)
       allow(type).to receive(:attributes).and_return(attributes)
@@ -652,12 +653,15 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:name) { { name: 'foo', dsc_name: 'foo' } }
     let(:should_hash) { name.merge(dsc_foo: 'bar') }
     let(:apply_props) { { dsc_name: 'foo', dsc_foo: 'bar' } }
+    let(:resource) { "Resource: #{apply_props}" }
+    let(:script) { "Script: #{apply_props}" }
 
     before(:each) do
       allow(context).to receive(:debug)
-      allow(provider).to receive(:should_to_resource).with(apply_props, context, 'set').and_return("Resource: #{apply_props}")
-      allow(provider).to receive(:ps_script_content).with("Resource: #{apply_props}").and_return("Script: #{apply_props}")
+      allow(provider).to receive(:should_to_resource).with(apply_props, context, 'set').and_return(resource)
+      allow(provider).to receive(:ps_script_content).with(resource).and_return(script)
       allow(provider).to receive(:ps_manager).and_return(ps_manager)
+      allow(provider).to receive(:remove_secret_identifiers).with(script).and_return(script)
     end
 
     context 'when the specified account has already failed to logon' do
@@ -1522,8 +1526,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'handles sensitive values especially' do
       expect(Pwsh::Util).to receive(:format_powershell_value).with(sensitive_string).and_raise(RuntimeError, 'Could not format Sensitive [value redacted]')
       expect(provider).to receive(:unwrap).with(sensitive_string).and_return('foo#PuppetSensitive')
-      expect(Pwsh::Util).to receive(:format_powershell_value).with('foo#PuppetSensitive').and_return("{'foo#PuppetSensitive'}")
-      expect(provider.format(sensitive_string)).to eq("{'foo'} # PuppetSensitive")
+      expect(Pwsh::Util).to receive(:format_powershell_value).with('foo#PuppetSensitive').and_return("'foo#PuppetSensitive'")
+      expect(provider.format(sensitive_string)).to eq("'foo#PuppetSensitive'")
     end
     it 'raises an error if Pwsh::Util raises any error not related to unwrapping a sensitive string' do
       expect(Pwsh::Util).to receive(:format_powershell_value).with('foo').and_raise(RuntimeError, 'Ope!')
@@ -1586,12 +1590,18 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   context '.redact_secrets' do
     let(:unsensitive_string) { 'some very unsecret text' }
-    let(:sensitive_string) { "$foo = New-PSCredential -User foo -Password 'foo' # PuppetSensitive" }
+    let(:sensitive_string) { "$foo = New-PSCredential -User foo -Password 'foo#PuppetSensitive'" }
     let(:redacted_string) { "$foo = New-PSCredential -User foo -Password '#<Sensitive [value redacted]>'" }
+    let(:sensitive_array) { "@('a', 'b#PuppetSensitive', 'c')" }
+    let(:redacted_array) { "@('a', '#<Sensitive [value redacted]>', 'c')" }
+    let(:sensitive_hash) { "@{a = 'foo'; b = 'bar#PuppetSensitive'; c = 1}" }
+    let(:redacted_hash) { "@{a = 'foo'; b = '#<Sensitive [value redacted]>'; c = 1}" }
+    let(:sensitive_complex) { "@{a = 'foo'; b = 'bar#PuppetSensitive'; c = @('a', 'b#PuppetSensitive', 'c')}" }
+    let(:redacted_complex) { "@{a = 'foo'; b = '#<Sensitive [value redacted]>'; c = @('a', '#<Sensitive [value redacted]>', 'c')}" }
     let(:multiline_sensitive_string) do
       <<~SENSITIVE
-        $foo = New-PSCredential -User foo -Password 'foo' # PuppetSensitive
-        $bar = New-PSCredential -User bar -Password 'bar' # PuppetSensitive
+        $foo = New-PSCredential -User foo -Password 'foo#PuppetSensitive'
+        $bar = New-PSCredential -User bar -Password 'bar#PuppetSensitive'
       SENSITIVE
     end
     let(:multiline_redacted_string) do
@@ -1600,15 +1610,113 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         $bar = New-PSCredential -User bar -Password '#<Sensitive [value redacted]>'
       REDACTED
     end
+    let(:multiline_sensitive_complex) do
+      <<~SENSITIVE
+        @{
+          a = 'foo'
+          b = 'bar#PuppetSensitive'
+          c = @('a', 'b#PuppetSensitive', 'c', 'd#PuppetSensitive')
+          d = @{
+            a = 'foo#PuppetSensitive'
+            b = @('a', 'b#PuppetSensitive')
+            c = @('a', @{ x = 'y#PuppetSensitive' })
+          }
+        }
+      SENSITIVE
+    end
+    let(:multiline_redacted_complex) do
+      <<~REDACTED
+        @{
+          a = 'foo'
+          b = '#<Sensitive [value redacted]>'
+          c = @('a', '#<Sensitive [value redacted]>', 'c', '#<Sensitive [value redacted]>')
+          d = @{
+            a = '#<Sensitive [value redacted]>'
+            b = @('a', '#<Sensitive [value redacted]>')
+            c = @('a', @{ x = '#<Sensitive [value redacted]>' })
+          }
+        }
+      REDACTED
+    end
 
     it 'does not modify a string without any secrets' do
       expect(provider.redact_secrets(unsensitive_string)).to eq(unsensitive_string)
     end
-    it 'replaces any unwrapped password declaration value with "#<Sensitive [Value redacted]>"' do
+    it 'replaces any unwrapped secret with "#<Sensitive [Value redacted]>"' do
       expect(provider.redact_secrets(sensitive_string)).to eq(redacted_string)
+      expect(provider.redact_secrets(sensitive_array)).to eq(redacted_array)
+      expect(provider.redact_secrets(sensitive_hash)).to eq(redacted_hash)
+      expect(provider.redact_secrets(sensitive_complex)).to eq(redacted_complex)
     end
-    it 'replaces unwrapped password declarations in a multiline string' do
+    it 'replaces unwrapped secrets in a multiline string' do
       expect(provider.redact_secrets(multiline_sensitive_string)).to eq(multiline_redacted_string)
+      expect(provider.redact_secrets(multiline_sensitive_complex)).to eq(multiline_redacted_complex)
+    end
+  end
+
+  context '.remove_secret_identifiers' do
+    let(:unsensitive_string) { 'some very unsecret text' }
+    let(:sensitive_string) { "$foo = New-PSCredential -User foo -Password 'foo#PuppetSensitive'" }
+    let(:redacted_string) { "$foo = New-PSCredential -User foo -Password 'foo'" }
+    let(:sensitive_array) { "@('a', 'b#PuppetSensitive', 'c')" }
+    let(:redacted_array) { "@('a', 'b', 'c')" }
+    let(:sensitive_hash) { "@{a = 'foo'; b = 'bar#PuppetSensitive'; c = 1}" }
+    let(:redacted_hash) { "@{a = 'foo'; b = 'bar'; c = 1}" }
+    let(:sensitive_complex) { "@{a = 'foo'; b = 'bar#PuppetSensitive'; c = @('a', 'b#PuppetSensitive', 'c')}" }
+    let(:redacted_complex) { "@{a = 'foo'; b = 'bar'; c = @('a', 'b', 'c')}" }
+    let(:multiline_sensitive_string) do
+      <<~SENSITIVE
+        $foo = New-PSCredential -User foo -Password 'foo#PuppetSensitive'
+        $bar = New-PSCredential -User bar -Password 'bar#PuppetSensitive'
+      SENSITIVE
+    end
+    let(:multiline_redacted_string) do
+      <<~REDACTED
+        $foo = New-PSCredential -User foo -Password 'foo'
+        $bar = New-PSCredential -User bar -Password 'bar'
+      REDACTED
+    end
+    let(:multiline_sensitive_complex) do
+      <<~SENSITIVE
+        @{
+          a = 'foo'
+          b = 'bar#PuppetSensitive'
+          c = @('a', 'b#PuppetSensitive', 'c', 'd#PuppetSensitive')
+          d = @{
+            a = 'foo#PuppetSensitive'
+            b = @('a', 'b#PuppetSensitive')
+            c = @('a', @{ x = 'y#PuppetSensitive' })
+          }
+        }
+      SENSITIVE
+    end
+    let(:multiline_redacted_complex) do
+      <<~REDACTED
+        @{
+          a = 'foo'
+          b = 'bar'
+          c = @('a', 'b', 'c', 'd')
+          d = @{
+            a = 'foo'
+            b = @('a', 'b')
+            c = @('a', @{ x = 'y' })
+          }
+        }
+      REDACTED
+    end
+
+    it 'does not modify a string without any secrets' do
+      expect(provider.remove_secret_identifiers(unsensitive_string)).to eq(unsensitive_string)
+    end
+    it 'removes the secret identifier from any unwrapped secret' do
+      expect(provider.remove_secret_identifiers(sensitive_string)).to eq(redacted_string)
+      expect(provider.remove_secret_identifiers(sensitive_array)).to eq(redacted_array)
+      expect(provider.remove_secret_identifiers(sensitive_hash)).to eq(redacted_hash)
+      expect(provider.remove_secret_identifiers(sensitive_complex)).to eq(redacted_complex)
+    end
+    it 'removes the secret identifier from any unwrapped secrets in a multiline string' do
+      expect(provider.remove_secret_identifiers(multiline_sensitive_string)).to eq(multiline_redacted_string)
+      expect(provider.remove_secret_identifiers(multiline_sensitive_complex)).to eq(multiline_redacted_complex)
     end
   end
 
