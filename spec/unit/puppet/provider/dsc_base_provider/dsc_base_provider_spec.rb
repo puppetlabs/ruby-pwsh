@@ -1230,8 +1230,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(second_credential_hash).to eq({ 'user' => 'bar', 'password' => 'bar' })
       end
       it 'returns an array of strings each containing the instantiation of a PowerShell variable representing the credential hash' do
-        expect(result[0]).to match(/^\$\w+ = New-PSCredential -User foo -Password 'foo' # PuppetSensitive/)
-        expect(result[1]).to match(/^\$\w+ = New-PSCredential -User bar -Password 'bar' # PuppetSensitive/)
+        expect(result[0]).to match(/^\$\w+ = New-PSCredential -User foo -Password 'foo#PuppetSensitive'/)
+        expect(result[1]).to match(/^\$\w+ = New-PSCredential -User bar -Password 'bar#PuppetSensitive'/)
       end
     end
   end
@@ -1240,7 +1240,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:credential_hash) { { 'user' => 'foo', 'password' => 'bar' } }
 
     it 'returns a string representing the instantiation of a PowerShell variable representing the credential hash' do
-      expected_powershell_code = "$foo = New-PSCredential -User foo -Password 'bar' # PuppetSensitive"
+      expected_powershell_code = "$foo = New-PSCredential -User foo -Password 'bar#PuppetSensitive'"
       expect(provider.format_pscredential('foo', credential_hash)).to eq(expected_powershell_code)
     end
   end
@@ -1618,19 +1618,19 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:sensitive_complex) { "@{a = 'foo'; b = 'bar#PuppetSensitive'; c = @('a', 'b#PuppetSensitive', 'c')}" }
     let(:redacted_complex) { "@{a = 'foo'; b = '#<Sensitive [value redacted]>'; c = @('a', '#<Sensitive [value redacted]>', 'c')}" }
     let(:multiline_sensitive_string) do
-      <<~SENSITIVE
+      <<~SENSITIVE.strip
         $foo = New-PSCredential -User foo -Password 'foo#PuppetSensitive'
         $bar = New-PSCredential -User bar -Password 'bar#PuppetSensitive'
       SENSITIVE
     end
     let(:multiline_redacted_string) do
-      <<~REDACTED
+      <<~REDACTED.strip
         $foo = New-PSCredential -User foo -Password '#<Sensitive [value redacted]>'
         $bar = New-PSCredential -User bar -Password '#<Sensitive [value redacted]>'
       REDACTED
     end
     let(:multiline_sensitive_complex) do
-      <<~SENSITIVE
+      <<~SENSITIVE.strip
         @{
           a = 'foo'
           b = 'bar#PuppetSensitive'
@@ -1644,7 +1644,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       SENSITIVE
     end
     let(:multiline_redacted_complex) do
-      <<~REDACTED
+      <<~REDACTED.strip
         @{
           a = 'foo'
           b = '#<Sensitive [value redacted]>'
@@ -1684,19 +1684,19 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:sensitive_complex) { "@{a = 'foo'; b = 'bar#PuppetSensitive'; c = @('a', 'b#PuppetSensitive', 'c')}" }
     let(:redacted_complex) { "@{a = 'foo'; b = 'bar'; c = @('a', 'b', 'c')}" }
     let(:multiline_sensitive_string) do
-      <<~SENSITIVE
+      <<~SENSITIVE.strip
         $foo = New-PSCredential -User foo -Password 'foo#PuppetSensitive'
         $bar = New-PSCredential -User bar -Password 'bar#PuppetSensitive'
       SENSITIVE
     end
     let(:multiline_redacted_string) do
-      <<~REDACTED
+      <<~REDACTED.strip
         $foo = New-PSCredential -User foo -Password 'foo'
         $bar = New-PSCredential -User bar -Password 'bar'
       REDACTED
     end
     let(:multiline_sensitive_complex) do
-      <<~SENSITIVE
+      <<~SENSITIVE.strip
         @{
           a = 'foo'
           b = 'bar#PuppetSensitive'
@@ -1710,7 +1710,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       SENSITIVE
     end
     let(:multiline_redacted_complex) do
-      <<~REDACTED
+      <<~REDACTED.strip
         @{
           a = 'foo'
           b = 'bar'

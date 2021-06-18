@@ -602,7 +602,7 @@ class Puppet::Provider::DscBaseProvider
   # @param credential_hash [Hash] the Properties which define the PSCredential Object
   # @return [String] A line of PowerShell which defines the PSCredential object and stores it to a variable
   def format_pscredential(variable_name, credential_hash)
-    "$#{variable_name} = New-PSCredential -User #{credential_hash['user']} -Password '#{credential_hash['password']}' # PuppetSensitive"
+    "$#{variable_name} = New-PSCredential -User #{credential_hash['user']} -Password '#{credential_hash['password']}#{SECRET_POSTFIX}'"
   end
 
   # Parses a resource definition (as from `should_to_resource`) for any properties which are CIM instances
@@ -778,18 +778,17 @@ class Puppet::Provider::DscBaseProvider
     raise unless e.message =~ /Sensitive \[value redacted\]/
 
     Pwsh::Util.format_powershell_value(unwrap(value))
-    # string.gsub(/#PuppetSensitive'}/, "'} # PuppetSensitive")
   end
 
-  # Unwrap sensitive strings for formatting, even inside an enumerable, appending '#PuppetSensitive'
-  # to the end of the string in preparation for gsub cleanup.
+  # Unwrap sensitive strings for formatting, even inside an enumerable, appending the
+  # the secret postfix to the end of the string in preparation for gsub cleanup.
   #
   # @param value [Object] The object to unwrap sensitive data inside of
   # @return [Object] The object with any sensitive strings unwrapped and annotated
   def unwrap(value)
     case value
     when Puppet::Pops::Types::PSensitiveType::Sensitive
-      "#{value.unwrap}#PuppetSensitive"
+      "#{value.unwrap}#{SECRET_POSTFIX}"
     when Hash
       unwrapped = {}
       value.each do |k, v|
@@ -815,10 +814,46 @@ class Puppet::Provider::DscBaseProvider
     text.gsub("'", "''")
   end
 
+  # In order to avoid having to update the string that indicates when a value came from a sensitive
+  # string in multiple places, use a constant to indicate what the text of the secret identifier
+  # should be. This is used to write, identify, and redact secrets between PowerShell & Puppet.
+  SECRET_POSTFIX = '#PuppetSensitive'
+
   # With multiple methods which need to discover secrets it is necessary to keep a single regex
   # which can discover them. This will lazily match everything in a single-quoted string which
-  # ends with #PuppetSensitive and mark the actual contents of the string as the secret.
-  SECRET_DATA_REGEX = /'(?<secret>[^']+)+?#PuppetSensitive'/.freeze
+  # ends with the secret postfix id and mark the actual contents of the string as the secret.
+  SECRET_DATA_REGEX = /'(?<secret>[^']+)+?#{Regexp.quote(SECRET_POSTFIX)}'/.freeze
+
+  # Strings containing sensitive data have a secrets postfix. These strings cannot be passed
+  # directly either to debug streams or to PowerShell and must be handled; this method contains
+  # the shared logic for parsing text for secrets and substituting values for them.
+  #
+  # @param text [String] the text to parse and handle for secrets
+  # @param replacement [String] the value to pass to gsub to replace secrets with
+  # @param error_message [String] the error message to raise instead of leaking secrets
+  # @return [String] the modified text
+  def handle_secrets(text, replacement, error_message)
+    # Every secret unwrapped in this module will unwrap as "'secret#{SECRET_POSTFIX}'"
+    # Currently, no known resources specify a SecureString instead of a PSCredential object.
+    return text unless text.match(/#{Regexp.quote(SECRET_POSTFIX)}/)
+
+    # In order to reduce time-to-parse, look at each line individually and *only* attempt
+    # to substitute if a naive match for the secret postfix is found on the line.
+    modified_text = text.split("\n").map do |line|
+      if line.match(/#{Regexp.quote(SECRET_POSTFIX)}/)
+        line.gsub(SECRET_DATA_REGEX, replacement)
+      else
+        line
+      end
+    end
+
+    modified_text = modified_text.join("\n")
+
+    # Something has gone wrong, error loudly
+    raise error_message if modified_text =~ /#{Regexp.quote(SECRET_POSTFIX)}/
+
+    modified_text
+  end
 
   # While Puppet is aware of Sensitive data types, the PowerShell script is not
   # and so for debugging purposes must be redacted before being sent to debug
@@ -827,14 +862,7 @@ class Puppet::Provider::DscBaseProvider
   # @param text [String] the text to redact
   # @return [String] the redacted text
   def redact_secrets(text)
-    # Every secret unwrapped in this module will unwrap as "'secret#PuppetSensitive'"
-    # Currently, no known resources specify a SecureString instead of a PSCredential object.
-    modified_text = text.gsub(SECRET_DATA_REGEX, "'#<Sensitive [value redacted]>'")
-
-    # Something has gone wrong, error loudly
-    raise "Unredacted sensitive data would've been leaked" if modified_text =~ /#PuppetSensitive/
-
-    modified_text
+    handle_secrets(text, "'#<Sensitive [value redacted]>'", "Unredacted sensitive data would've been leaked")
   end
 
   # While Puppet is aware of Sensitive data types, the PowerShell script is not
@@ -844,12 +872,7 @@ class Puppet::Provider::DscBaseProvider
   # @param text [String] the text to strip of secret data identifiers
   # @return [String] the modified text to pass to the PowerShell code manager
   def remove_secret_identifiers(text)
-    modified_text = text.gsub(SECRET_DATA_REGEX, "'\\k<secret>'")
-
-    # Something has gone wrong, error loudly
-    raise "Unable to properly format text with sensitive data would've been leaked" if modified_text =~ /#PuppetSensitive/
-
-    modified_text
+    handle_secrets(text, "'\\k<secret>'", 'Unable to properly format text for PowerShell with sensitive data')
   end
 
   # Instantiate a PowerShell manager via the ruby-pwsh library and use it to invoke PowerShell.
