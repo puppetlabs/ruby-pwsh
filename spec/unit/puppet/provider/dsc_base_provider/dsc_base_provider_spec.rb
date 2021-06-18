@@ -330,27 +330,6 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.create_absent' do
-    subject(:result) { provider.create_absent(test_namevar, test_title) }
-
-    context 'when title is a hash' do
-      let(:test_namevar) { :foo }
-      let(:test_title) { { dsc_foo: 'bar', dsc_bar: 'baz' } }
-
-      it 'duplicates the hash and sets dsc_ensure to Absent' do
-        expect(result).to eq(test_title.merge(dsc_ensure: 'Absent'))
-      end
-    end
-    context 'when title is a string' do
-      let(:test_namevar) { :dsc_foo }
-      let(:test_title) { 'bar' }
-
-      it 'duplicates the hash and sets dsc_ensure to Absent' do
-        expect(result).to eq({ dsc_foo: 'bar', dsc_ensure: 'Absent' })
-      end
-    end
-  end
-
   context '.create' do
     it 'calls invoke_set_method' do
       allow(context).to receive(:debug)

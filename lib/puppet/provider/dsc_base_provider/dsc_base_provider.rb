@@ -139,33 +139,14 @@ class Puppet::Provider::DscBaseProvider
   # @param changes [Hash] the hash of whose key is the name_hash and value is the is and should hashes
   def set(context, changes)
     changes.each do |name, change|
-      # TODO: (GH-141) Can `is` ever *not* be passed? If not, can this code be removed?
-      # TODO: (GH-141) It is non functional because the find blows up (and isn't necessary)
-      is = change.key?(:is) ? change[:is] : (get(context, [name]) || []).find { |r| r[:name] == name }
-      context.type.check_schema(is) unless change.key?(:is)
-
+      is = change[:is]
       should = change[:should]
 
-      # TODO: (GH-141) This is not needed because invoke_set_method strips out unneccessary
-      #       namevars itself; this just strips them out before passing the name hash.
-      name_hash = if context.type.namevars.length > 1
-                    # pass a name_hash containing the values of all namevars
-                    name_hash = {}
-                    context.type.namevars.each do |namevar|
-                      name_hash[namevar] = change[:should][namevar]
-                    end
-                    name_hash
-                  else
-                    name
-                  end
+      # If should is an array instead of a hash and only has one entry, use that.
+      should = should.first if should.is_a?(Array) && should.length == 1
 
       # for compatibility sake, we use dsc_ensure instead of ensure, so context.type.ensurable? does not work
       if context.type.attributes.key?(:dsc_ensure)
-        # TODO: (GH-141) Can `is` ever *not* be passed? If not, can this code be removed?
-        is = create_absent(:name, name) if is.nil?
-        # TODO: (GH-141) Can `should` ever be nil? If not, can this code be removed? Is this even desired behavior?
-        should = create_absent(:name, name) if should.nil?
-
         # HACK: If the DSC Resource is ensurable but doesn't report a default value
         # for ensure, we assume it to be `Present` - this is the most common pattern.
         should_ensure = should[:dsc_ensure].nil? ? 'Present' : should[:dsc_ensure].to_s
@@ -174,45 +155,29 @@ class Puppet::Provider::DscBaseProvider
 
         if is_ensure == 'Absent' && should_ensure == 'Present'
           context.creating(name) do
-            create(context, name_hash, should)
+            create(context, name, should)
           end
         elsif is_ensure == 'Present' && should_ensure == 'Present'
           context.updating(name) do
-            update(context, name_hash, should)
+            update(context, name, should)
           end
         elsif is_ensure == 'Present' && should_ensure == 'Absent'
           context.deleting(name) do
-            delete(context, name_hash)
+            delete(context, name)
           end
         else
           # In this case we are not sure if the resource is being created/updated/removed
           # as with ensure "latest" or a specific version number, so default to update.
           context.updating(name) do
-            update(context, name_hash, should)
+            update(context, name, should)
           end
         end
       else
         context.updating(name) do
-          update(context, name_hash, should)
+          update(context, name, should)
         end
       end
     end
-  end
-
-  # Creates a hash with the name / name_hash and sets dsc_ensure to absent for comparison
-  # purposes; this handles cases where the resource isn't found on the node.
-  #
-  # @param namevar [Object] the name of the variable being used for the resource name
-  # @param title [Hash] the hash of namevar properties and their values
-  # @return [Hash] returns a hash representing the absent state of the resource
-  def create_absent(namevar, title)
-    result = if title.is_a? Hash
-               title.dup
-             else
-               { namevar => title }
-             end
-    result[:dsc_ensure] = 'Absent'
-    result
   end
 
   # Attempts to set an instance of the DSC resource, invoking the `Set` method and thinly wrapping
