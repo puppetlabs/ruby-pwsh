@@ -1030,19 +1030,59 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
+  context '.recursively_sort' do
+    let(:test_hash) do
+      {
+        SomeKey: 'Value',
+        SomeArray: [2, 3, 1],
+        SomeComplexArray: [2, 3, [2, 1]],
+        SomeHash: {
+          NestedKey: 'Foo',
+          NestedArray: [{ NestedArrayKeyTwo: 2, NestedArrayKeyOne: 'ONE' }, 2, 1],
+          NestedHash: {
+            DeeplyNestedKey: 'Foo',
+            DeeplyNestedArray: [2, 3, 'a', 1, 'c', 'b'],
+            DeeplyNestedHash: {
+              VeryDeeplyNestedKey2: 'Foo',
+              VeryDeeplyNestedKey1: 'Bar'
+            }
+          }
+        }
+      }
+    end
+    let(:sorted_keys) { %i[SomeArray SomeComplexArray SomeHash SomeKey] }
+    let(:sorted_some_array) { [1, 2, 3] }
+    let(:sorted_complex_array) { [2, 3, [1, 2]] }
+    let(:sorted_some_hash_keys) { %i[NestedArray NestedHash NestedKey] }
+    let(:sorted_nested_array) { [1, 2, { NestedArrayKeyOne: 'ONE', NestedArrayKeyTwo: 2 }] }
+    let(:sorted_nested_hash_keys) { %i[DeeplyNestedArray DeeplyNestedHash DeeplyNestedKey] }
+    let(:sorted_deeply_nested_array) { [1, 2, 3, 'a', 'b', 'c'] }
+    let(:sorted_deeply_nested_hash_keys) { %i[VeryDeeplyNestedKey1 VeryDeeplyNestedKey2] }
+
+    it 'downcases any string passed, whether alone or in a hash or array or nested deeply' do
+      result = provider.recursively_sort(test_hash)
+      expect(result.keys).to eq(sorted_keys)
+      expect(result[:SomeArray]).to eq(sorted_some_array)
+      expect(result[:SomeComplexArray]).to eq(sorted_complex_array)
+      expect(result[:SomeHash].keys).to eq(sorted_some_hash_keys)
+      expect(result[:SomeHash][:NestedArray]).to eq(sorted_nested_array)
+      expect(result[:SomeHash][:NestedHash].keys).to eq(sorted_nested_hash_keys)
+      expect(result[:SomeHash][:NestedHash][:DeeplyNestedArray]).to eq(sorted_deeply_nested_array)
+      expect(result[:SomeHash][:NestedHash][:DeeplyNestedHash].keys).to eq(sorted_deeply_nested_hash_keys)
+    end
+  end
+
   context '.same?' do
     it 'compares hashes regardless of order' do
       expect(provider.same?({ foo: 1, bar: 2 }, { bar: 2, foo: 1 })).to be true
     end
     it 'compares hashes with nested arrays regardless of order' do
-      pending('Method to deeply sort hashes and arrays')
       expect(provider.same?({ foo: [1, 2], bar: { baz: [1, 2] } }, { foo: [2, 1], bar: { baz: [2, 1] } })).to be true
     end
     it 'compares arrays regardless of order' do
       expect(provider.same?([1, 2], [2, 1])).to be true
     end
     it 'compares arrays with nested arrays regardless of order' do
-      pending('Method to deeply sort hashes and arrays')
       expect(provider.same?([1, [1, 2]], [[2, 1], 1])).to be true
     end
     it 'compares non enumerables directly' do

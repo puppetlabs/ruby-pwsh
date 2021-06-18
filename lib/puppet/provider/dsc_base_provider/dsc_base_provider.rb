@@ -521,26 +521,32 @@ class Puppet::Provider::DscBaseProvider
     end
   end
 
+  # Recursively sorts any object to enable order-insensitive comparisons
+  #
+  # @param object [Object] an array, hash, or other object to attempt to recursively downcase
+  # @return [Object] returns the input object recursively downcased
+  def recursively_sort(object)
+    case object
+    when Array
+      object.map { |item| recursively_sort(item) }.sort_by(&:to_s)
+    when Hash
+      transformed = {}
+      object.sort.to_h.each do |key, value|
+        transformed[key] = recursively_sort(value)
+      end
+      transformed
+    else
+      object
+    end
+  end
+
   # Check equality, sort if necessary
   #
   # @param value1 [object] a string, array, hash, or other object to sort and compare to value2
   # @param value2 [object] a string, array, hash, or other object to sort and compare to value1
   # @return [bool] returns equality
   def same?(value1, value2)
-    case value1
-    # TODO: (GH-144) Figure out a way to deeply sort hashes and arrays.
-    # TODO: (GH-143) This was previously nonfunctional due to the typo above which evaluated @value1 instead
-    #       of value1 (and was therefore always nil, which triggered only the else condition). If
-    #       the code for Hash here is enabled, a hash without child hashes causes an error. Removing
-    #       this conditional keeps prior behaviour but does not solve the root problem of hashes with
-    #       the same values comparing as false if a child array is not sorted.
-    # when Hash
-    #   !value2.nil? ? value2.sort_by { |element| element.keys.first } == value1.sort_by { |element| element.keys.first } : value2 == value1
-    when Array
-      !value2.nil? ? value2.sort == value1.sort : value2 == value1
-    else
-      value2 == value1
-    end
+    recursively_sort(value2) == recursively_sort(value1)
   end
 
   # Parses the DSC resource type definition to retrieve the names of any attributes which are specified as mandatory for get operations
