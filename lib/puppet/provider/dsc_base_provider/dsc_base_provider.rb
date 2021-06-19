@@ -270,7 +270,13 @@ class Puppet::Provider::DscBaseProvider
     data.keys.each do |key| # rubocop:disable Style/HashEachMethods
       type_key = "dsc_#{key.downcase}".to_sym
       data[type_key] = data.delete(key)
-      camelcase_hash_keys!(data[type_key]) if data[type_key].is_a?(Enumerable)
+
+      # Special handling for CIM Instances
+      if data[type_key].is_a?(Enumerable)
+        downcase_hash_keys!(data[type_key])
+        munge_cim_instances!(data[type_key])
+      end
+
       # Convert DateTime back to appropriate type
       data[type_key] = Puppet::Pops::Time::Timestamp.parse(data[type_key]) if context.type.attributes[type_key][:mof_type] =~ /DateTime/i
       # PowerShell does not distinguish between a return of empty array/string
@@ -448,20 +454,27 @@ class Puppet::Provider::DscBaseProvider
     end
   end
 
-  # Recursively transforms any enumerable, camelCasing any hash keys it finds
+  # Recursively transforms any enumerable, downcasing any hash keys it finds, changing the passed enumerable.
   #
   # @param enumerable [Enumerable] a string, array, hash, or other object to attempt to recursively downcase
-  # @return [Enumerable] returns the input object with hash keys recursively camelCased
-  def camelcase_hash_keys!(enumerable)
+  def downcase_hash_keys!(enumerable)
     if enumerable.is_a?(Hash)
       enumerable.keys.each do |key| # rubocop:disable Style/HashEachMethods
-        name = key.dup
-        name[0] = name[0].downcase
+        name = key.dup.downcase
         enumerable[name] = enumerable.delete(key)
-        camelcase_hash_keys!(enumerable[name]) if enumerable[name].is_a?(Enumerable)
+        downcase_hash_keys!(enumerable[name]) if enumerable[name].is_a?(Enumerable)
       end
     else
-      enumerable.each { |item| camelcase_hash_keys!(item) if item.is_a?(Enumerable) }
+      enumerable.each { |item| downcase_hash_keys!(item) if item.is_a?(Enumerable) }
+    end
+  end
+
+  def munge_cim_instances!(enumerable)
+    if enumerable.is_a?(Hash)
+      # Delete the cim_instance_type key from a top-level CIM Instance **only**
+      _ = enumerable.delete('cim_instance_type')
+    else
+      enumerable.each { |item| munge_cim_instances!(item) if item.is_a?(Enumerable) }
     end
   end
 
