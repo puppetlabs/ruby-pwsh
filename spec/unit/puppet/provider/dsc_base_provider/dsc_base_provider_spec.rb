@@ -74,8 +74,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       let(:expected_resource) { base_resource.merge({ dsc_property: 'foobar' }) }
       let(:cached_canonicalized_resource) { expected_resource.dup }
 
-      it 'returns the cached resource' do
-        expect(canonicalized_resource).to eq([expected_resource])
+      it 'returns the manifest resource' do
+        expect(canonicalized_resource).to eq([manifest_resource])
       end
     end
 
