@@ -506,9 +506,9 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       it 'handles timestamps' do
         expect(result[:dsc_time]).to eq('TimeStamp:2100-01-01')
       end
-      it 'camelcases keys in cim instance properties' do
-        expect(result[:dsc_nestedciminstance].keys).to eq(%w[baz nestedProperty])
-        expect(result[:dsc_nestedciminstance]['nestedProperty'].keys).to eq(%w[nestedFoo nestedBar cim_instance_type])
+      it 'downcases keys in cim instance properties' do
+        expect(result[:dsc_nestedciminstance].keys).to eq(%w[baz nestedproperty])
+        expect(result[:dsc_nestedciminstance]['nestedproperty'].keys).to eq(%w[nestedfoo nestedbar cim_instance_type])
       end
 
       context 'when a namevar is an array' do
@@ -929,7 +929,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.camelcase_hash_keys!' do
+  context '.downcase_hash_keys!' do
     let(:test_hash) do
       {
         'SomeKey' => 'value',
@@ -951,17 +951,91 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       }
     end
 
-    it 'converts all the keys in a hash into camel_case, even if nested in another hash or array' do
-      camelcased_hash = test_hash.dup
-      expect { provider.camelcase_hash_keys!(camelcased_hash) }.not_to raise_error
-      expect(camelcased_hash.keys).to eq(%w[someKey someArray someHash])
-      expect(camelcased_hash['someArray'][0].keys).to eq(%w[arrayKeyOne arrayKeyTwo])
-      expect(camelcased_hash['someArray'][1].keys).to eq(%w[arrayKeyOne arrayKeyTwo])
-      expect(camelcased_hash['someHash'].keys).to eq(%w[nestedKey nestedArray nestedHash])
-      expect(camelcased_hash['someHash']['nestedArray'].first.keys).to eq(%w[nestedArrayKeyOne nestedArrayKeyTwo])
-      expect(camelcased_hash['someHash']['nestedHash'].keys).to eq(%w[deeplyNestedKey deeplyNestedArray deeplyNestedHash])
-      expect(camelcased_hash['someHash']['nestedHash']['deeplyNestedArray'].first.keys).to eq(%w[deeplyNestedArrayKeyOne deeplyNestedArrayKeyTwo])
-      expect(camelcased_hash['someHash']['nestedHash']['deeplyNestedHash'].keys).to eq(%w[veryDeeplyNestedKey])
+    it 'converts all the keys in a hash into downcase, even if nested in another hash or array' do
+      downcased_hash = test_hash.dup
+      expect { provider.downcase_hash_keys!(downcased_hash) }.not_to raise_error
+      expect(downcased_hash.keys).to eq(%w[somekey somearray somehash])
+      expect(downcased_hash['somearray'][0].keys).to eq(%w[arraykeyone arraykeytwo])
+      expect(downcased_hash['somearray'][1].keys).to eq(%w[arraykeyone arraykeytwo])
+      expect(downcased_hash['somehash'].keys).to eq(%w[nestedkey nestedarray nestedhash])
+      expect(downcased_hash['somehash']['nestedarray'].first.keys).to eq(%w[nestedarraykeyone nestedarraykeytwo])
+      expect(downcased_hash['somehash']['nestedhash'].keys).to eq(%w[deeplynestedkey deeplynestedarray deeplynestedhash])
+      expect(downcased_hash['somehash']['nestedhash']['deeplynestedarray'].first.keys).to eq(%w[deeplynestedarraykeyone deeplynestedarraykeytwo])
+      expect(downcased_hash['somehash']['nestedhash']['deeplynestedhash'].keys).to eq(%w[verydeeplynestedkey])
+    end
+  end
+
+  context '.munge_cim_instances!' do
+    let(:cim_instance) do
+      {
+        'CertificateSubject' => nil,
+        'SslFlags' => '0',
+        'CertificateStoreName' => nil,
+        'CertificateThumbprint' => nil,
+        'HostName' => nil,
+        'BindingInformation' => '*:80:',
+        'cim_instance_type' => 'MSFT_xWebBindingInformation',
+        'Port' => 80,
+        'IPAddress' => '*',
+        'Protocol' => 'http'
+      }
+    end
+    let(:nested_cim_instance) do
+      {
+        'AccessControlEntry' => [
+          {
+            'AccessControlType' => 'Allow',
+            'Inheritance' => 'This folder and files',
+            'Ensure' => 'Present',
+            'cim_instance_type' => 'NTFSAccessControlEntry',
+            'FileSystemRights' => ['FullControl']
+          }
+        ],
+        'ForcePrincipal' => true,
+        'Principal' => 'Everyone'
+      }
+    end
+
+    before(:each) { provider.munge_cim_instances!(value) }
+
+    context 'when called against a non-nested cim instance' do
+      let(:value) { cim_instance.dup }
+
+      it 'removes the cim_instance_type key' do
+        expect(value.keys).not_to include('cim_instance_type')
+      end
+
+      context 'in an array' do
+        let(:value) { [cim_instance.dup] }
+
+        it 'removes the cim_instance_type key' do
+          expect(value.first.keys).not_to include('cim_instance_type')
+        end
+      end
+    end
+    context 'when called against a nested cim instance' do
+      let(:value) { nested_cim_instance.dup }
+
+      it 'does not remove the cim_instance_type key' do
+        expect(value['AccessControlEntry'].first.keys).to include('cim_instance_type')
+      end
+
+      context 'in an array' do
+        let(:value) { [nested_cim_instance.dup] }
+
+        it 'does not remove the cim_instance_type key' do
+          expect(value.first['AccessControlEntry'].first.keys).to include('cim_instance_type')
+        end
+      end
+    end
+
+    context 'when called against a value which is not a cim_instance' do
+      let(:original) { %w[foo bar baz] }
+      let(:value) { original.dup }
+
+      it 'does not change the value' do
+        expect(value).to eq(original)
+      end
     end
   end
 
