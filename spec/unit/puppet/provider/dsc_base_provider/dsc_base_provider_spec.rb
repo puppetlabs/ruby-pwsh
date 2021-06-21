@@ -508,7 +508,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
       it 'downcases keys in cim instance properties' do
         expect(result[:dsc_nestedciminstance].keys).to eq(%w[baz nestedproperty])
-        expect(result[:dsc_nestedciminstance]['nestedproperty'].keys).to eq(%w[nestedfoo nestedbar cim_instance_type])
+        expect(result[:dsc_nestedciminstance]['nestedproperty'].keys).to eq(%w[cim_instance_type nestedbar nestedfoo])
+      end
+      it 'recursively sorts the result for order-insensitive comparisons' do
+        expect(result.keys).to eq(%i[dsc_array dsc_ciminstance dsc_ensure dsc_name dsc_nestedciminstance dsc_time name])
+        expect(result[:dsc_array]).to eq(%w[bar foo])
+        expect(result[:dsc_ciminstance].keys).to eq(%w[bar foo])
+        expect(result[:dsc_nestedciminstance].keys).to eq(%w[baz nestedproperty])
+        expect(result[:dsc_nestedciminstance]['nestedproperty'].keys).to eq(%w[cim_instance_type nestedbar nestedfoo])
       end
 
       context 'when a namevar is an array' do
@@ -543,7 +550,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
 
         it 'behaves like any other namevar when specified as not empty' do
-          expect(result[:dsc_array]).to eq(%w[foo bar])
+          expect(result[:dsc_array]).to eq(%w[bar foo])
         end
 
         context 'when the namevar array is empty' do

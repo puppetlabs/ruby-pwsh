@@ -301,6 +301,9 @@ class Puppet::Provider::DscBaseProvider
     # declaration is for an absent resource and the resource is actually absent
     data.reject! { |_k, v| v.nil? } if data[:dsc_ensure] == 'Absent' && name_hash[:dsc_ensure] == 'Absent' && !name_hash_has_nil_keys
 
+    # Sort the return for order-insensitive nested enumerable comparison:
+    data = recursively_sort(data)
+
     # Cache the query to prevent a second lookup
     @@cached_query_results << data.dup if fetch_cached_hashes(@@cached_query_results, [data]).empty?
     context.debug("Returned to Puppet as #{data}")
