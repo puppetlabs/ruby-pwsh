@@ -47,8 +47,8 @@ class Puppet::Provider::DscBaseProvider
       # During RSAPI refresh runs mandatory parameters are stripped and not available;
       # Instead of checking again and failing, search the cache for a namevar match.
       namevarized_r = r.select { |k, _v| namevar_attributes(context).include?(k) }
-      cached_result = fetch_cached_hashes(@@cached_canonicalized_resource, [namevarized_r])
-      if cached_result.empty?
+      cached_result = fetch_cached_hashes(@@cached_canonicalized_resource, [namevarized_r]).first
+      if cached_result.nil?
         # If the resource is meant to be absent, skip canonicalization and rely on the manifest
         # value; there's no reason to compare system state to desired state for casing if the
         # resource is being removed.
@@ -88,7 +88,10 @@ class Puppet::Provider::DscBaseProvider
           # rubocop:enable Metrics/BlockNesting
         end
       else
-        canonicalized = cached_result
+        # The resource has already been canonicalized for the set values and is not being canonicalized for get
+        # In this case, we do *not* want to process anything, just return the resource. We only call canonicalize
+        # so we can get case insensitive but preserving values for _setting_ state.
+        canonicalized = r
       end
       canonicalized_resources << canonicalized
     end
