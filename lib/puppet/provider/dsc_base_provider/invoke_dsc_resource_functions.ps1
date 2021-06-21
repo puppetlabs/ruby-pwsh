@@ -51,8 +51,10 @@ Function ConvertTo-CanonicalResult {
               $Value = 'Present'
           }
           else {
-              if ($Value -is [string] -or $value -is [string[]]) {
-                  $Value = $Value
+              if ([string]::IsNullOrEmpty($value)) {
+                  # While PowerShell can happily treat empty strings as valid for returning
+                  # an undefined enum, Puppet expects undefined values to be nil.
+                  $Value = $null
               }
 
               if ($Value.Count -eq 1 -and $Property.Definition -match '\\[\\]') {
@@ -113,7 +115,7 @@ Function ConvertTo-CanonicalResult {
       }
 
       if ($Property.Definition -match 'InstanceArray') {
-          if ($Value.Count -lt 2) { $Value = @($Value) }
+          If ($Value.GetType().Name -notmatch '\[\]') { $Value = @($Value) }
       }
 
       $ResultObject.$PropertyName = $Value
