@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: powershell
+
+jobs:
+  spec:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2016, windows-2019]
+        ruby: ["2.5", "2.7"]
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v2
+      - name: Activate Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - name: Print Bundle Environment
+        run: |
+          bundle env
