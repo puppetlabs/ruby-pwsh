@@ -16,3 +16,6 @@ Gemfile.lock
 
 # build output
 /ruby-pwsh-*.gem
+
+# Acceptance Testing fixtures
+/spec/fixtures/modules/
