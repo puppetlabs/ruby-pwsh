@@ -459,7 +459,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     before(:each) do
       allow(context).to receive(:debug)
       allow(provider).to receive(:mandatory_get_attributes).and_return(mandatory_get_attributes)
-      allow(provider).to receive(:should_to_resource).with(query_props, context, 'get').and_return(resource)
+      allow(provider).to receive(:invocable_resource).with(query_props, context, 'get').and_return(resource)
       allow(provider).to receive(:ps_script_content).with(resource).and_return(script)
       allow(provider).to receive(:redact_secrets).with(script)
       allow(provider).to receive(:remove_secret_identifiers).with(script).and_return(script)
@@ -583,7 +583,6 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     context 'when the DSC invocation errors' do
       it 'writes an error and returns nil' do
-        pending('Currently raises an error because the JSON parsing fails')
         expect(provider).not_to receive(:logon_failed_already?)
         expect(ps_manager).to receive(:execute).with(script).and_return({ stdout: nil })
         expect(context).to receive(:err).with('Nothing returned')
@@ -624,9 +623,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
       context 'with a previously failed logon' do
         it 'errors and returns nil if the specified account has already failed to logon' do
-          pending('Currently returns the name_hash when it should return nil; does not report error')
           expect(provider).to receive(:logon_failed_already?).and_return(true)
-          expect(context).to receive(:err)
+          expect(context).to receive(:err).with('Logon credentials are invalid')
           expect(result).to be_nil
         end
       end
@@ -644,7 +642,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     before(:each) do
       allow(context).to receive(:debug)
-      allow(provider).to receive(:should_to_resource).with(apply_props, context, 'set').and_return(resource)
+      allow(provider).to receive(:invocable_resource).with(apply_props, context, 'set').and_return(resource)
       allow(provider).to receive(:ps_script_content).with(resource).and_return(script)
       allow(provider).to receive(:ps_manager).and_return(ps_manager)
       allow(provider).to receive(:remove_secret_identifiers).with(script).and_return(script)
@@ -655,13 +653,13 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
       it 'returns immediately' do
         expect(provider).to receive(:logon_failed_already?).and_return(true)
+        expect(context).to receive(:err).with('Logon credentials are invalid')
         expect(result).to eq(nil)
       end
     end
 
     context 'when the invocation script returns nil' do
       it 'errors via context but does not raise' do
-        pending('Currently raises an error because the JSON parsing fails')
         expect(ps_manager).to receive(:execute).and_return({ stdout: nil })
         expect(context).to receive(:err).with('Nothing returned')
         expect { result }.not_to raise_error
@@ -669,18 +667,18 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     context 'when the invocation script errors' do
-      it 'writes the error via context but does not raise and returns the results' do
+      it 'writes the error via context but does not raise and returns nil' do
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "DSC Error!"}' })
         expect(context).to receive(:err).with('DSC Error!')
-        expect(result).to eq({ 'errormessage' => 'DSC Error!' })
+        expect(result).to eq(nil)
       end
     end
 
     context 'when the invocation script returns data without errors' do
       it 'filters for the correct properties to invoke and returns the results' do
-        expect(ps_manager).to receive(:execute).with("Script: #{apply_props}").and_return({ stdout: '{"in_desired_state": true, "errormessage": ""}' })
+        expect(ps_manager).to receive(:execute).with("Script: #{apply_props}").and_return({ stdout: '{"in_desired_state": true, "errormessage": null}' })
         expect(context).not_to receive(:err)
-        expect(result).to eq({ 'in_desired_state' => true, 'errormessage' => '' })
+        expect(result).to eq({ 'in_desired_state' => true, 'errormessage' => nil })
       end
     end
   end
@@ -699,8 +697,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.should_to_resource' do
-    subject(:result) { provider.should_to_resource(should_hash, context, 'Get') }
+  context '.invocable_resource' do
+    subject(:result) { provider.invocable_resource(should_hash, context, 'Get') }
 
     let(:definition) do
       {
