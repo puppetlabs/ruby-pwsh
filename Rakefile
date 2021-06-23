@@ -98,3 +98,33 @@ task :build_module do
   # Cleanup
   File.open('README.md', 'wb') { |file| file.write(actual_readme_content) }
 end
+
+namespace :dsc do
+  namespace :acceptance do
+    desc 'Prep for running DSC acceptance tests'
+    task :spec_prep do
+      # Create the modules fixture folder, if needed
+      modules_folder = File.expand_path('spec/fixtures/modules', File.dirname(__FILE__))
+      FileUtils.mkdir_p(modules_folder) unless Dir.exist?(modules_folder)
+      # symlink the parent folder to the modules folder for puppet
+      File.symlink(File.dirname(__FILE__), File.expand_path('pwshlib', modules_folder))
+      # Install each of the required modules for acceptance testing
+      # Note: This only works for modules in the dsc namespace on the forge.
+      [{ name: 'powershellget', version: '2.2.5-0-1' }].each do |puppet_module|
+        next if Dir.exist?(File.expand_path(puppet_module[:name], modules_folder))
+
+        install_command = [
+          'bundle exec puppet module install',
+          "dsc-#{puppet_module[:name]}",
+          "--version #{puppet_module[:version]}",
+          '--ignore-dependencies',
+          "--target-dir #{modules_folder}"
+        ].join(' ')
+        run_local_command(install_command)
+      end
+    end
+    RSpec::Core::RakeTask.new(:spec) do |t|
+      t.pattern = 'spec/acceptance/dsc/*.rb'
+    end
+  end
+end
