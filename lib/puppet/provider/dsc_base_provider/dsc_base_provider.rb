@@ -252,7 +252,7 @@ class Puppet::Provider::DscBaseProvider
     context.debug("raw data received: #{data.inspect}")
 
     error = data['errormessage']
-    unless error.nil?
+    unless error.nil? || error.empty?
       # NB: We should have a way to stop processing this resource *now* without blowing up the whole Puppet run
       # Raising an error stops processing but blows things up while context.err alerts but continues to process
       if error =~ /Logon failure: the user has not been granted the requested logon type at this computer/
