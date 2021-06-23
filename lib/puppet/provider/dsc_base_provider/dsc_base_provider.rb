@@ -289,9 +289,7 @@ class Puppet::Provider::DscBaseProvider
     # DSC gives back information we don't care about; filter down to only
     # those properties exposed in the type definition.
     valid_attributes = context.type.attributes.keys.collect(&:to_s)
-    # TODO: (GH-142) This can be rewritten to use the parameter_attributes method:
-    #       parameters = parameter_attributes(context).collect(&:to_s)
-    parameters = context.type.attributes.select { |_name, properties| [properties[:behaviour]].collect.include?(:parameter) }.keys.collect(&:to_s)
+    parameters = parameter_attributes(context).collect(&:to_s)
     data.select! { |key, _value| valid_attributes.include?("dsc_#{key.downcase}") }
     data.reject! { |key, _value| parameters.include?("dsc_#{key.downcase}") }
     # Canonicalize the results to match the type definition representation;
@@ -311,10 +309,7 @@ class Puppet::Provider::DscBaseProvider
       data[type_key] = Puppet::Pops::Time::Timestamp.parse(data[type_key]) if context.type.attributes[type_key][:mof_type] =~ /DateTime/i
       # PowerShell does not distinguish between a return of empty array/string
       #  and null but Puppet does; revert to those values if specified.
-      if data[type_key].nil? && query_props.keys.include?(type_key) && query_props[type_key].is_a?(Array)
-        # TODO: (GH-142) Can this be simplified to just `data[type_key] = []`?
-        data[type_key] = query_props[type_key].empty? ? query_props[type_key] : []
-      end
+      data[type_key] = [] if data[type_key].nil? && query_props.keys.include?(type_key) && query_props[type_key].is_a?(Array)
     end
     # If a resource is found, it's present, so refill this Puppet-only key
     data.merge!({ name: name_hash[:name] })
