@@ -309,10 +309,7 @@ class Puppet::Provider::DscBaseProvider
       data[type_key] = Puppet::Pops::Time::Timestamp.parse(data[type_key]) if context.type.attributes[type_key][:mof_type] =~ /DateTime/i
       # PowerShell does not distinguish between a return of empty array/string
       #  and null but Puppet does; revert to those values if specified.
-      if data[type_key].nil? && query_props.keys.include?(type_key) && query_props[type_key].is_a?(Array)
-        # TODO: (GH-142) Can this be simplified to just `data[type_key] = []`?
-        data[type_key] = query_props[type_key].empty? ? query_props[type_key] : []
-      end
+      data[type_key] = [] if data[type_key].nil? && query_props.keys.include?(type_key) && query_props[type_key].is_a?(Array)
     end
     # If a resource is found, it's present, so refill this Puppet-only key
     data.merge!({ name: name_hash[:name] })
