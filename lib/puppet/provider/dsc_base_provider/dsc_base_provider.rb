@@ -289,9 +289,7 @@ class Puppet::Provider::DscBaseProvider
     # DSC gives back information we don't care about; filter down to only
     # those properties exposed in the type definition.
     valid_attributes = context.type.attributes.keys.collect(&:to_s)
-    # TODO: (GH-142) This can be rewritten to use the parameter_attributes method:
-    #       parameters = parameter_attributes(context).collect(&:to_s)
-    parameters = context.type.attributes.select { |_name, properties| [properties[:behaviour]].collect.include?(:parameter) }.keys.collect(&:to_s)
+    parameters = parameter_attributes(context).collect(&:to_s)
     data.select! { |key, _value| valid_attributes.include?("dsc_#{key.downcase}") }
     data.reject! { |key, _value| parameters.include?("dsc_#{key.downcase}") }
     # Canonicalize the results to match the type definition representation;
