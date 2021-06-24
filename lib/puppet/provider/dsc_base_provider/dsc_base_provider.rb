@@ -306,7 +306,15 @@ class Puppet::Provider::DscBaseProvider
       end
 
       # Convert DateTime back to appropriate type
-      data[type_key] = Puppet::Pops::Time::Timestamp.parse(data[type_key]) if context.type.attributes[type_key][:mof_type] =~ /DateTime/i
+      if context.type.attributes[type_key][:mof_type] =~ /DateTime/i && !data[type_key].nil?
+        data[type_key] = begin
+          Puppet::Pops::Time::Timestamp.parse(data[type_key]) if context.type.attributes[type_key][:mof_type] =~ /DateTime/i && !data[type_key].nil?
+        rescue ArgumentError, TypeError => e
+          # Catch any failures in the parse, output them to the context and then return nil
+          context.err("Value returned for DateTime (#{data[type_key].inspect}) failed to parse: #{e}")
+          nil
+        end
+      end
       # PowerShell does not distinguish between a return of empty array/string
       #  and null but Puppet does; revert to those values if specified.
       data[type_key] = [] if data[type_key].nil? && query_props.keys.include?(type_key) && query_props[type_key].is_a?(Array)

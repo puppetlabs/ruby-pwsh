@@ -590,6 +590,50 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
     end
 
+    context 'when handling DateTimes' do
+      before(:each) do
+        allow(ps_manager).to receive(:execute).with(script).and_return({ stdout: 'DSC Data' })
+        allow(JSON).to receive(:parse).with('DSC Data').and_return(parsed_invocation_data)
+        allow(provider).to receive(:fetch_cached_hashes).and_return([])
+      end
+
+      context 'When the DateTime is nil' do
+        let(:name_hash) { { name: 'foo', dsc_name: 'foo', dsc_time: nil } }
+        let(:parsed_invocation_data) do
+          { 'Name' => 'foo', 'Ensure' => 'Present', 'Time' => nil }
+        end
+
+        it 'returns nil for the value' do
+          expect(context).not_to receive(:err)
+          expect(result[:dsc_time]).to eq(nil)
+        end
+      end
+
+      context 'When the DateTime is an invalid string' do
+        let(:name_hash) { { name: 'foo', dsc_name: 'foo', dsc_time: 'foo' } }
+        let(:parsed_invocation_data) do
+          { 'Name' => 'foo', 'Ensure' => 'Present', 'Time' => 'foo' }
+        end
+
+        it 'writes an error and sets the value of `dsc_time` to nil' do
+          expect(context).to receive(:err).with(/Value returned for DateTime/)
+          expect(result[:dsc_time]).to eq(nil)
+        end
+      end
+
+      context 'When the DateTime is an invalid type (integer, hash, etc)' do
+        let(:name_hash) { { name: 'foo', dsc_name: 'foo', dsc_time: 2100 } }
+        let(:parsed_invocation_data) do
+          { 'Name' => 'foo', 'Ensure' => 'Present', 'Time' => 2100 }
+        end
+
+        it 'writes an error and sets the value of `dsc_time` to nil' do
+          expect(context).to receive(:err).with(/Value returned for DateTime/)
+          expect(result[:dsc_time]).to eq(nil)
+        end
+      end
+    end
+
     context 'with PSDscCredential' do
       let(:credential_hash) { { 'user' => 'SomeUser', 'password' => 'FooBarBaz' } }
       let(:dsc_logon_failure_error) { 'Logon failure: the user has not been granted the requested logon type at this computer' }
