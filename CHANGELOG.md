@@ -2,13 +2,35 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
-## [0.8.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.8.0) (2021-03-01)
+## [0.9.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.9.0) (2021-06-28)
 
-[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.7.4...0.8.0)
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.8.0...0.9.0)
 
 ### Added
 
+- \(GH-147\) Refactor Invocation methods to use shared helper and write error logs when appropriate [\#152](https://github.com/puppetlabs/ruby-pwsh/pull/152) ([david22swan](https://github.com/david22swan))
+- \(GH-145\) Improve DSC secrets redaction [\#150](https://github.com/puppetlabs/ruby-pwsh/pull/150) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-145\) Add insync? and invoke\_test\_method to dsc provider [\#124](https://github.com/puppetlabs/ruby-pwsh/pull/124) ([michaeltlombardi](https://github.com/michaeltlombardi))
 - \(MAINT\) Clarify supported platforms [\#113](https://github.com/puppetlabs/ruby-pwsh/pull/113) ([michaeltlombardi](https://github.com/michaeltlombardi))
+
+### Fixed
+
+- \(IAC-1657\) Fix for invalid DateTime value error in `invoke_get_method` [\#169](https://github.com/puppetlabs/ruby-pwsh/pull/169) ([david22swan](https://github.com/david22swan))
+- \(GH-154\) Ensure values returned from `invoke_get_method` are recursively sorted in the DSC Base Provider to reduce canonicalization warnings. [\#160](https://github.com/puppetlabs/ruby-pwsh/pull/160) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-154\) Fix return data from `Invoke-DscResource` for empty strings and single item arrays in DSC Base Provider [\#159](https://github.com/puppetlabs/ruby-pwsh/pull/159) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-155\) Fix CIM Instance munging in `invoke_get_method` for DSC Base Provider [\#158](https://github.com/puppetlabs/ruby-pwsh/pull/158) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-154\) Fix canonicalization in `get` method for DSC Base Provider [\#157](https://github.com/puppetlabs/ruby-pwsh/pull/157) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-144\) Enable order-insensitive comparisons for DSC [\#151](https://github.com/puppetlabs/ruby-pwsh/pull/151) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-143\) Handle order insensitive arrays in the `same?` method of the DSC Base Provider [\#148](https://github.com/puppetlabs/ruby-pwsh/pull/148) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-127\) Canonicalize enums correctly [\#131](https://github.com/puppetlabs/ruby-pwsh/pull/131) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-125\) Fix dsc provider canonicalization for absent resources [\#129](https://github.com/puppetlabs/ruby-pwsh/pull/129) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(MODULES-11051\) Ensure environment variables are not incorrectly munged in the PowerShell Host [\#128](https://github.com/puppetlabs/ruby-pwsh/pull/128) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(MODULES-11026\) Ensure the PowerShell manager works with v7 [\#122](https://github.com/puppetlabs/ruby-pwsh/pull/122) ([n3snah](https://github.com/n3snah))
+- \(Maint\) Ensure canonicalize correctly compares sorted hashes [\#118](https://github.com/puppetlabs/ruby-pwsh/pull/118) ([Hvid](https://github.com/Hvid))
+
+## [0.8.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.8.0) (2021-03-01)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.7.4...0.8.0)
 
 ## [0.7.4](https://github.com/puppetlabs/ruby-pwsh/tree/0.7.4) (2021-02-12)
 
