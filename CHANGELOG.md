@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [0.10.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.10.0) (2021-07-01)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.9.0...0.10.0)
+
+### Added
+
+- \(GH-172\) Enable use of class-based DSC Resources by munging PSModulePath  [\#173](https://github.com/puppetlabs/ruby-pwsh/pull/173) ([michaeltlombardi](https://github.com/michaeltlombardi))
+
 ## [0.9.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.9.0) (2021-06-28)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.8.0...0.9.0)
