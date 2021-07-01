@@ -110,7 +110,11 @@ namespace :dsc do
       File.symlink(File.dirname(__FILE__), File.expand_path('pwshlib', modules_folder))
       # Install each of the required modules for acceptance testing
       # Note: This only works for modules in the dsc namespace on the forge.
-      [{ name: 'powershellget', version: '2.2.5-0-1' }].each do |puppet_module|
+      puppetized_dsc_modules = [
+        { name: 'powershellget', version: '2.2.5-0-1' },
+        { name: 'jeadsc', version: '0.7.2-0-2' } # update to 0.7.2-0-3 on release
+      ]
+      puppetized_dsc_modules.each do |puppet_module|
         next if Dir.exist?(File.expand_path(puppet_module[:name], modules_folder))
 
         install_command = [

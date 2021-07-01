@@ -3,6 +3,12 @@ Try {
 } catch {
   $Response.errormessage   = $_.Exception.Message
   return ($Response | ConvertTo-Json -Compress)
+} Finally {
+  If (![string]::IsNullOrEmpty($UnmungedPSModulePath)) {
+    # Reset the PSModulePath
+    [System.Environment]::SetEnvironmentVariable('PSModulePath', $UnmungedPSModulePath, [System.EnvironmentVariableTarget]::Machine)
+    $env:PSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath', 'machine')
+  }
 }
 
 # keep the switch for when Test passes back changed properties
