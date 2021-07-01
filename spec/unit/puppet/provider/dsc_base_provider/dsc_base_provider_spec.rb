@@ -1393,6 +1393,43 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
+  context '.munge_psmodulepath' do
+    subject(:result) { provider.munge_psmodulepath(test_resource) }
+
+    context 'when the resource does not have the dscmeta_resource_implementation key' do
+      let(:test_resource) { {} }
+
+      it 'returns nil' do
+        expect(result).to be(nil)
+      end
+    end
+
+    context "when the resource's dscmeta_resource_implementation is not 'Class'" do
+      let(:test_resource) { { dscmeta_resource_implementation: 'MOF' } }
+
+      it 'returns nil' do
+        expect(result).to be(nil)
+      end
+    end
+
+    context "when the resource's dscmeta_resource_implementation is 'Class'" do
+      let(:test_resource) { { dscmeta_resource_implementation: 'Class', vendored_modules_path: 'C:/foo/bar' } }
+
+      it 'sets $UnmungedPSModulePath to the current PSModulePath' do
+        expect(result).to match(/\$UnmungedPSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine/)
+      end
+      it 'sets $MungedPSModulePath the vendor path with backslash separators' do
+        expect(result).to match(/\$MungedPSModulePath = .+;C:\\foo\\bar/)
+      end
+      it 'updates the system PSModulePath to $MungedPSModulePath' do
+        expect(result).to match(/SetEnvironmentVariable\('PSModulePath', \$MungedPSModulePath/)
+      end
+      it 'sets the process level PSModulePath to the modified system PSModulePath' do
+        expect(result).to match(/\$env:PSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine/)
+      end
+    end
+  end
+
   context '.prepare_credentials' do
     subject(:result) { provider.prepare_credentials(test_resource) }
 
@@ -1708,7 +1745,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:preamble_file_handle) { instance_double('File', 'preamble_file') }
     let(:postscript_file_handle) { instance_double('File', 'postscript_file') }
     let(:expected_script_content) do
-      "Functions Block\nPreamble Block\n\n\nParameters Block\nPostscript Block"
+      "Functions Block\nPreamble Block\n\n\n\nParameters Block\nPostscript Block"
     end
 
     before(:each) do
@@ -1718,6 +1755,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       allow(preamble_file_handle).to receive(:read).and_return('Preamble Block')
       allow(File).to receive(:new).with("#{template_path}/invoke_dsc_resource_postscript.ps1").and_return(postscript_file_handle)
       allow(postscript_file_handle).to receive(:read).and_return('Postscript Block')
+      allow(provider).to receive(:munge_psmodulepath).and_return('')
+      allow(provider).to receive(:munge_psmodulepath).with('ClassBasedResource').and_return('PSModulePath Block')
       allow(provider).to receive(:prepare_credentials).and_return('')
       allow(provider).to receive(:prepare_credentials).with('ResourceWithCredentials').and_return('Credential Block')
       allow(provider).to receive(:prepare_cim_instances).and_return('')
@@ -1730,6 +1769,10 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
     it 'includes the preamble' do
       expect(provider.ps_script_content('Basic')).to match("Preamble Block\n")
+    end
+    it 'includes the module path block, if needed' do
+      expect(provider.ps_script_content('Basic')).not_to match("PSModulePath Block\n")
+      expect(provider.ps_script_content('ClassBasedResource')).to match("PSModulePath Block\n")
     end
     it 'includes the credential block, if needed' do
       expect(provider.ps_script_content('Basic')).not_to match("Credential Block\n")

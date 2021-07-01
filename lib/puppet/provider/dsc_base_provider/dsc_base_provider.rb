@@ -416,7 +416,7 @@ class Puppet::Provider::DscBaseProvider
   def invocable_resource(should, context, dsc_invoke_method)
     resource = {}
     resource[:parameters] = {}
-    %i[name dscmeta_resource_friendly_name dscmeta_resource_name dscmeta_module_name dscmeta_module_version].each do |k|
+    %i[name dscmeta_resource_friendly_name dscmeta_resource_name dscmeta_resource_implementation dscmeta_module_name dscmeta_module_version].each do |k|
       resource[k] = context.type.definition[k]
     end
     should.each do |k, v|
@@ -655,6 +655,27 @@ class Puppet::Provider::DscBaseProvider
     modified_string
   end
 
+  # Parses a resource definition (as from `invocable_resource`) and, if the resource is implemented
+  # as a PowerShell class, ensures the System environment variable for PSModulePath is munged to
+  # include the vendored PowerShell modules. Due to a bug in PSDesiredStateConfiguration, class-based
+  # DSC Resources cannot be called via Invoke-DscResource by path, only by module name, *and* the
+  # module must be discoverable in the system-level PSModulePath. The postscript for invocation has
+  # logic to reset the system PSModulePath as stored in the script lines returned by this method.
+  #
+  # @param resource [Hash] a hash with the information needed to run `Invoke-DscResource`
+  # @return [String] A multi-line string which sets the PSModulePath at the system level
+  def munge_psmodulepath(resource)
+    return unless resource[:dscmeta_resource_implementation] == 'Class'
+
+    vendor_path = resource[:vendored_modules_path].gsub('/', '\\')
+    <<~MUNGE_PSMODULEPATH.strip
+      $UnmungedPSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath','machine')
+      $MungedPSModulePath = $env:PSModulePath + ';#{vendor_path}'
+      [System.Environment]::SetEnvironmentVariable('PSModulePath', $MungedPSModulePath, [System.EnvironmentVariableTarget]::Machine)
+      $env:PSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath','machine')
+    MUNGE_PSMODULEPATH
+  end
+
   # Parses a resource definition (as from `invocable_resource`) for any properties which are PowerShell
   # Credentials. As these values need to be serialized into PSCredential objects, return an array of
   # PowerShell lines, each of which instantiates a variable which holds the value as a PSCredential.
@@ -784,7 +805,11 @@ class Puppet::Provider::DscBaseProvider
     }
     if resource.key?(:dscmeta_module_version)
       params[:ModuleName] = {}
-      params[:ModuleName][:ModuleName] = "#{resource[:vendored_modules_path]}/#{resource[:dscmeta_module_name]}/#{resource[:dscmeta_module_name]}.psd1"
+      params[:ModuleName][:ModuleName] = if resource[:dscmeta_resource_implementation] == 'Class'
+                                           resource[:dscmeta_module_name]
+                                         else
+                                           "#{resource[:vendored_modules_path]}/#{resource[:dscmeta_module_name]}/#{resource[:dscmeta_module_name]}.psd1"
+                                         end
       params[:ModuleName][:RequiredVersion] = resource[:dscmeta_module_version]
     else
       params[:ModuleName] = resource[:dscmeta_module_name]
@@ -841,13 +866,14 @@ class Puppet::Provider::DscBaseProvider
     # The postscript defines the invocation error and result handling; expects `$InvokeParams` to be defined
     postscript    = File.new("#{template_path}/invoke_dsc_resource_postscript.ps1").read
     # The blocks define the variables to define for the postscript.
+    module_path_block = munge_psmodulepath(resource)
     credential_block = prepare_credentials(resource)
     cim_instances_block = prepare_cim_instances(resource)
     parameters_block = invoke_params(resource)
     # clean them out of the temporary cache now that they're not needed; failure to do so can goof up future executions in this run
     clear_instantiated_variables!
 
-    [functions, preamble, credential_block, cim_instances_block, parameters_block, postscript].join("\n")
+    [functions, preamble, module_path_block, credential_block, cim_instances_block, parameters_block, postscript].join("\n")
   end
 
   # Convert a Puppet/Ruby value into a PowerShell representation. Requires some slight additional
