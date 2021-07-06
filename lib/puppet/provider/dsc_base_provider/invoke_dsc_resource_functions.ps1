@@ -115,7 +115,7 @@ Function ConvertTo-CanonicalResult {
       }
 
       if ($Property.Definition -match 'InstanceArray') {
-          If ($Value.GetType().Name -notmatch '\[\]') { $Value = @($Value) }
+          If ($null -eq $Value -or $Value.GetType().Name -notmatch '\[\]') { $Value = @($Value) }
       }
 
       $ResultObject.$PropertyName = $Value
