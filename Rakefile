@@ -172,7 +172,8 @@ namespace :dsc do
         { name: 'powershellget', version: '2.2.5-0-1' },
         { name: 'jeadsc', version: '0.7.2-0-2' }, # update to 0.7.2-0-3 on release
         { name: 'xpsdesiredstateconfiguration', version: '9.1.0-0-1' },
-        { name: 'xwebadministration', version: '3.2.0-0-2' }
+        { name: 'xwebadministration', version: '3.2.0-0-2' },
+        { name: 'accesscontroldsc', version: '1.4.1-0-3' }
       ]
       puppetized_dsc_modules.each do |puppet_module|
         next if Dir.exist?(File.expand_path(puppet_module[:name], modules_folder))
