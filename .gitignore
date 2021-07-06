@@ -19,3 +19,5 @@ Gemfile.lock
 
 # Acceptance Testing fixtures
 /spec/fixtures/modules/
+/spec/fixtures/test.pp
+/spec/fixtures/website/
