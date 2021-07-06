@@ -170,7 +170,7 @@ namespace :dsc do
       # Note: This only works for modules in the dsc namespace on the forge.
       puppetized_dsc_modules = [
         { name: 'powershellget', version: '2.2.5-0-1' },
-        { name: 'jeadsc', version: '0.7.2-0-2' }, # update to 0.7.2-0-3 on release
+        { name: 'jeadsc', version: '0.7.2-0-3' },
         { name: 'xpsdesiredstateconfiguration', version: '9.1.0-0-1' },
         { name: 'xwebadministration', version: '3.2.0-0-2' },
         { name: 'accesscontroldsc', version: '1.4.1-0-3' }
