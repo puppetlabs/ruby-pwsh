@@ -10,6 +10,12 @@ powershellget_path = File.expand_path('powershellget/lib/puppet_x/powershellget/
 local_user = ['dsc', SecureRandom.uuid.slice(0, 7)].join('_')
 local_pw = SecureRandom.uuid
 
+def execute_reset_command(reset_command)
+  manager = Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args)
+  result = manager.execute(reset_command)
+  raise result[:errormessage] unless result[:errormessage].nil?
+end
+
 RSpec.describe 'DSC Acceptance: Basic' do
   let(:puppet_apply) do
     "bundle exec puppet apply --modulepath #{module_path} --detailed-exitcodes --debug --trace"
@@ -45,8 +51,7 @@ RSpec.describe 'DSC Acceptance: Basic' do
         }
         Invoke-DscResource @ResetParameters | ConvertTo-Json -Compress
       RESET_COMMAND
-      reset_result = powershell.execute(reset_command)
-      raise reset_result[:errormessage] unless reset_result[:errormessage].nil?
+      execute_reset_command(reset_command)
     end
 
     it 'applies idempotently' do
@@ -76,8 +81,7 @@ RSpec.describe 'DSC Acceptance: Basic' do
         Get-InstalledModule -Name BurntToast -ErrorAction SilentlyContinue |
           Uninstall-Module -Force
       RESET_COMMAND
-      reset_result = powershell.execute(reset_command)
-      raise reset_result[:errormessage] unless reset_result[:errormessage].nil?
+      execute_reset_command(reset_command)
     end
 
     it 'applies idempotently' do
@@ -110,8 +114,7 @@ RSpec.describe 'DSC Acceptance: Basic' do
           Install-Module -Name BurntToast -Scope AllUsers -Force
         }
       RESET_COMMAND
-      reset_result = powershell.execute(reset_command)
-      raise reset_result[:errormessage] unless reset_result[:errormessage].nil?
+      execute_reset_command(reset_command)
     end
 
     it 'applies idempotently' do
@@ -139,15 +142,13 @@ RSpec.describe 'DSC Acceptance: Basic' do
         Get-LocalGroupMember -Group Administrators |
           Where-Object Name -match '#{local_user}'
       PREP_USER
-      prep_result = powershell.execute(prep_command)
-      raise prep_result[:errormessage] unless prep_result[:errormessage].nil?
+      execute_reset_command(prep_command)
     end
     after(:all) do
       cleanup_command = <<~CLEANUP_USER.strip
         Remove-LocalUser -Name #{local_user} -ErrorAction Stop
       CLEANUP_USER
-      cleanup_result = powershell.execute(cleanup_command)
-      raise cleanup_result[:errormessage] unless cleanup_result[:errormessage].nil?
+      execute_reset_command(cleanup_command)
     end
 
     context 'with a valid credential' do
