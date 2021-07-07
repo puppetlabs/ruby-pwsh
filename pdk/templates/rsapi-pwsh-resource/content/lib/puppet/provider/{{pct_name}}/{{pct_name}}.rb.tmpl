@@ -1,0 +1,97 @@
+# frozen_string_literal: true
+
+require 'puppet/resource_api/simple_provider'
+
+# Implementation for the {{.pct_name}} type using the Resource API.
+# foo_bar
+# FooBar
+{{ $simple_provider := and .rsapi.ensurable (eq 0 (len .rsapi.features))}}
+class Puppet::Provider::{{ toClassName .pct_name}}::{{ toClassName .pct_name }}
+{{- if $simple_provider }} < Puppet::ResourceApi::SimpleProvider{{ end }}
+  def get(context)
+    context.debug('Returning pre-canned example data')
+    [
+      {
+        id: 'foo',
+        ensure: 'present',
+      },
+      {
+        id: 'bar',
+        ensure: 'present',
+      },
+    ]
+  end
+{{ if .rsapi.ensurable }}
+  def create(context, name, should)
+    context.notice("Creating '#{name}' with #{should.inspect}")
+  end
+
+  def update(context, name, should)
+    context.notice("Updating '#{name}' with #{should.inspect}")
+  end
+
+  def delete(context, name)
+    context.notice("Deleting '#{name}'")
+  end
+{{ else }}
+  def update(context, name, should)
+    context.notice("Updating '#{name}' with #{should.inspect}")
+  end
+{{ end }}
+{{ if and .rsapi.ensurable (not $simple_provider) }}
+  # Determines which method to call for a resource change (create, update, or delete),
+  # then passes the appropriate values along to the various methods which themselves
+  # Implementation borrowed directly from the Resource API Simple Provider.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param changes [Hash] the hash of whose key is the name_hash and value is the is and should hashes
+  def set(context, changes)
+  end
+{{ else if not $simple_provider }}
+  # stuff for calling update
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param changes [Hash] the hash of whose key is the name_hash and value is the is and should hashes
+  def set(context, changes)
+  end
+{{ end}}
+{{ if eq .rsapi.powershell_support "powershell" }}
+  # Returns a new instance of the PowerShell manager if one does not exist or is dead,
+  # otherwise returns the existing usable instance for performance reasons.
+  def ps_manager
+    debug_output = Puppet::Util::Log.level == :debug
+    Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args, debug: debug_output)
+  end
+{{ else if eq .rsapi.powershell_support "pwsh" }}
+  # Returns a new instance of the PowerShell manager if one does not exist or is dead,
+  # otherwise returns the existing usable instance for performance reasons.
+  def ps_manager
+    debug_output = Puppet::Util::Log.level == :debug
+    Pwsh::Manager.instance(Pwsh::Manager.pwsh_path, Pwsh::Manager.pwsh_args, debug: debug_output)
+  end
+{{ else }}
+  # Returns a new instance of the PowerShell manager if one does not exist or is dead,
+  # otherwise returns the existing usable instance for performance reasons.
+  def ps_manager(edition)
+    path = edition == 'powershell' ? Pwsh::Manager.powershell_path : Pwsh::Manager.pwsh_path
+    args = edition == 'powershell' ? Pwsh::Manager.powershell_args : Pwsh::Manager.pwsh_args
+    debug_output = Puppet::Util::Log.level == :debug
+    Pwsh::Manager.instance(path, args, debug: debug_output)
+  end
+{{ end -}}
+{{ if eq .rsapi.powershell_support "both" }}
+  # Wraps executions for the PowerShell Manager to do some basic error raising in Puppet.
+  def invoke_command(command, edition)
+    result = ps_manager(edition).execute(command)
+    raise result[:errormessage] unless result[:exitcode].zero?
+    result
+  end
+{{ else }}
+  # Wraps executions for the PowerShell Manager to do some basic error raising in Puppet.
+  def invoke_command(command)
+    result = ps_manager.execute(command)
+    raise result[:errormessage] unless result[:exitcode].zero?
+    result
+  end
+{{ end -}}
+end
