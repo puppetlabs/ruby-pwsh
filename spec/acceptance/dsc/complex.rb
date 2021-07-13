@@ -7,8 +7,9 @@ require 'ruby-pwsh'
 test_manifest = File.expand_path('../../fixtures/test.pp', File.dirname(__FILE__))
 fixtures_path = File.expand_path('../../fixtures', File.dirname(__FILE__))
 
-def execute_reset_command(command)
-  result = powershell.execute(command)
+def execute_reset_command(reset_command)
+  manager = Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args)
+  result = manager.execute(reset_command)
   raise result[:errormessage] unless result[:errormessage].nil?
 end
 

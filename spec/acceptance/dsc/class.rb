@@ -2,12 +2,16 @@
 
 require 'spec_helper'
 require 'ruby-pwsh'
-require 'securerandom'
 
 powershell = Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args)
 module_path = File.expand_path('../../fixtures/modules', File.dirname(__FILE__))
-# jeadsc_path = File.expand_path('jeadsc/lib/puppet_x/jeadsc/dsc_resources/JeaDsc', module_path)
 psrc_path = File.expand_path('../../fixtures/example.psrc', File.dirname(__FILE__))
+
+def execute_reset_command(reset_command)
+  manager = Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args)
+  result = manager.execute(reset_command)
+  raise result[:errormessage] unless result[:errormessage].nil?
+end
 
 RSpec.describe 'DSC Acceptance: Class-Based Resource' do
   let(:puppet_apply) do
@@ -23,38 +27,28 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
         "dsc_jearolecapabilities { 'ExampleRoleCapability':",
         "dsc_ensure      => 'Present',",
         "dsc_path        => '#{psrc_path}',",
-        "dsc_description => 'Modified example role capability file'",
+        "dsc_description => 'Example role capability file'",
         '}'
       ].join(' ')
     end
 
-    before(:all) do
-      # Commented out until we can figure out how to sensibly munge path
-      # reset_command = <<~RESET_COMMAND
-      #   $ErrorActionPreference = 'Stop'
-      #   Import-Module PowerShellGet
-      #   $ResetParameters = @{
-      #     Name = 'JeaRoleCapabilities'
-      #     ModuleName = '#{powershellget_path}'
-      #     Method = 'Set'
-      #     Property = @{
-      #       Path = '#{psrc_path}'
-      #       Ensure = 'Absent'
-      #     }
-      #   }
-      #   Invoke-DscResource @ResetParameters | ConvertTo-Json -Compress
-      # RESET_COMMAND
-      # reset_result = powershell.execute(reset_command)
-      # raise reset_result[:errormessage] unless reset_result[:errormessage].nil?
+    before(:each) do
+      reset_command = <<~RESET_COMMAND
+        $PsrcPath = '#{psrc_path}'
+        # Delete the test PSRC fixture if it exists
+        If (Test-Path -Path $PsrcPath -PathType Leaf) {
+          Remove-Item $PsrcPath -Force
+        }
+      RESET_COMMAND
+      execute_reset_command(reset_command)
     end
 
     it 'applies idempotently' do
-      pending('Release of dsc-jeadsc with the dscmeta_resource_implementation key')
       first_run_result = powershell.execute(command)
       expect(first_run_result[:exitcode]).to be(2)
       expect(first_run_result[:native_stdout]).to match(//)
       expect(first_run_result[:native_stdout]).to match(/dsc_description changed  to 'Example role capability file'/)
-      expect(first_run_result[:native_stdout]).to match(/Created: Finished/)
+      expect(first_run_result[:native_stdout]).to match(/Creating: Finished/)
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       second_run_result = powershell.execute(command)
       expect(second_run_result[:exitcode]).to be(0)
@@ -69,36 +63,28 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
         "dsc_jearolecapabilities { 'ExampleRoleCapability':",
         "dsc_ensure      => 'Present',",
         "dsc_path        => '#{psrc_path}',",
-        "dsc_description => 'Updated'",
+        "dsc_description => 'Updated role capability file'",
         '}'
       ].join(' ')
     end
 
-    before(:all) do
-      # Commented out until we can figure out how to sensibly munge path
-      # reset_command = <<~RESET_COMMAND
-      #   $ErrorActionPreference = 'Stop'
-      #   Import-Module PowerShellGet
-      #   $ResetParameters = @{
-      #     Name = 'JeaRoleCapabilities'
-      #     ModuleName = '#{powershellget_path}'
-      #     Method = 'Set'
-      #     Property = @{
-      #       Path = '#{psrc_path}'
-      #       Ensure = 'Absent'
-      #     }
-      #   }
-      #   Invoke-DscResource @ResetParameters | ConvertTo-Json -Compress
-      # RESET_COMMAND
-      # reset_result = powershell.execute(reset_command)
-      # raise reset_result[:errormessage] unless reset_result[:errormessage].nil?
+    before(:each) do
+      reset_command = <<~RESET_COMMAND
+        $PsrcPath = '#{psrc_path}'
+        # Delete the test PSRC fixture if it exists
+        If (Test-Path -Path $PsrcPath -PathType Leaf) {
+          Remove-Item $PsrcPath -Force
+        }
+        # Create the test PSRC fixture
+        New-Item $PsrcPath -ItemType File -Value "@{'Description' = 'Example role capability file'}"
+      RESET_COMMAND
+      execute_reset_command(reset_command)
     end
 
     it 'applies idempotently' do
-      pending('Release of dsc-jeadsc with the dscmeta_resource_implementation key')
       first_run_result = powershell.execute(command)
       expect(first_run_result[:exitcode]).to be(2)
-      expect(first_run_result[:native_stdout]).to match(/dsc_description changed 'Example role capability file' to 'Updated'/)
+      expect(first_run_result[:native_stdout]).to match(/dsc_description changed 'Example role capability file' to 'Updated role capability file'/)
       expect(first_run_result[:native_stdout]).to match(/Updating: Finished/)
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       second_run_result = powershell.execute(command)
@@ -118,28 +104,19 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
       ].join(' ')
     end
 
-    before(:all) do
-      # Commented out until we can figure out how to sensibly munge path
-      # reset_command = <<~RESET_COMMAND
-      #   $ErrorActionPreference = 'Stop'
-      #   Import-Module PowerShellGet
-      #   $ResetParameters = @{
-      #     Name = 'JeaRoleCapabilities'
-      #     ModuleName = '#{powershellget_path}'
-      #     Method = 'Set'
-      #     Property = @{
-      #       Path = '#{psrc_path}'
-      #       Ensure = 'Absent'
-      #     }
-      #   }
-      #   Invoke-DscResource @ResetParameters | ConvertTo-Json -Compress
-      # RESET_COMMAND
-      # reset_result = powershell.execute(reset_command)
-      # raise reset_result[:errormessage] unless reset_result[:errormessage].nil?
+    before(:each) do
+      reset_command = <<~RESET_COMMAND
+        $PsrcPath = '#{psrc_path}'
+        # Delete the test PSRC fixture if it exists
+        If (!(Test-Path -Path $PsrcPath -PathType Leaf)) {
+          # Create the test PSRC fixture
+          New-Item $PsrcPath -ItemType File -Value "@{'Description' = 'Updated'}"
+        }
+      RESET_COMMAND
+      execute_reset_command(reset_command)
     end
 
     it 'applies idempotently' do
-      pending('Release of dsc-jeadsc with the dscmeta_resource_implementation key')
       first_run_result = powershell.execute(command)
       expect(first_run_result[:exitcode]).to be(2)
       expect(first_run_result[:native_stdout]).to match(/dsc_ensure changed 'Present' to 'Absent'/)
