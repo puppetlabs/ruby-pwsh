@@ -44,7 +44,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
     describe 'when managing the powershell process' do
       describe 'the Manager::instance method' do
-        it 'returns the same manager instance / process given the same cmd line' do
+        it 'returns the same manager instance / process given the same cmd line and options' do
           first_pid = manager.execute('[Diagnostics.Process]::GetCurrentProcess().Id')[:stdout]
 
           manager_two = Pwsh::Manager.instance(ps_command, ps_args)
@@ -52,6 +52,16 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
           expect(manager_two).to eq(manager)
           expect(first_pid).to eq(second_pid)
+        end
+
+        it 'returns different manager instances / processes given the same cmd line and different options' do
+          first_pid = manager.execute('[Diagnostics.Process]::GetCurrentProcess().Id')[:stdout]
+
+          manager_two = Pwsh::Manager.instance(ps_command, ps_args, { some_option: 'foo' })
+          second_pid = manager_two.execute('[Diagnostics.Process]::GetCurrentProcess().Id')[:stdout]
+
+          expect(manager_two).not_to eq(manager)
+          expect(first_pid).not_to eq(second_pid)
         end
 
         it 'fails if the manger is created with a short timeout' do

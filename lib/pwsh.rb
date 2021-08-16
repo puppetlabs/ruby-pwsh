@@ -406,7 +406,7 @@ Invoke-PowerShellUserCode @params
     #
     # @return[String] Unique string representing the manager instance.
     def self.instance_key(cmd, args, options)
-      cmd + args.join(' ') + options[:debug].to_s
+      cmd + args.join(' ') + options.to_s
     end
 
     # Return whether or not a particular stream is valid and readable
