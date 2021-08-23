@@ -2,7 +2,16 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
-## [0.10.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.10.0) (2021-07-01)
+## [0.10.1](https://github.com/puppetlabs/ruby-pwsh/tree/0.10.1) (2021-08-23)
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.10.0...0.10.1)
+
+### Fixed
+
+- \(GH-180\) Ensure instance\_key respects full uniqueness of options [\#181](https://github.com/puppetlabs/ruby-pwsh/pull/181) ([michaeltlombardi](https://github.com/michaeltlombardi))
+- \(GH-165\) Ensure null-value nested cim instance arrays are appropriately munged [\#177](https://github.com/puppetlabs/ruby-pwsh/pull/177) ([michaeltlombardi](https://github.com/michaeltlombardi))
+
+## [0.10.0](https://github.com/puppetlabs/ruby-pwsh/tree/0.10.0) (2021-07-02)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.9.0...0.10.0)
 
