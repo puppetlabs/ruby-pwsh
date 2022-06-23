@@ -35,8 +35,18 @@ $global:ourFunctions = @'
 function Reset-ProcessEnvironmentVariables {
   param($CachedEnvironmentVariables)
 
+  # When Protected Event Logging and PowerShell Script Block logging are enabled together
+  # the SystemRoot environment variable is a requirement. If it is removed as part of this purge
+  # it causes the PowerShell process to crash, therefore breaking the pipe between Ruby and the
+  # remote PowerShell session.
+  # The least descructive way to avoid this is to filter out SystemRoot when pulling our current list
+  # of environment variables. Then we can continue safely with the removal.
+  $CurrentEnvironmentVariables = Get-ChildItem -Path Env:\* |
+    Where-Object {$_.Name -ne "SystemRoot"}
+
   # Delete existing environment variables
-  Remove-Item -Path Env:\* -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -Recurse
+  $CurrentEnvironmentVariables |
+    ForEach-Object -Process { Remove-Item -Path "ENV:\$($_.Name)" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -Recurse }
 
   # Re-add the cached environment variables
   $CachedEnvironmentVariables |
