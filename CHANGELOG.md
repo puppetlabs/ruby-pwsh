@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [v0.10.2](https://github.com/puppetlabs/ruby-pwsh/tree/v0.10.2) - 2022-06-24
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.10.1...v0.10.2)
+
+### Fixed
+
+- (GH-188) Filter current environment variables [#189](https://github.com/puppetlabs/ruby-pwsh/pull/189) ([chelnak](https://github.com/chelnak))
+
 ## [0.10.1](https://github.com/puppetlabs/ruby-pwsh/tree/0.10.1) (2021-08-23)
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.10.0...0.10.1)
