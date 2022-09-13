@@ -82,6 +82,16 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       allow(provider).to receive(:fetch_cached_hashes).and_return(cached_canonicalized_resource)
     end
 
+    context 'when a manifest resource has meta parameters' do
+      let(:manifest_resource) { base_resource.merge({ dsc_ensure: 'present', noop: true }) }
+      let(:expected_resource) { base_resource.merge({ dsc_property: 'foobar' }) }
+      let(:cached_canonicalized_resource) { expected_resource.dup }
+
+      it 'does not get removed as part of the canonicalization' do
+        expect(canonicalized_resource.first[:noop]).to eq(true)
+      end
+    end
+
     context 'when a manifest resource is in the canonicalized resource cache' do
       let(:manifest_resource) { base_resource.merge({ dsc_property: 'FooBar' }) }
       let(:expected_resource) { base_resource.merge({ dsc_property: 'foobar' }) }
