@@ -79,6 +79,9 @@ class Puppet::Provider::DscBaseProvider
             end
             downcased_result = recursively_downcase(canonicalized)
             downcased_resource = recursively_downcase(r)
+            # Ensure that metaparameters are preserved when we canonicalize the resource.
+            metaparams = downcased_resource.select { |key, _value| Puppet::Type.metaparam?(key) }
+            canonicalized.merge!(metaparams) unless metaparams.nil?
             downcased_result.each do |key, value|
               # Canonicalize to the manifest value unless the downcased strings match and the attribute is not an enum:
               # - When the values don't match at all, the manifest value is desired;
