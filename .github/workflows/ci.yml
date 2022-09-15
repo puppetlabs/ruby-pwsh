@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+    branches:
+      - main
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
@@ -18,21 +20,25 @@ jobs:
         ruby: ["2.7"]
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+
       - name: Activate Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
+
       - name: Print Test Environment
         run: |
           ruby -v
           gem -v
           bundle -v
           pwsh -v
+
       - name: Run Rubocop Tests
         run: |
           bundle exec rake rubocop
+
   spec:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -42,25 +48,29 @@ jobs:
           - windows-latest
           - windows-2016
           - ubuntu-latest
-          - ubuntu-18.04
+          - ubuntu-20.04
         ruby: ["2.5", "2.7"]
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+
       - name: Activate Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
+
       - name: Print Test Environment
         run: |
           ruby -v
           gem -v
           bundle -v
           pwsh -v
+
       - name: Run Spec Tests
         run: |
           bundle exec rake spec
+
   acceptance-dsc:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -81,18 +91,21 @@ jobs:
       PUPPET_GEM_VERSION: ${{ matrix.puppet }}
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+
       - name: Activate Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
+
       - name: Print Test Environment
         run: |
           ruby -v
           gem -v
           bundle -v
           pwsh -v
+
       - name: Ensure WinRM is working
         shell: powershell
         run: |
@@ -102,6 +115,7 @@ jobs:
             winrm create winrm/config/Listener?Address=*+Transport=HTTP
             winrm e winrm/config/listener
           }
+
       - name: Run Acceptance Tests
         shell: powershell
         run: |
