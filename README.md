@@ -74,47 +74,51 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 Steps to release an update to the gem and module include:
 
-1. Ensure that the release branch is up to date with the main:
+1. From main, checkout a new working branch for the release prep (where xyz is the appropriate version, sans periods):
    ```bash
-   git push upstream upstream/main:release --force
+   git checkout -b maint-release_prep_xyz
    ```
-1. Checkout a new working branch for the release prep (where xyz is the appropriate version, sans periods):
-   ```bash
-   git checkout -b maint/release/prep-xyz upstream/release
-   ```
-1. Update the version in `lib/pwsh/version.rb` and `metadata.json` to the appropriate version for the new release.
-1. Run the changelog update task (make sure to verify the changelog, correctly tagging PRs as needed):
+
+2. Update the version in `lib/pwsh/version.rb` and `metadata.json` to the appropriate version for the new release.
+
+3. Run the changelog update task (make sure to verify the changelog, correctly tagging PRs as needed):
    ```bash
    bundle exec rake changelog
    ```
-1. Commit your changes with a short, sensible commit message, like:
-   ```text
+
+   4. Commit your changes with a short, sensible commit message, like:
+   ```bash
    git add lib/pwsh/version.rb
    git add metadata.json
    git add CHANGELOG.md
    git commit -m '(MAINT) Prep for x.y.z release'
    ```
-1. Push your changes and submit a pull request for review _against the **release** branch_:
+
+5. Push your changes and submit a pull request for review _against main:
    ```bash
-   git push -u origin maint/release/prep-xyz
+   git push -u origin maint_release_prep_xyz
    ```
-1. Ensure tests pass and the code is merged to `release`.
-1. Grab the commit hash from the merge commit on release, use that as the tag for the version (replacing `x.y.z` with the appropriate version and  `commithash` with the relevant one), then push the tags to upstream:
+
+6. Ensure tests pass and the code is merged to `main`.
+
+7. Once the release_prep PR has been merged, checkout main and pull down the latests changes.
    ```bash
-   bundle exec rake tag['x.y.z', 'commithash']
+   git checkout main
+   git pull
    ```
-1. Build the Ruby gem and publish:
+
+8. Assuming that the release_prep merge commit is at the HEAD of main we can simply create and push a tag as follows (replacing xyz with the appropriate version).
    ```bash
-   bundle exec rake build
-   bundle exec rake push['ruby-pwsh-x.y.z.gem']
+   git tag -a xyx -m "Release xyz"
+   git push --follow-tags
    ```
-1. Verify that the correct version now exists on [RubyGems](https://rubygems.org/search?query=ruby-pwsh)
-1. Build the Puppet module:
-   ```bash
-   bundle exec rake build_module
-   ```
-1. Publish the updated module version (found in the `pkg` folder) to [the Forge](https://forge.puppet.com/puppetlabs/pwshlib).
-1. Submit the [mergeback PR from the release branch to main](https://github.com/puppetlabs/ruby-pwsh/compare/main...release).
+
+9. Execute the publish workflow. This will:
+   - Create a GitHub release
+   - Build and publish the Gem
+   - Build and publish the Puppet module
+
+10. Finally check that the expected versions are present on rubygems.org and the Forge.
 
 ## Known Issues
 
