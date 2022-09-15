@@ -1,0 +1,80 @@
+name: "Publish"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-github-release:
+    name: Deploy GitHub Release
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+          clean: true
+          fetch-depth: 0
+
+      - name: Get Version
+        id: get_version
+        run: |
+          echo "::set-output name=version::$(jq --raw-output .version metadata.json)"
+
+      - name: Create Release
+        run: |
+          gh release create "${{ steps.get_version.outputs.version"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-gem:
+    name: Deploy to rubygems
+    runs-on: ubuntu-20.04
+    needs: create-github-release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+          clean: true
+          fetch-depth: 0
+
+      - name: Activate Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.7
+          bundler-cache: true
+
+      - name: Bundle Install
+        run: |
+          bundle install
+
+      - name: Build Gem
+        run: |
+          bundle exec rake build
+
+      - name: Publish Gem
+        run: |
+          bundle exec rake push
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.GEM_HOST_API_KEY }}
+
+  publish-module:
+    name: Deploy to Forge
+    runs-on: ubuntu-20.04
+    needs: publish-gem
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+          clean: true
+
+      - name: "PDK Build"
+        uses: docker://puppet/pdk:latest
+        with:
+          args: 'build'
+
+      - name: "Push to Forge"
+        uses: docker://puppet/pdk:latest
+        with:
+          args: 'release publish --forge-token ${{ secrets.FORGE_API_KEY }} --force'
