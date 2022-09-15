@@ -17,6 +17,7 @@ group :test do
 end
 
 group :development do
+  gem 'faraday-retry'
   gem 'github_changelog_generator', '~> 1.15' if Gem::Version.new(RUBY_VERSION.dup) >= Gem::Version.new('2.3.0')
   gem 'yard'
 end
