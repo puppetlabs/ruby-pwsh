@@ -1,80 +1,82 @@
-name: "Publish"
+name: "release"
 
 on:
   workflow_dispatch:
 
 jobs:
-  create-github-release:
-    name: Deploy GitHub Release
-    runs-on: ubuntu-20.04
+  github-release:
+    name: "create release"
+    runs-on: "ubuntu-latest"
+    if: github.repository_owner == 'puppetlabs'
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: "checkout"
+        uses: "actions/checkout@v3"
         with:
           ref: ${{ github.ref }}
           clean: true
           fetch-depth: 0
 
-      - name: Get Version
-        id: get_version
+      - name: "get version"
+        id: "get_version"
         run: |
           echo "::set-output name=version::$(jq --raw-output .version metadata.json)"
 
-      - name: Create Release
+      - name: "create release"
         run: |
-          gh release create "${{ steps.get_version.outputs.version"
+          gh release create "${{ steps.get_version.outputs.version }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-gem:
-    name: Deploy to rubygems
-    runs-on: ubuntu-20.04
-    needs: create-github-release
+    name: "publish gem"
+    runs-on: "ubuntu-latest"
+    needs: "github-release"
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: "checkout"
+        uses: "actions/checkout@v3"
         with:
           ref: ${{ github.ref }}
           clean: true
           fetch-depth: 0
 
-      - name: Activate Ruby
+      - name: "setup ruby"
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 2.7
           bundler-cache: true
 
-      - name: Bundle Install
-        run: |
-          bundle install
-
-      - name: Build Gem
+      - name: "build"
         run: |
           bundle exec rake build
 
-      - name: Publish Gem
+      - name: "publish"
         run: |
           bundle exec rake push
         env:
           GEM_HOST_API_KEY: ${{ secrets.GEM_HOST_API_KEY }}
 
   publish-module:
-    name: Deploy to Forge
+    name: "publish module"
     runs-on: ubuntu-20.04
     needs: publish-gem
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: "checkout"
+        uses: "actions/checkout@v3"
         with:
           ref: ${{ github.ref }}
           clean: true
 
-      - name: "PDK Build"
-        uses: docker://puppet/pdk:latest
+      - name: "update readme"
+        run: |
+          mv pwshlib.md README.md
+
+      - name: "build"
+        uses: "docker://puppet/pdk:latest"
         with:
           args: 'build'
 
-      - name: "Push to Forge"
-        uses: docker://puppet/pdk:latest
+      - name: "publish"
+        uses: "docker://puppet/pdk:latest"
         with:
           args: 'release publish --forge-token ${{ secrets.FORGE_API_KEY }} --force'
