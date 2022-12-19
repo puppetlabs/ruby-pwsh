@@ -4,35 +4,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  github-release:
-    name: "create release"
+  release:
+    name: "release"
     runs-on: "ubuntu-latest"
     if: github.repository_owner == 'puppetlabs'
 
     steps:
-      - name: "checkout"
-        uses: "actions/checkout@v3"
-        with:
-          ref: ${{ github.ref }}
-          clean: true
-          fetch-depth: 0
 
-      - name: "get version"
-        id: "get_version"
-        run: |
-          echo "::set-output name=version::$(jq --raw-output .version metadata.json)"
-
-      - name: "create release"
-        run: |
-          gh release create "${{ steps.get_version.outputs.version }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  publish-gem:
-    name: "publish gem"
-    runs-on: "ubuntu-latest"
-    needs: "github-release"
-    steps:
       - name: "checkout"
         uses: "actions/checkout@v3"
         with:
@@ -46,37 +24,38 @@ jobs:
           ruby-version: 2.7
           bundler-cache: true
 
-      - name: "build"
+      - name: "get version"
+        id: "get_version"
+        run: |
+          echo "::set-output name=version::$(jq --raw-output .version metadata.json)"
+
+      - name: "build gem"
         run: |
           bundle exec rake build
 
-      - name: "publish"
+      - name: "publish gem"
         run: |
-          bundle exec rake push
+          gem push ./pkg/*.gem
         env:
           GEM_HOST_API_KEY: ${{ secrets.GEM_HOST_API_KEY }}
 
-  publish-module:
-    name: "publish module"
-    runs-on: ubuntu-20.04
-    needs: publish-gem
-    steps:
-      - name: "checkout"
-        uses: "actions/checkout@v3"
-        with:
-          ref: ${{ github.ref }}
-          clean: true
-
-      - name: "update readme"
+      - name: "update module readme"
         run: |
           mv pwshlib.md README.md
 
-      - name: "build"
+      - name: "build module"
         uses: "docker://puppet/pdk:latest"
         with:
           args: 'build'
 
-      - name: "publish"
+      - name: "publish module"
         uses: "docker://puppet/pdk:latest"
         with:
           args: 'release publish --forge-token ${{ secrets.FORGE_API_KEY }} --force'
+
+      - name: "create release"
+        run: |
+          gh release create v${{ steps.get_version.outputs.version }} ./pkg/*.gem ./pkg/*.tar.gz --title v${{ steps.get_version.outputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
