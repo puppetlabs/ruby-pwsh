@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'bundler/gem_tasks'
 require 'rubocop/rake_task'
 require 'fileutils'
 require 'github_changelog_generator/task'
@@ -44,61 +45,6 @@ task default: :spec
 
 YARD::Rake::YardocTask.new do |t|
 end
-
-# Executes a command locally.
-#
-# @param command [String] command to execute.
-# @return [Object] the standard out stream.
-def run_local_command(command)
-  stdout, stderr, status = Open3.capture3(command)
-  error_message = "Attempted to run\ncommand:'#{command}'\nstdout:#{stdout}\nstderr:#{stderr}"
-  raise error_message unless status.to_i.zero?
-
-  stdout
-end
-
-# Build the gem
-desc 'Build the gem'
-task :build do
-  gemspec_path = File.join(Dir.pwd, 'ruby-pwsh.gemspec')
-  run_local_command("bundle exec gem build '#{gemspec_path}'")
-end
-
-# Tag the repo with a version in preparation for the release
-#
-# @param :version [String] a semantic version to tag the code with
-# @param :sha [String] the sha at which to apply the version tag
-desc 'Tag the repo with a version in preparation for release'
-task :tag, [:version, :sha] do |_task, args|
-  raise "Invalid version #{args[:version]} - must be like '1.2.3'" unless args[:version] =~ /^\d+\.\d+\.\d+$/
-
-  run_local_command('git fetch upstream')
-  run_local_command("git tag -a #{args[:version]} -m #{args[:version]} #{args[:sha]}")
-  run_local_command('git push upstream --tags')
-end
-
-# Push the built gem to RubyGems
-#
-# @param :path [String] optional, the full or relative path to the built gem to be pushed
-desc 'Push to RubyGems'
-task :push, [:path] do |_task, args|
-  raise 'No discoverable gem for pushing' if Dir.glob("ruby-pwsh*\.gem").empty? && args[:path].nil?
-  raise "No file found at specified path: '#{args[:path]}'" unless File.exist?(args[:path])
-
-  path = args[:path] || File.join(Dir.pwd, Dir.glob("ruby-pwsh*\.gem")[0])
-  run_local_command("bundle exec gem push #{path}")
-end
-
-desc 'Build for Puppet'
-task :build_module do
-  actual_readme_content = File.read('README.md')
-  FileUtils.copy_file('pwshlib.md', 'README.md')
-  # Build
-  run_local_command('pdk build --force')
-  # Cleanup
-  File.open('README.md', 'wb') { |file| file.write(actual_readme_content) }
-end
-
 # Used in vendor_dsc_module
 TAR_LONGLINK = '././@LongLink'
 

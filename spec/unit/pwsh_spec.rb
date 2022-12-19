@@ -401,14 +401,11 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
       context 'it should handle UTF-8' do
         # different UTF-8 widths
-        # rubocop:disable Style/AsciiComments
         # 1-byte A
         # 2-byte ۿ - http://www.fileformat.info/info/unicode/char/06ff/index.htm - 0xDB 0xBF / 219 191
         # 3-byte ᚠ - http://www.fileformat.info/info/unicode/char/16A0/index.htm - 0xE1 0x9A 0xA0 / 225 154 160
         # 4-byte 𠜎 - http://www.fileformat.info/info/unicode/char/2070E/index.htm - 0xF0 0xA0 0x9C 0x8E / 240 160 156 142
         let(:mixed_utf8) { "A\u06FF\u16A0\u{2070E}" } # Aۿᚠ𠜎
-        # rubocop:enable Style/AsciiComments
-
         it 'when writing basic text' do
           code = "Write-Output '#{mixed_utf8}'"
           result = manager.execute(code)

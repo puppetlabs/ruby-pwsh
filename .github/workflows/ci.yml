@@ -1,84 +1,58 @@
-name: CI
+name: "ci"
 
 on:
   pull_request:
     branches:
-      - main
+      - "main"
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
 
 jobs:
-  rubocop:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - windows-latest
-          - ubuntu-latest
-        ruby: ["2.7"]
-    steps:
-      - name: Checkout Source
-        uses: actions/checkout@v3
-
-      - name: Activate Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: ${{ matrix.ruby }}
-          bundler-cache: true
-
-      - name: Print Test Environment
-        run: |
-          ruby -v
-          gem -v
-          bundle -v
-          pwsh -v
-
-      - name: Run Rubocop Tests
-        run: |
-          bundle exec rake rubocop
-
   spec:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os:
-          - windows-latest
-          - windows-2016
-          - ubuntu-latest
-          - ubuntu-20.04
-        ruby: ["2.5", "2.7"]
-    steps:
-      - name: Checkout Source
-        uses: actions/checkout@v3
+          - "ubuntu-latest"
+        ruby:
+          - 2.5
+          - 2.7
 
-      - name: Activate Ruby
-        uses: ruby/setup-ruby@v1
+    steps:
+      - name: "checkout"
+        uses: "actions/checkout@v3"
+
+      - name: "setup ruby"
+        uses: "ruby/setup-ruby@v1"
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
 
-      - name: Print Test Environment
+      - name: "bundle environment"
         run: |
-          ruby -v
-          gem -v
-          bundle -v
-          pwsh -v
+          echo ::group::bundler environment
+          bundle env
+          echo ::endgroup::
 
-      - name: Run Spec Tests
+      - name: "rubocop"
+        run: |
+          bundle exec rubocop
+
+      - name: "spec"
         run: |
           bundle exec rake spec
 
-  acceptance-dsc:
+  acceptance:
+    needs: "spec"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os:
-          - windows-latest
-          - windows-2016
+          - "windows-latest"
+          - "windows-2019"
         puppet:
           - 6
           - 7
@@ -89,25 +63,25 @@ jobs:
             ruby: 2.7
     env:
       PUPPET_GEM_VERSION: ${{ matrix.puppet }}
-    steps:
-      - name: Checkout Source
-        uses: actions/checkout@v3
 
-      - name: Activate Ruby
-        uses: ruby/setup-ruby@v1
+    steps:
+      - name: "checkout"
+        uses: "actions/checkout@v3"
+
+      - name: "setup ruby"
+        uses: "ruby/setup-ruby@v1"
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
 
-      - name: Print Test Environment
+      - name: "bundle environment"
         run: |
-          ruby -v
-          gem -v
-          bundle -v
-          pwsh -v
+          echo ::group::bundler environment
+          bundle env
+          echo ::endgroup::
 
-      - name: Ensure WinRM is working
-        shell: powershell
+      - name: "setup winrm"
+        shell: "powershell"
         run: |
           Get-ChildItem WSMan:\localhost\Listener\ -OutVariable Listeners | Format-List * -Force
           $HTTPListener = $Listeners | Where-Object -FilterScript { $_.Keys.Contains('Transport=HTTP') }
@@ -116,8 +90,8 @@ jobs:
             winrm e winrm/config/listener
           }
 
-      - name: Run Acceptance Tests
-        shell: powershell
+      - name: "acceptance"
+        shell: "powershell"
         run: |
           bundle exec rake dsc:acceptance:spec_prep
           bundle exec rake dsc:acceptance:spec
