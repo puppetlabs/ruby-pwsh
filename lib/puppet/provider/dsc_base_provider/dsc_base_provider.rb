@@ -6,27 +6,25 @@ require 'pathname'
 require 'json'
 
 class Puppet::Provider::DscBaseProvider
-  # Initializes the provider, preparing the class variables which cache:
+  # Initializes the provider, preparing the instance variables which cache:
   # - the canonicalized resources across calls
   # - query results
   # - logon failures
   def initialize
-    @cached_canonicalized_resource ||= []
-    @cached_query_results ||= []
-    @cached_test_results ||= []
-    @logon_failures ||= []
+    @cached_canonicalized_resource = []
+    @cached_query_results = []
+    @cached_test_results = []
+    @logon_failures = []
     super
   end
 
-  def cached_test_results
-    @cached_test_results
-  end
+  attr_reader :cached_test_results
 
   # Look through a cache to retrieve the hashes specified, if they have been cached.
   # Does so by seeing if each of the specified hashes is a subset of any of the hashes
   # in the cache, so {foo: 1, bar: 2} would return if {foo: 1} was the search hash.
   #
-  # @param cache [Array] the class variable containing cached hashes to search through
+  # @param cache [Array] the instance variable containing cached hashes to search through
   # @param hashes [Array] the list of hashes to search the cache for
   # @return [Array] an array containing the matching hashes for the search condition, if any
   def fetch_cached_hashes(cache, hashes)
@@ -523,7 +521,7 @@ class Puppet::Provider::DscBaseProvider
   # @param [Hash] a credential hash with a user and password keys where the password is a sensitive string
   # @return [Bool] true if the credential_hash has already failed logon, false otherwise
   def logon_failed_already?(credential_hash)
-    @logon_failures.any? do  |failure_hash|
+    @logon_failures.any? do |failure_hash|
       failure_hash['user'] == credential_hash['user'] && failure_hash['password'].unwrap == credential_hash['password'].unwrap
     end
   end
