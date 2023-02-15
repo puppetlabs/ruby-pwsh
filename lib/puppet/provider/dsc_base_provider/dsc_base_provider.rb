@@ -11,15 +11,15 @@ class Puppet::Provider::DscBaseProvider
   # - query results
   # - logon failures
   def initialize
-    @@cached_canonicalized_resource ||= []
-    @@cached_query_results ||= []
-    @@cached_test_results ||= []
-    @@logon_failures ||= []
+    @cached_canonicalized_resource ||= []
+    @cached_query_results ||= []
+    @cached_test_results ||= []
+    @logon_failures ||= []
     super
   end
 
   def cached_test_results
-    @@cached_test_results
+    @cached_test_results
   end
 
   # Look through a cache to retrieve the hashes specified, if they have been cached.
@@ -52,14 +52,14 @@ class Puppet::Provider::DscBaseProvider
       # During RSAPI refresh runs mandatory parameters are stripped and not available;
       # Instead of checking again and failing, search the cache for a namevar match.
       namevarized_r = r.select { |k, _v| namevar_attributes(context).include?(k) }
-      cached_result = fetch_cached_hashes(@@cached_canonicalized_resource, [namevarized_r]).first
+      cached_result = fetch_cached_hashes(@cached_canonicalized_resource, [namevarized_r]).first
       if cached_result.nil?
         # If the resource is meant to be absent, skip canonicalization and rely on the manifest
         # value; there's no reason to compare system state to desired state for casing if the
         # resource is being removed.
         if r[:dsc_ensure] == 'absent'
           canonicalized = r.dup
-          @@cached_canonicalized_resource << r.dup
+          @cached_canonicalized_resource << r.dup
         else
           canonicalized = invoke_get_method(context, r)
           # If the resource could not be found or was returned as absent, skip case munging and
@@ -67,7 +67,7 @@ class Puppet::Provider::DscBaseProvider
           # rubocop:disable Metrics/BlockNesting
           if canonicalized.nil? || canonicalized[:dsc_ensure] == 'absent'
             canonicalized = r.dup
-            @@cached_canonicalized_resource << r.dup
+            @cached_canonicalized_resource << r.dup
           else
             parameters = r.select { |name, _properties| parameter_attributes(context).include?(name) }
             canonicalized.merge!(parameters)
@@ -91,7 +91,7 @@ class Puppet::Provider::DscBaseProvider
               canonicalized.delete(key) unless downcased_resource.keys.include?(key)
             end
             # Cache the actually canonicalized resource separately
-            @@cached_canonicalized_resource << canonicalized.dup
+            @cached_canonicalized_resource << canonicalized.dup
           end
           # rubocop:enable Metrics/BlockNesting
         end
@@ -123,13 +123,13 @@ class Puppet::Provider::DscBaseProvider
     context.debug('Collecting data from the DSC Resource')
 
     # If the resource has already been queried, do not bother querying for it again
-    cached_results = fetch_cached_hashes(@@cached_query_results, names)
+    cached_results = fetch_cached_hashes(@cached_query_results, names)
     return cached_results unless cached_results.empty?
 
-    if @@cached_canonicalized_resource.empty?
+    if @cached_canonicalized_resource.empty?
       mandatory_properties = {}
     else
-      canonicalized_resource = @@cached_canonicalized_resource[0].dup
+      canonicalized_resource = @cached_canonicalized_resource[0].dup
       mandatory_properties = canonicalized_resource.select do |attribute, _value|
         (mandatory_get_attributes(context) - namevar_attributes(context)).include?(attribute)
       end
@@ -266,9 +266,9 @@ class Puppet::Provider::DscBaseProvider
       if error =~ /Logon failure: the user has not been granted the requested logon type at this computer/
         logon_error = "PSDscRunAsCredential account specified (#{name_hash[:dsc_psdscrunascredential]['user']}) does not have appropriate logon rights; are they an administrator?"
         name_hash[:name].nil? ? context.err(logon_error) : context.err(name_hash[:name], logon_error)
-        @@logon_failures << name_hash[:dsc_psdscrunascredential].dup
+        @logon_failures << name_hash[:dsc_psdscrunascredential].dup
         # This is a hack to handle the query cache to prevent a second lookup
-        @@cached_query_results << name_hash # if fetch_cached_hashes(@@cached_query_results, [data]).empty?
+        @cached_query_results << name_hash # if fetch_cached_hashes(@cached_query_results, [data]).empty?
       else
         context.err(error)
       end
@@ -292,7 +292,7 @@ class Puppet::Provider::DscBaseProvider
   def insync?(context, name, _property_name, _is_hash, should_hash)
     return nil if should_hash[:validation_mode] != 'resource'
 
-    prior_result = fetch_cached_hashes(@@cached_test_results, [name])
+    prior_result = fetch_cached_hashes(@cached_test_results, [name])
     prior_result.empty? ? invoke_test_method(context, name, should_hash) : prior_result.first[:in_desired_state]
   end
 
@@ -361,7 +361,7 @@ class Puppet::Provider::DscBaseProvider
     data = recursively_sort(data)
 
     # Cache the query to prevent a second lookup
-    @@cached_query_results << data.dup if fetch_cached_hashes(@@cached_query_results, [data]).empty?
+    @cached_query_results << data.dup if fetch_cached_hashes(@cached_query_results, [data]).empty?
     context.debug("Returned to Puppet as #{data}")
     data
   end
@@ -400,7 +400,7 @@ class Puppet::Provider::DscBaseProvider
     return nil if data.nil?
 
     in_desired_state = data['indesiredstate']
-    @@cached_test_results << name.merge({ in_desired_state: in_desired_state })
+    @cached_test_results << name.merge({ in_desired_state: in_desired_state })
 
     return in_desired_state if in_desired_state
 
@@ -509,12 +509,12 @@ class Puppet::Provider::DscBaseProvider
   #
   # @return [Hash] containing all instantiated variables and the properties that they define
   def instantiated_variables
-    @@instantiated_variables ||= {}
+    @instantiated_variables ||= {}
   end
 
   # Clear the instantiated variables hash to be ready for the next run
   def clear_instantiated_variables!
-    @@instantiated_variables = {}
+    @instantiated_variables = {}
   end
 
   # Return true if the specified credential hash has already failed to execute a DSC resource due to
@@ -523,7 +523,7 @@ class Puppet::Provider::DscBaseProvider
   # @param [Hash] a credential hash with a user and password keys where the password is a sensitive string
   # @return [Bool] true if the credential_hash has already failed logon, false otherwise
   def logon_failed_already?(credential_hash)
-    @@logon_failures.any? do  |failure_hash|
+    @logon_failures.any? do  |failure_hash|
       failure_hash['user'] == credential_hash['user'] && failure_hash['password'].unwrap == credential_hash['password'].unwrap
     end
   end
