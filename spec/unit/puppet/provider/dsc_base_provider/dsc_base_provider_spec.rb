@@ -15,10 +15,10 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   # Reset the caches after each run
   after(:each) do
-    described_class.instance_variable_set(:@cached_canonicalized_resource, []) # rubocop:disable Style/ClassVars
-    described_class.instance_variable_set(:@cached_query_results, []) # rubocop:disable Style/ClassVars
-    described_class.instance_variable_set(:@cached_test_results, []) # rubocop:disable Style/ClassVars
-    described_class.instance_variable_set(:@logon_failures, []) # rubocop:disable Style/ClassVars
+    described_class.instance_variable_set(:@cached_canonicalized_resource, []) 
+    described_class.instance_variable_set(:@cached_query_results, []) 
+    described_class.instance_variable_set(:@cached_test_results, []) 
+    described_class.instance_variable_set(:@logon_failures, []) 
   end
 
   context '.initialize' do
@@ -45,7 +45,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:cache_value) { %w[foo bar] }
 
     it 'returns the value of the @cached_test_results instance variable' do
-      described_class.instance_variable_set(:@cached_test_results, cache_value) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@cached_test_results, cache_value) 
       expect(provider.cached_test_results).to eq(cache_value)
     end
   end
@@ -232,18 +232,18 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   context '.get' do
     after(:each) do
-      described_class.instance_variable_set(:@cached_canonicalized_resource, []) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@cached_canonicalized_resource, []) 
     end
 
     it 'checks the cached results, returning if one exists for the specified names' do
-      described_class.instance_variable_set(:@cached_canonicalized_resource, []) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@cached_canonicalized_resource, []) 
       allow(context).to receive(:debug)
       expect(provider).to receive(:fetch_cached_hashes).with([], [{ name: 'foo' }]).and_return([{ name: 'foo', property: 'bar' }])
       expect(provider).not_to receive(:invoke_get_method)
       expect(provider.get(context, [{ name: 'foo' }])).to eq([{ name: 'foo', property: 'bar' }])
     end
     it 'adds mandatory properties to the name hash when calling invoke_get_method' do
-      described_class.instance_variable_set(:@cached_canonicalized_resource, [{ name: 'foo', property: 'bar', dsc_some_parameter: 'baz' }]) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@cached_canonicalized_resource, [{ name: 'foo', property: 'bar', dsc_some_parameter: 'baz' }]) 
       allow(context).to receive(:debug)
       expect(provider).to receive(:fetch_cached_hashes).with([], [{ name: 'foo' }]).and_return([])
       expect(provider).to receive(:namevar_attributes).and_return([:name]).exactly(3).times
@@ -521,7 +521,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     after(:each) do
-      described_class.instance_variable_set(:@cached_query_results, nil) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@cached_query_results, nil) 
     end
 
     context 'when the invocation script returns data without errors' do
@@ -701,7 +701,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           allow(context).to receive(:err).with(name_hash[:name], puppet_logon_failure_error)
         end
         after(:each) do
-          described_class.instance_variable_set(:@logon_failures, []) # rubocop:disable Style/ClassVars
+          described_class.instance_variable_set(:@logon_failures, []) 
         end
 
         it 'errors specifically for a logon failure and returns nil' do
@@ -975,7 +975,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     after(:each) do
-      described_class.instance_variable_set(:@cached_test_results, []) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@cached_test_results, [])
     end
 
     context 'when something went wrong calling Invoke-DscResource' do
@@ -1023,25 +1023,25 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   context '.instantiated_variables' do
     after(:each) do
-      described_class.instance_variable_set(:@instantiated_variables, []) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@instantiated_variables, [])
     end
 
     it 'sets the instantiated_variables instance variable to {} if not initialized' do
       expect(provider.instantiated_variables).to eq({})
     end
     it 'returns the instantiated_variables instance variable if already initialized' do
-      described_class.instance_variable_set(:@instantiated_variables, { foo: 'bar' }) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@instantiated_variables, { foo: 'bar' })
       expect(provider.instantiated_variables).to eq({ foo: 'bar' })
     end
   end
 
   context '.clear_instantiated_variables!' do
     after(:each) do
-      described_class.instance_variable_set(:@instantiated_variables, []) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@instantiated_variables, [])
     end
 
     it 'sets the instantiated_variables instance variable to {}' do
-      described_class.instance_variable_set(:@instantiated_variables, { foo: 'bar' }) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@instantiated_variables, { foo: 'bar' })
       expect { provider.clear_instantiated_variables! }.not_to raise_error
       expect(described_class.instance_variable_get(:@instantiated_variables)).to eq({})
     end
@@ -1066,15 +1066,15 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       after(:each) do
-        described_class.instance_variable_set(:@logon_failures, []) # rubocop:disable Style/ClassVars
+        described_class.instance_variable_set(:@logon_failures, [])
       end
 
       it 'returns false if there have been no failed logons with the username/password combination' do
-        described_class.instance_variable_set(:@logon_failures, [bad_credential_hash]) # rubocop:disable Style/ClassVars
+        described_class.instance_variable_set(:@logon_failures, [bad_credential_hash])
         expect(provider.logon_failed_already?(good_credential_hash)).to eq(false)
       end
       it 'returns true if the username/password specified are found in the logon_failures instance variable' do
-        described_class.instance_variable_set(:@logon_failures, [good_credential_hash, bad_credential_hash]) # rubocop:disable Style/ClassVars
+        described_class.instance_variable_set(:@logon_failures, [good_credential_hash, bad_credential_hash])
         expect(provider.logon_failed_already?(bad_credential_hash)).to eq(true)
       end
     end
@@ -1479,7 +1479,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       after(:each) do
-        described_class.instance_variable_set(:@instantiated_variables, []) # rubocop:disable Style/ClassVars
+        described_class.instance_variable_set(:@instantiated_variables, [])
       end
 
       it 'writes the ruby representation of the credentials as the value of a key named for the new variable into the instantiated_variables cache' do
@@ -1511,7 +1511,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     subject(:result) { provider.prepare_cim_instances(test_resource) }
 
     after(:each) do
-      described_class.instance_variable_set(:@instantiated_variables, []) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@instantiated_variables, [])
     end
 
     context 'when a cim instance is passed without nested cim instances' do
@@ -1619,7 +1619,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   context '.format_ciminstance' do
     after(:each) do
-      described_class.instance_variable_set(:@instantiated_variables, []) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@instantiated_variables, [])
     end
 
     it 'defines and returns a new cim instance as a PowerShell variable, passing the class name and property hash' do
@@ -1633,7 +1633,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider.format_ciminstance('foo', 'SomeClass', property_hash)).to match(expected_cim_instance_array_regex)
     end
     it 'interpolates variables in the case of a cim instance containing a nested instance' do
-      described_class.instance_variable_set(:@instantiated_variables, { 'SomeVariable' => { 'bar' => 'ope' } }) # rubocop:disable Style/ClassVars
+      described_class.instance_variable_set(:@instantiated_variables, { 'SomeVariable' => { 'bar' => 'ope' } })
       property_hash = { 'foo' => { 'bar' => 'ope' } }
       expect(provider.format_ciminstance('foo', 'SomeClass', property_hash)).to match(/@\{'foo' = \$SomeVariable\}/)
     end
