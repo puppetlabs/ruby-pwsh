@@ -15,10 +15,10 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   # Reset the caches after each run
   after(:each) do
-    described_class.instance_variable_set(:@cached_canonicalized_resource, []) 
-    described_class.instance_variable_set(:@cached_query_results, []) 
-    described_class.instance_variable_set(:@cached_test_results, []) 
-    described_class.instance_variable_set(:@logon_failures, []) 
+    described_class.instance_variable_set(:@cached_canonicalized_resource, [])
+    described_class.instance_variable_set(:@cached_query_results, [])
+    described_class.instance_variable_set(:@cached_test_results, [])
+    described_class.instance_variable_set(:@logon_failures, [])
   end
 
   context '.initialize' do
@@ -45,7 +45,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:cache_value) { %w[foo bar] }
 
     it 'returns the value of the @cached_test_results instance variable' do
-      described_class.instance_variable_set(:@cached_test_results, cache_value) 
+      described_class.instance_variable_set(:@cached_test_results, cache_value)
       expect(provider.cached_test_results).to eq(cache_value)
     end
   end
@@ -232,18 +232,18 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   context '.get' do
     after(:each) do
-      described_class.instance_variable_set(:@cached_canonicalized_resource, []) 
+      described_class.instance_variable_set(:@cached_canonicalized_resource, [])
     end
 
     it 'checks the cached results, returning if one exists for the specified names' do
-      described_class.instance_variable_set(:@cached_canonicalized_resource, []) 
+      described_class.instance_variable_set(:@cached_canonicalized_resource, [])
       allow(context).to receive(:debug)
       expect(provider).to receive(:fetch_cached_hashes).with([], [{ name: 'foo' }]).and_return([{ name: 'foo', property: 'bar' }])
       expect(provider).not_to receive(:invoke_get_method)
       expect(provider.get(context, [{ name: 'foo' }])).to eq([{ name: 'foo', property: 'bar' }])
     end
     it 'adds mandatory properties to the name hash when calling invoke_get_method' do
-      described_class.instance_variable_set(:@cached_canonicalized_resource, [{ name: 'foo', property: 'bar', dsc_some_parameter: 'baz' }]) 
+      described_class.instance_variable_set(:@cached_canonicalized_resource, [{ name: 'foo', property: 'bar', dsc_some_parameter: 'baz' }])
       allow(context).to receive(:debug)
       expect(provider).to receive(:fetch_cached_hashes).with([], [{ name: 'foo' }]).and_return([])
       expect(provider).to receive(:namevar_attributes).and_return([:name]).exactly(3).times
@@ -521,7 +521,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     after(:each) do
-      described_class.instance_variable_set(:@cached_query_results, nil) 
+      described_class.instance_variable_set(:@cached_query_results, nil)
     end
 
     context 'when the invocation script returns data without errors' do
@@ -701,7 +701,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           allow(context).to receive(:err).with(name_hash[:name], puppet_logon_failure_error)
         end
         after(:each) do
-          described_class.instance_variable_set(:@logon_failures, []) 
+          described_class.instance_variable_set(:@logon_failures, [])
         end
 
         it 'errors specifically for a logon failure and returns nil' do
