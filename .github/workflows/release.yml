@@ -1,61 +1,20 @@
-name: "release"
+name: "Release"
 
 on:
   workflow_dispatch:
+   inputs:
+    target:
+      description: "The target for the release. This can be a commit sha or a branch."
+      required: false
+      default: "main"
 
 jobs:
-  release:
-    name: "release"
-    runs-on: "ubuntu-latest"
-    if: github.repository_owner == 'puppetlabs'
+  gem_release:
+    uses: "puppetlabs/cat-github-actions/.github/workflows/gem_release.yml@main"
+    with:
+      target: "${{ github.event.inputs.target }}"
+    secrets: "inherit"
 
-    steps:
-
-      - name: "checkout"
-        uses: "actions/checkout@v3"
-        with:
-          ref: ${{ github.ref }}
-          clean: true
-          fetch-depth: 0
-
-      - name: "setup ruby"
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 2.7
-          bundler-cache: true
-
-      - name: "get version"
-        id: "get_version"
-        run: |
-          echo "::set-output name=version::$(jq --raw-output .version metadata.json)"
-
-      - name: "build gem"
-        run: |
-          bundle exec rake build
-
-      - name: "publish gem"
-        run: |
-          gem push ./pkg/*.gem
-        env:
-          GEM_HOST_API_KEY: ${{ secrets.GEM_HOST_API_KEY }}
-
-      - name: "update module readme"
-        run: |
-          mv pwshlib.md README.md
-
-      - name: "build module"
-        uses: "docker://puppet/pdk:latest"
-        with:
-          args: 'build'
-
-      - name: "publish module"
-        uses: "docker://puppet/pdk:latest"
-        with:
-          args: 'release publish --forge-token ${{ secrets.FORGE_API_KEY }} --force'
-
-      - name: "create release"
-        run: |
-          gh release create v${{ steps.get_version.outputs.version }} ./pkg/*.gem ./pkg/*.tar.gz --title v${{ steps.get_version.outputs.version }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+  module_release:
+    uses: "puppetlabs/cat-github-actions/.github/workflows/module_release.yml@main"
+    secrets: "inherit"

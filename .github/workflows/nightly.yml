@@ -1,9 +1,8 @@
-name: "ci"
+name: "nightly"
 
 on:
-  pull_request:
-    branches:
-      - "main"
+  schedule:
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 jobs:
@@ -30,12 +29,12 @@ jobs:
           - "windows-latest"
           - "windows-2019"
         puppet:
-          - '~> 6'
-          - '~> 7'
+          - 6
+          - 7
         include:
-          - puppet: '~> 6'
+          - puppet: 6
             ruby: 2.5
-          - puppet: '~> 7'
+          - puppet: 7
             ruby: 2.7
     env:
       PUPPET_GEM_VERSION: ${{ matrix.puppet }}
@@ -71,3 +70,4 @@ jobs:
         run: |
           bundle exec rake dsc:acceptance:spec_prep
           bundle exec rake dsc:acceptance:spec
+
