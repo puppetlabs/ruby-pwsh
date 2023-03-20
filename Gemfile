@@ -23,7 +23,7 @@ group :development do
 end
 
 group :puppet do
-  gem 'pdk', '~> 1.0'
+  gem 'pdk', '~> 2.7'
   if ENV['PUPPET_GEM_VERSION']
     gem 'puppet', ENV['PUPPET_GEM_VERSION']
   else
