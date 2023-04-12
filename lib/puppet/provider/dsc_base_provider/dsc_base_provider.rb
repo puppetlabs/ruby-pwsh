@@ -948,12 +948,12 @@ class Puppet::Provider::DscBaseProvider
   def handle_secrets(text, replacement, error_message)
     # Every secret unwrapped in this module will unwrap as "'secret#{SECRET_POSTFIX}'"
     # Currently, no known resources specify a SecureString instead of a PSCredential object.
-    return text unless text.match(/#{Regexp.quote(SECRET_POSTFIX)}/)
+    return text unless text =~ /#{Regexp.quote(SECRET_POSTFIX)}/
 
     # In order to reduce time-to-parse, look at each line individually and *only* attempt
     # to substitute if a naive match for the secret postfix is found on the line.
     modified_text = text.split("\n").map do |line|
-      if line.match(/#{Regexp.quote(SECRET_POSTFIX)}/)
+      if line =~ /#{Regexp.quote(SECRET_POSTFIX)}/
         line.gsub(SECRET_DATA_REGEX, replacement)
       else
         line
