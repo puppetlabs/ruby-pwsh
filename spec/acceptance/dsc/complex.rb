@@ -108,7 +108,7 @@ RSpec.describe 'DSC Acceptance: Complex' do
             require             => File['WebContentIndex'],
         }
       MANIFEST
-      File.open(test_manifest, 'w') { |file| file.write(content) }
+      File.write(test_manifest, content)
       # Puppet apply the test manifest
       first_run_result = powershell.execute(puppet_apply)
       expect(first_run_result[:exitcode]).to be(2)
