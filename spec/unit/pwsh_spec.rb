@@ -90,14 +90,14 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
           # <Errno::EBADF: Bad file descriptor @ io_fillbuf - fd:10 >
           @bad_file_descriptor_regex ||= begin
             ebadf = Errno::EBADF.new
-            "^#{Regexp.escape("\#<#{ebadf.class}: #{ebadf.message}")}"
+            "^#{Regexp.escape("#<#{ebadf.class}: #{ebadf.message}")}"
           end
         end
 
         def pipe_error_regex
           @pipe_error_regex ||= begin
             epipe = Errno::EPIPE.new
-            "^#{Regexp.escape("\#<#{epipe.class}: #{epipe.message}")}"
+            "^#{Regexp.escape("#<#{epipe.class}: #{epipe.message}")}"
           end
         end
 

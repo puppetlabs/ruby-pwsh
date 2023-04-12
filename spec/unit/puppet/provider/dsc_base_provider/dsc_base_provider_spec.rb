@@ -1722,7 +1722,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           }
         end
         let(:expected_module_name) do
-          "ModuleName = @\{ModuleName = 'C:/path/to/ruby-pwsh/lib/puppet_x/puppetdsc/dsc_resources/PuppetDsc/PuppetDsc.psd1'; RequiredVersion = '1.2.3.4'\}"
+          "ModuleName = @{ModuleName = 'C:/path/to/ruby-pwsh/lib/puppet_x/puppetdsc/dsc_resources/PuppetDsc/PuppetDsc.psd1'; RequiredVersion = '1.2.3.4'}"
         end
 
         it 'includes the ModuleName in the output hash as a hashtable of name and version' do

@@ -232,7 +232,7 @@ RSpec.describe Pwsh::Util do
     end
 
     it 'handles dollar signs' do
-      expect(described_class.escape_quotes("This should show \$foo variable")).to match(/This should show \$foo variable/)
+      expect(described_class.escape_quotes('This should show $foo variable')).to match(/This should show \$foo variable/)
     end
   end
 
