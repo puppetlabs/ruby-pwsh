@@ -346,7 +346,7 @@ class Puppet::Provider::DscBaseProvider
       data[type_key] = [] if data[type_key].nil? && query_props.key?(type_key) && query_props[type_key].is_a?(Array)
     end
     # If a resource is found, it's present, so refill this Puppet-only key
-    data.merge!({ name: name_hash[:name] })
+    data[:name] = name_hash[:name]
 
     # Have to check for this to avoid a weird canonicalization warning
     # The Resource API calls canonicalize against the current state which
