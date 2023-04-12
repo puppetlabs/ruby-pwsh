@@ -404,6 +404,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(provider.send(:insync?, context, name, attribute_name, is_hash, should_hash_validate_by_resource)).to be true
       end
     end
+
     context 'when the validation_mode is "property"' do
       it 'does not call invoke_test_method and returns nil' do
         expect(provider).not_to receive(:fetch_cached_hashes)
@@ -1183,6 +1184,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
       end
     end
+
     context 'when called against a nested cim instance' do
       let(:value) { nested_cim_instance.dup }
 

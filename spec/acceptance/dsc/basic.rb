@@ -64,6 +64,7 @@ RSpec.describe 'DSC Acceptance: Basic' do
       expect(second_run_result[:exitcode]).to be(0)
     end
   end
+
   context 'Creating' do
     let(:manifest) do
       [
@@ -127,6 +128,7 @@ RSpec.describe 'DSC Acceptance: Basic' do
       expect(second_run_result[:exitcode]).to be(0)
     end
   end
+
   context 'PSDscRunAsCredential' do
     before(:all) do
       prep_command = <<~PREP_USER.strip
@@ -178,6 +180,7 @@ RSpec.describe 'DSC Acceptance: Basic' do
         expect(second_run_result[:exitcode]).to be(0)
       end
     end
+
     context 'with an invalid credential' do
       let(:manifest) do
         [

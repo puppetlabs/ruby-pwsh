@@ -81,12 +81,14 @@ RSpec.describe Pwsh::WindowsPowerShell do
           expect(described_class.compatible_version?).to be(false)
         end
       end
+
       context 'when the Windows PowerShell major version is less than two' do
         it 'returns false' do
           expect(described_class).to receive(:version).and_return('1.0')
           expect(described_class.compatible_version?).to be(false)
         end
       end
+
       context 'when the Windows PowerShell major version is two' do
         it 'returns true if .NET 3.5 is installed' do
           expect(described_class).to receive(:version).and_return('2.0')
@@ -100,12 +102,14 @@ RSpec.describe Pwsh::WindowsPowerShell do
           expect(described_class.compatible_version?).to be(false)
         end
       end
+
       context 'when the Windows PowerShell major version is three' do
         it 'returns true' do
           expect(described_class).to receive(:version).and_return('3.0')
           expect(described_class.compatible_version?).to be(true)
         end
       end
+
       context 'when the Windows PowerShell major version is greater than three' do
         it 'returns true' do
           expect(described_class).to receive(:version).and_return('4.0')
