@@ -40,14 +40,14 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       !RUBY_PLATFORM.include?('darwin').nil?
     end
 
-    let(:manager) { Pwsh::Manager.instance(ps_command, ps_args) }
+    let(:manager) { described_class.instance(ps_command, ps_args) }
 
     describe 'when managing the powershell process' do
       describe 'the Manager::instance method' do
         it 'returns the same manager instance / process given the same cmd line and options' do
           first_pid = manager.execute('[Diagnostics.Process]::GetCurrentProcess().Id')[:stdout]
 
-          manager_two = Pwsh::Manager.instance(ps_command, ps_args)
+          manager_two = described_class.instance(ps_command, ps_args)
           second_pid = manager_two.execute('[Diagnostics.Process]::GetCurrentProcess().Id')[:stdout]
 
           expect(manager_two).to eq(manager)
@@ -57,7 +57,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         it 'returns different manager instances / processes given the same cmd line and different options' do
           first_pid = manager.execute('[Diagnostics.Process]::GetCurrentProcess().Id')[:stdout]
 
-          manager_two = Pwsh::Manager.instance(ps_command, ps_args, { some_option: 'foo' })
+          manager_two = described_class.instance(ps_command, ps_args, { some_option: 'foo' })
           second_pid = manager_two.execute('[Diagnostics.Process]::GetCurrentProcess().Id')[:stdout]
 
           expect(manager_two).not_to eq(manager)
@@ -65,7 +65,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         end
 
         it 'fails if the manger is created with a short timeout' do
-          expect { Pwsh::Manager.new(ps_command, ps_args, debug: false, pipe_timeout: 0.01) }.to raise_error do |e|
+          expect { described_class.new(ps_command, ps_args, debug: false, pipe_timeout: 0.01) }.to raise_error do |e|
             expect(e).to be_a(RuntimeError)
             expected_error = /Failure waiting for PowerShell process (\d+) to start pipe server/
             expect(e.message).to match expected_error
