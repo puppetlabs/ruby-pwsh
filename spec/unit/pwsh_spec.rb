@@ -591,7 +591,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
         expect(result[:errormessage]).to eq(nil)
         expect(result[:exitcode]).to eq(0)
-        expected = "\x0" * (1024 * 64 + 11) + line_end
+        expected = ("\x0" * ((1024 * 64) + 11)) + line_end
         expect(result[:stdout].length).to eq(expected.length)
         expect(result[:stdout]).to eq(expected)
       end
