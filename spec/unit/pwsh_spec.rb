@@ -274,7 +274,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         puts result[:stdout]
       end
 
-      it 'should return simple output' do
+      it 'returns simple output' do
         result = manager.execute('write-output foo')
 
         expect(result[:stdout]).to eq("foo#{line_end}")
