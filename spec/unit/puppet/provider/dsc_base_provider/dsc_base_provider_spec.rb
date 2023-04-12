@@ -8,9 +8,9 @@ require 'json'
 RSpec.describe Puppet::Provider::DscBaseProvider do
   subject(:provider) { described_class.new }
 
-  let(:context) { instance_double('Puppet::ResourceApi::PuppetContext') }
-  let(:type) { instance_double('Puppet::ResourceApi::TypeDefinition') }
-  let(:ps_manager) { instance_double('Pwsh::Manager') }
+  let(:context) { instance_double(Puppet::ResourceApi::PuppetContext) }
+  let(:type) { instance_double(Puppet::ResourceApi::TypeDefinition) }
+  let(:ps_manager) { instance_double(Pwsh::Manager) }
   let(:execute_response) { { stdout: nil, stderr: nil, exitcode: 0 } }
 
   # Reset the caches after each run
@@ -1069,8 +1069,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.logon_failed_already?' do
-    let(:good_password) { instance_double('Puppet::Pops::Types::PSensitiveType::Sensitive', 'foo') }
-    let(:bad_password) { instance_double('Puppet::Pops::Types::PSensitiveType::Sensitive', 'bar') }
+    let(:good_password) { instance_double(Puppet::Pops::Types::PSensitiveType::Sensitive, 'foo') }
+    let(:bad_password) { instance_double(Puppet::Pops::Types::PSensitiveType::Sensitive, 'bar') }
     let(:good_credential_hash) { { 'user' => 'foo', 'password' => good_password } }
     let(:bad_credential_hash) { { 'user' => 'bar', 'password' => bad_password } }
 
@@ -1491,8 +1491,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     context 'when one or more PSCredentials are passed as parameters' do
-      let(:foo_password) { instance_double('Puppet::Pops::Types::PSensitiveType::Sensitive', 'foo') }
-      let(:bar_password) { instance_double('Puppet::Pops::Types::PSensitiveType::Sensitive', 'bar') }
+      let(:foo_password) { instance_double(Puppet::Pops::Types::PSensitiveType::Sensitive, 'foo') }
+      let(:bar_password) { instance_double(Puppet::Pops::Types::PSensitiveType::Sensitive, 'bar') }
       let(:additional_parameters) do
         {
           parameters: {
@@ -1733,7 +1733,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     context 'parameter handling' do
       context 'PSCredential' do
-        let(:password) { instance_double('Puppet::Pops::Types::PSensitiveType::Sensitive', 'FooPassword') }
+        let(:password) { instance_double(Puppet::Pops::Types::PSensitiveType::Sensitive, 'FooPassword') }
         let(:test_parameter) do
           { dsc_credential: { value: { 'user' => 'foo', 'password' => password }, mof_type: 'PSCredential', mof_is_embedded: false } }
         end
@@ -1752,7 +1752,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       context 'DateTime' do
-        let(:date_time) { instance_double('Puppet::Pops::Time::Timestamp', '2100-01-01') }
+        let(:date_time) { instance_double(Puppet::Pops::Time::Timestamp, '2100-01-01') }
         let(:test_parameter) do
           { dsc_datetime: { value: date_time, mof_type: 'DateTime', mof_is_embedded: false } }
         end
@@ -1788,9 +1788,9 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   describe '.ps_script_content' do
     let(:gem_root) { File.expand_path('../../../../../../', __FILE__) }
     let(:template_path) { "#{gem_root}/lib/puppet/provider/dsc_base_provider" }
-    let(:functions_file_handle) { instance_double('File', 'functions_file') }
-    let(:preamble_file_handle) { instance_double('File', 'preamble_file') }
-    let(:postscript_file_handle) { instance_double('File', 'postscript_file') }
+    let(:functions_file_handle) { instance_double(File, 'functions_file') }
+    let(:preamble_file_handle) { instance_double(File, 'preamble_file') }
+    let(:postscript_file_handle) { instance_double(File, 'postscript_file') }
     let(:expected_script_content) do
       "Functions Block\nPreamble Block\n\n\n\nParameters Block\nPostscript Block"
     end

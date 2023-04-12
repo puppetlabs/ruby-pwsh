@@ -18,7 +18,7 @@ RSpec.describe Pwsh::WindowsPowerShell do
         end
 
         it 'calls the Windows PowerShell three registry path' do
-          reg_key = instance_double('bob')
+          reg_key = instance_double(bob)
           allow(reg_key).to receive(:[]).with('PowerShellVersion').and_return('5.0.10514.6')
           allow_any_instance_of(Win32::Registry).to receive(:open).with('SOFTWARE\Microsoft\PowerShell\3\PowerShellEngine', Win32::Registry::KEY_READ | 0x100).and_yield(reg_key)
 
@@ -26,7 +26,7 @@ RSpec.describe Pwsh::WindowsPowerShell do
         end
 
         it 'does not call Windows PowerShell one registry path' do
-          reg_key = instance_double('bob')
+          reg_key = instance_double(bob)
           allow(reg_key).to receive(:[]).with('PowerShellVersion').and_return('5.0.10514.6')
           allow_any_instance_of(Win32::Registry).to receive(:open).with('SOFTWARE\Microsoft\PowerShell\3\PowerShellEngine', Win32::Registry::KEY_READ | 0x100).and_yield(reg_key)
           expect_any_instance_of(Win32::Registry).not_to receive(:open).with('SOFTWARE\Microsoft\PowerShell\1\PowerShellEngine', Win32::Registry::KEY_READ | 0x100)
@@ -43,7 +43,7 @@ RSpec.describe Pwsh::WindowsPowerShell do
         end
 
         it 'calls the Windows PowerShell one registry path' do
-          reg_key = instance_double('bob')
+          reg_key = instance_double(bob)
           allow(reg_key).to receive(:[]).with('PowerShellVersion').and_return('2.0')
           allow_any_instance_of(Win32::Registry).to receive(:open).with('SOFTWARE\Microsoft\PowerShell\1\PowerShellEngine',
                                                                         Win32::Registry::KEY_READ | 0x100).and_yield(reg_key)
