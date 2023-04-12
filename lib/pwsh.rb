@@ -308,17 +308,17 @@ module Pwsh
 
       # PS Side expects Invoke-PowerShellUserCode is always the return value here
       # TODO: Refactor to use <<~ as soon as we can :sob:
-      <<-CODE
-$params = @{
-  Code                     = @'
-#{powershell_code}
-'@
-  TimeoutMilliseconds      = #{timeout_ms}
-  WorkingDirectory         = "#{working_dir}"
-  AdditionalEnvironmentVariables = #{additional_environment_variables}
-}
+      <<~CODE
+        $params = @{
+          Code                     = @'
+        #{powershell_code}
+        '@
+          TimeoutMilliseconds      = #{timeout_ms}
+          WorkingDirectory         = "#{working_dir}"
+          AdditionalEnvironmentVariables = #{additional_environment_variables}
+        }
 
-Invoke-PowerShellUserCode @params
+        Invoke-PowerShellUserCode @params
       CODE
     end
 
