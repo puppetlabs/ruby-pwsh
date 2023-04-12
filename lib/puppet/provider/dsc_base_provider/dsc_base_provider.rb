@@ -263,7 +263,7 @@ class Puppet::Provider::DscBaseProvider
     unless error.nil? || error.empty?
       # NB: We should have a way to stop processing this resource *now* without blowing up the whole Puppet run
       # Raising an error stops processing but blows things up while context.err alerts but continues to process
-      if error =~ /Logon failure: the user has not been granted the requested logon type at this computer/
+      if /Logon failure: the user has not been granted the requested logon type at this computer/.match?(error)
         logon_error = "PSDscRunAsCredential account specified (#{name_hash[:dsc_psdscrunascredential]['user']}) does not have appropriate logon rights; are they an administrator?"
         name_hash[:name].nil? ? context.err(logon_error) : context.err(name_hash[:name], logon_error)
         @@logon_failures << name_hash[:dsc_psdscrunascredential].dup
@@ -743,7 +743,7 @@ class Puppet::Provider::DscBaseProvider
         end
       end
       # We have to handle arrays of CIM instances slightly differently
-      if property_hash[:mof_type] =~ /\[\]$/
+      if /\[\]$/.match?(property_hash[:mof_type])
         class_name = property_hash[:mof_type].gsub('[]', '')
         property_hash[:value].each do |hash|
           variable_name = random_variable_name
@@ -888,7 +888,7 @@ class Puppet::Provider::DscBaseProvider
   def format(value)
     Pwsh::Util.format_powershell_value(value)
   rescue RuntimeError => e
-    raise unless e.message =~ /Sensitive \[value redacted\]/
+    raise unless /Sensitive \[value redacted\]/.match?(e.message)
 
     Pwsh::Util.format_powershell_value(unwrap(value))
   end
@@ -948,12 +948,12 @@ class Puppet::Provider::DscBaseProvider
   def handle_secrets(text, replacement, error_message)
     # Every secret unwrapped in this module will unwrap as "'secret#{SECRET_POSTFIX}'"
     # Currently, no known resources specify a SecureString instead of a PSCredential object.
-    return text unless text =~ /#{Regexp.quote(SECRET_POSTFIX)}/
+    return text unless /#{Regexp.quote(SECRET_POSTFIX)}/.match?(text)
 
     # In order to reduce time-to-parse, look at each line individually and *only* attempt
     # to substitute if a naive match for the secret postfix is found on the line.
     modified_text = text.split("\n").map do |line|
-      if line =~ /#{Regexp.quote(SECRET_POSTFIX)}/
+      if /#{Regexp.quote(SECRET_POSTFIX)}/.match?(line)
         line.gsub(SECRET_DATA_REGEX, replacement)
       else
         line
@@ -963,7 +963,7 @@ class Puppet::Provider::DscBaseProvider
     modified_text = modified_text.join("\n")
 
     # Something has gone wrong, error loudly
-    raise error_message if modified_text =~ /#{Regexp.quote(SECRET_POSTFIX)}/
+    raise error_message if /#{Regexp.quote(SECRET_POSTFIX)}/.match?(modified_text)
 
     modified_text
   end
