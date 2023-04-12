@@ -3,7 +3,7 @@
 require 'spec_helper'
 
 RSpec.describe Pwsh::Util do
-  context '.invalid_directories?' do
+  describe '.invalid_directories?' do
     let(:valid_path_a)  { 'C:/some/folder' }
     let(:valid_path_b)  { 'C:/another/folder' }
     let(:valid_paths)   { 'C:/some/folder;C:/another/folder' }
@@ -139,7 +139,7 @@ RSpec.describe Pwsh::Util do
   let(:pascal_case_string) { 'ThisIsAString' }
   let(:snake_case_string) { 'this_is_a_string' }
 
-  context '.snake_case' do
+  describe '.snake_case' do
     it 'converts a string to snake_case' do
       expect(described_class.snake_case(camel_case_string)).to eq snake_case_string
       expect(described_class.snake_case(kebab_case_string)).to eq snake_case_string
@@ -147,7 +147,7 @@ RSpec.describe Pwsh::Util do
     end
   end
 
-  context '.snake_case_hash_keys' do
+  describe '.snake_case_hash_keys' do
     it 'snake_cases the keys in a passed hash' do
       expect(described_class.snake_case_hash_keys(camel_case_hash)).to eq snake_case_hash
       expect(described_class.snake_case_hash_keys(kebab_case_hash)).to eq snake_case_hash
@@ -156,7 +156,7 @@ RSpec.describe Pwsh::Util do
     end
   end
 
-  context '.pascal_case' do
+  describe '.pascal_case' do
     it 'converts a string to PascalCase' do
       expect(described_class.pascal_case(camel_case_string)).to eq pascal_case_string
       expect(described_class.pascal_case(kebab_case_string)).to eq pascal_case_string
@@ -164,7 +164,7 @@ RSpec.describe Pwsh::Util do
     end
   end
 
-  context '.pascal_case_hash_keys' do
+  describe '.pascal_case_hash_keys' do
     it 'PascalCases the keys in a passed hash' do
       expect(described_class.pascal_case_hash_keys(camel_case_hash)).to eq pascal_case_hash
       expect(described_class.pascal_case_hash_keys(kebab_case_hash)).to eq pascal_case_hash
@@ -173,7 +173,7 @@ RSpec.describe Pwsh::Util do
     end
   end
 
-  context '.symbolize_hash_keys' do
+  describe '.symbolize_hash_keys' do
     let(:array_with_string_keys_in_hashes) do
       [
         'just a string',
@@ -218,7 +218,7 @@ RSpec.describe Pwsh::Util do
     end
   end
 
-  context '.escape_quotes' do
+  describe '.escape_quotes' do
     it 'handles single quotes' do
       expect(described_class.escape_quotes("The 'Cats' go 'meow'!")).to match(/The ''Cats'' go ''meow''!/)
     end
@@ -236,7 +236,7 @@ RSpec.describe Pwsh::Util do
     end
   end
 
-  context '.format_powershell_value' do
+  describe '.format_powershell_value' do
     let(:ruby_array) { ['string', 1, :symbol, true] }
     let(:powershell_array) { "@('string', 1, symbol, $true)" }
     let(:ruby_hash) do
@@ -278,7 +278,7 @@ RSpec.describe Pwsh::Util do
     end
   end
 
-  context '.custom_powershell_property' do
+  describe '.custom_powershell_property' do
     it 'returns a powershell hash with the name and expression keys' do
       expect(described_class.custom_powershell_property('apple', '$_.SomeValue / 5')).to eq("@{Name = 'apple'; Expression = {$_.SomeValue / 5}}")
     end

@@ -21,7 +21,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     described_class.class_variable_set(:@@logon_failures, nil) # rubocop:disable Style/ClassVars
   end
 
-  context '.initialize' do
+  describe '.initialize' do
     before(:each) do
       # Need to initialize the provider to load the class variables
       provider
@@ -41,7 +41,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.cached_test_results' do
+  describe '.cached_test_results' do
     let(:cache_value) { %w[foo bar] }
 
     it 'returns the value of the @@cached_test_results class variable' do
@@ -50,7 +50,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.fetch_cached_hashes' do
+  describe '.fetch_cached_hashes' do
     let(:cached_hashes) { [{ foo: 1, bar: 2, baz: 3 }, { foo: 4, bar: 5, baz: 6 }] }
     let(:findable_full_hash) { { foo: 1, bar: 2, baz: 3 } }
     let(:findable_sub_hash) { { foo: 1 } }
@@ -67,7 +67,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.canonicalize' do
+  describe '.canonicalize' do
     subject(:canonicalized_resource) { provider.canonicalize(context, [manifest_resource]) }
 
     let(:resource_name_hash) { { name: 'foo', dsc_name: 'foo' } }
@@ -230,7 +230,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.get' do
+  describe '.get' do
     after(:each) do
       described_class.class_variable_set(:@@cached_canonicalized_resource, []) # rubocop:disable Style/ClassVars
     end
@@ -253,7 +253,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.set' do
+  describe '.set' do
     subject(:result) { provider.set(context, change_set) }
 
     let(:name_hash) { { name: 'foo', dsc_name: 'foo' } }
@@ -353,7 +353,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.create' do
+  describe '.create' do
     it 'calls invoke_set_method' do
       allow(context).to receive(:debug)
       expect(provider).to receive(:invoke_set_method)
@@ -361,7 +361,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.update' do
+  describe '.update' do
     it 'calls invoke_set_method' do
       allow(context).to receive(:debug)
       expect(provider).to receive(:invoke_set_method)
@@ -369,7 +369,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.delete' do
+  describe '.delete' do
     it 'calls invoke_set_method' do
       allow(context).to receive(:debug)
       expect(provider).to receive(:invoke_set_method)
@@ -377,7 +377,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.insync?' do
+  describe '.insync?' do
     let(:name)               { { name: 'foo' } }
     let(:attribute_name)     { :foo }
     let(:is_hash)            { { name: 'foo', foo: 1 } }
@@ -406,7 +406,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.invoke_get_method' do
+  describe '.invoke_get_method' do
     subject(:result) { provider.invoke_get_method(context, name_hash) }
 
     let(:attributes) do
@@ -727,7 +727,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.invoke_set_method' do
+  describe '.invoke_set_method' do
     subject(:result) { provider.invoke_set_method(context, name, should_hash) }
 
     let(:name) { { name: 'foo', dsc_name: 'foo' } }
@@ -779,7 +779,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.puppetize_name' do
+  describe '.puppetize_name' do
     it 'downcases the input string' do
       expect(provider.puppetize_name('FooBar')).to eq('foobar')
     end
@@ -793,7 +793,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.invocable_resource' do
+  describe '.invocable_resource' do
     subject(:result) { provider.invocable_resource(should_hash, context, 'Get') }
 
     let(:definition) do
@@ -892,7 +892,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.vendored_modules_path' do
+  describe '.vendored_modules_path' do
     let(:load_path) { [] }
     let(:new_path_nil_root_module) { 'C:/code/puppetlabs/gems/ruby-pwsh/lib/puppet_x/puppetdsc/dsc_resources' }
 
@@ -954,13 +954,13 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.load_path' do
+  describe '.load_path' do
     it 'returns the ruby LOAD_PATH global variable' do
       expect(provider.load_path).to eq($LOAD_PATH)
     end
   end
 
-  context '.invoke_test_method' do
+  describe '.invoke_test_method' do
     subject(:result) { provider.invoke_test_method(context, name, should) }
 
     let(:name) { { name: 'foo', dsc_name: 'bar' } }
@@ -1010,7 +1010,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.random_variable_name' do
+  describe '.random_variable_name' do
     it 'creates random variables' do
       expect(provider.random_variable_name).not_to be_nil
     end
@@ -1021,7 +1021,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.instantiated_variables' do
+  describe '.instantiated_variables' do
     after(:each) do
       described_class.class_variable_set(:@@instantiated_variables, nil) # rubocop:disable Style/ClassVars
     end
@@ -1035,7 +1035,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.clear_instantiated_variables!' do
+  describe '.clear_instantiated_variables!' do
     after(:each) do
       described_class.class_variable_set(:@@instantiated_variables, nil) # rubocop:disable Style/ClassVars
     end
@@ -1047,7 +1047,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.logon_failed_already?' do
+  describe '.logon_failed_already?' do
     let(:good_password) { instance_double('Puppet::Pops::Types::PSensitiveType::Sensitive', 'foo') }
     let(:bad_password) { instance_double('Puppet::Pops::Types::PSensitiveType::Sensitive', 'bar') }
     let(:good_credential_hash) { { 'user' => 'foo', 'password' => good_password } }
@@ -1080,7 +1080,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.downcase_hash_keys!' do
+  describe '.downcase_hash_keys!' do
     let(:test_hash) do
       {
         'SomeKey' => 'value',
@@ -1116,7 +1116,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.munge_cim_instances!' do
+  describe '.munge_cim_instances!' do
     let(:cim_instance) do
       {
         'CertificateSubject' => nil,
@@ -1190,7 +1190,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.recursively_downcase' do
+  describe '.recursively_downcase' do
     let(:test_hash) do
       {
         SomeKey: 'Value',
@@ -1234,7 +1234,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.recursively_sort' do
+  describe '.recursively_sort' do
     let(:test_hash) do
       {
         SomeKey: 'Value',
@@ -1276,7 +1276,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.same?' do
+  describe '.same?' do
     it 'compares hashes regardless of order' do
       expect(provider.same?({ foo: 1, bar: 2 }, { bar: 2, foo: 1 })).to be true
     end
@@ -1295,7 +1295,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.mandatory_get_attributes' do
+  describe '.mandatory_get_attributes' do
     let(:attributes) do
       {
         name: { type: 'String' },
@@ -1312,7 +1312,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.mandatory_set_attributes' do
+  describe '.mandatory_set_attributes' do
     let(:attributes) do
       {
         name: { type: 'String' },
@@ -1329,7 +1329,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.namevar_attributes' do
+  describe '.namevar_attributes' do
     let(:attributes) do
       {
         name: { type: 'String', behaviour: :namevar },
@@ -1347,7 +1347,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.parameter_attributes' do
+  describe '.parameter_attributes' do
     let(:attributes) do
       {
         name: { type: 'String', behaviour: :namevar },
@@ -1365,7 +1365,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.enum_attributes' do
+  describe '.enum_attributes' do
     let(:enum_test_attributes) do
       {
         name: { type: 'String' },
@@ -1382,7 +1382,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.interpolate_variables' do
+  describe '.interpolate_variables' do
     let(:instantiated_variables) do
       {
         some_variable_name: 'FooBar',
@@ -1403,7 +1403,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.munge_psmodulepath' do
+  describe '.munge_psmodulepath' do
     subject(:result) { provider.munge_psmodulepath(test_resource) }
 
     context 'when the resource does not have the dscmeta_resource_implementation key' do
@@ -1440,7 +1440,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.prepare_credentials' do
+  describe '.prepare_credentials' do
     subject(:result) { provider.prepare_credentials(test_resource) }
 
     let(:base_resource) do
@@ -1498,7 +1498,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.format_pscredential' do
+  describe '.format_pscredential' do
     let(:credential_hash) { { 'user' => 'foo', 'password' => 'bar' } }
 
     it 'returns a string representing the instantiation of a PowerShell variable representing the credential hash' do
@@ -1507,7 +1507,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.prepare_cim_instances' do
+  describe '.prepare_cim_instances' do
     subject(:result) { provider.prepare_cim_instances(test_resource) }
 
     after(:each) do
@@ -1597,7 +1597,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.nested_cim_instances' do
+  describe '.nested_cim_instances' do
     subject(:nested_cim_instances) { provider.nested_cim_instances(enumerable).flatten }
 
     let(:enumerable) do
@@ -1617,7 +1617,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.format_ciminstance' do
+  describe '.format_ciminstance' do
     after(:each) do
       described_class.class_variable_set(:@@instantiated_variables, nil) # rubocop:disable Style/ClassVars
     end
@@ -1639,7 +1639,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.invoke_params' do
+  describe '.invoke_params' do
     subject(:result) { provider.invoke_params(test_resource) }
 
     let(:test_parameter) { { dsc_name: { value: 'foo', mof_type: 'String', mof_is_embedded: false } } }
@@ -1748,7 +1748,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.ps_script_content' do
+  describe '.ps_script_content' do
     let(:gem_root) { File.expand_path('../../../../../../', __FILE__) }
     let(:template_path) { "#{gem_root}/lib/puppet/provider/dsc_base_provider" }
     let(:functions_file_handle) { instance_double('File', 'functions_file') }
@@ -1803,7 +1803,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.format' do
+  describe '.format' do
     let(:sensitive_string) { Puppet::Pops::Types::PSensitiveType::Sensitive.new('foo') }
 
     it 'uses Pwsh::Util to format the values' do
@@ -1822,7 +1822,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.unwrap' do
+  describe '.unwrap' do
     let(:sensitive_string) { Puppet::Pops::Types::PSensitiveType::Sensitive.new('foo') }
     let(:unwrapped_string) { 'foo#PuppetSensitive' }
 
@@ -1859,7 +1859,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.escape_quotes' do
+  describe '.escape_quotes' do
     let(:no_quotes) { 'foo bar baz' }
     let(:single_quotes) { "foo 'bar' baz" }
     let(:double_quotes) { 'foo "bar" baz' }
@@ -1875,7 +1875,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.redact_secrets' do
+  describe '.redact_secrets' do
     let(:unsensitive_string) { 'some very unsecret text' }
     let(:sensitive_string) { "$foo = New-PSCredential -User foo -Password 'foo#PuppetSensitive'" }
     let(:redacted_string) { "$foo = New-PSCredential -User foo -Password '#<Sensitive [value redacted]>'" }
@@ -1941,7 +1941,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.remove_secret_identifiers' do
+  describe '.remove_secret_identifiers' do
     let(:unsensitive_string) { 'some very unsecret text' }
     let(:sensitive_string) { "$foo = New-PSCredential -User foo -Password 'foo#PuppetSensitive'" }
     let(:redacted_string) { "$foo = New-PSCredential -User foo -Password 'foo'" }
@@ -2007,7 +2007,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
-  context '.ps_manager' do
+  describe '.ps_manager' do
     before(:each) do
       allow(Pwsh::Manager).to receive(:powershell_path).and_return('pwsh')
       allow(Pwsh::Manager).to receive(:powershell_args).and_return('args')
