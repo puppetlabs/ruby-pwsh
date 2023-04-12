@@ -88,7 +88,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       let(:cached_canonicalized_resource) { expected_resource.dup }
 
       it 'does not get removed as part of the canonicalization' do
-        expect(canonicalized_resource.first[:noop]).to eq(true)
+        expect(canonicalized_resource.first[:noop]).to be(true)
       end
     end
 
@@ -148,7 +148,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             let(:actual_resource) { base_resource.merge({ dsc_property: 'Bar' }) }
 
             it 'treats the manifest value as canonical' do
-              expect(canonicalized_resource.first[:dsc_property]).to eq(nil)
+              expect(canonicalized_resource.first[:dsc_property]).to be(nil)
             end
           end
 
@@ -657,7 +657,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
         it 'returns nil for the value' do
           expect(context).not_to receive(:err)
-          expect(result[:dsc_time]).to eq(nil)
+          expect(result[:dsc_time]).to be(nil)
         end
       end
 
@@ -669,7 +669,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
         it 'writes an error and sets the value of `dsc_time` to nil' do
           expect(context).to receive(:err).with(/Value returned for DateTime/)
-          expect(result[:dsc_time]).to eq(nil)
+          expect(result[:dsc_time]).to be(nil)
         end
       end
 
@@ -681,7 +681,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
         it 'writes an error and sets the value of `dsc_time` to nil' do
           expect(context).to receive(:err).with(/Value returned for DateTime/)
-          expect(result[:dsc_time]).to eq(nil)
+          expect(result[:dsc_time]).to be(nil)
         end
       end
     end
@@ -750,7 +750,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       it 'returns immediately' do
         expect(provider).to receive(:logon_failed_already?).and_return(true)
         expect(context).to receive(:err).with('Logon credentials are invalid')
-        expect(result).to eq(nil)
+        expect(result).to be(nil)
       end
     end
 
@@ -766,7 +766,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       it 'writes the error via context but does not raise and returns nil' do
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "DSC Error!"}' })
         expect(context).to receive(:err).with('DSC Error!')
-        expect(result).to eq(nil)
+        expect(result).to be(nil)
       end
     end
 
@@ -991,7 +991,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
       it 'returns true and caches the result' do
         expect(context).not_to receive(:err)
-        expect(result).to eq(true)
+        expect(result).to be(true)
         expect(provider.cached_test_results).to eq([name.merge(in_desired_state: true)])
       end
     end
@@ -1002,7 +1002,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       it 'returns false and caches the result' do
         expect(context).not_to receive(:err)
         # Resource is not in the desired state
-        expect(result.first).to eq(false)
+        expect(result.first).to be(false)
         # Custom out-of-sync message passed
         expect(result.last).to match(/not in the desired state/)
         expect(provider.cached_test_results).to eq([name.merge(in_desired_state: false)])
@@ -1055,7 +1055,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     context 'when the logon_failures cache is empty' do
       it 'returns false' do
-        expect(provider.logon_failed_already?(good_credential_hash)).to eq(false)
+        expect(provider.logon_failed_already?(good_credential_hash)).to be(false)
       end
     end
 
@@ -1071,11 +1071,11 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
       it 'returns false if there have been no failed logons with the username/password combination' do
         described_class.class_variable_set(:@@logon_failures, [bad_credential_hash]) # rubocop:disable Style/ClassVars
-        expect(provider.logon_failed_already?(good_credential_hash)).to eq(false)
+        expect(provider.logon_failed_already?(good_credential_hash)).to be(false)
       end
       it 'returns true if the username/password specified are found in the logon_failures class variable' do
         described_class.class_variable_set(:@@logon_failures, [good_credential_hash, bad_credential_hash]) # rubocop:disable Style/ClassVars
-        expect(provider.logon_failed_already?(bad_credential_hash)).to eq(true)
+        expect(provider.logon_failed_already?(bad_credential_hash)).to be(true)
       end
     end
   end

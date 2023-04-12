@@ -6,7 +6,7 @@ RSpec.describe Pwsh::WindowsPowerShell do
   describe '.version' do
     context 'on non-Windows platforms', unless: Pwsh::Util.on_windows? do
       it 'is not defined' do
-        expect(defined?(described_class.version)).to eq(nil)
+        expect(defined?(described_class.version)).to be_nil
       end
     end
 
@@ -61,7 +61,7 @@ RSpec.describe Pwsh::WindowsPowerShell do
           allow_any_instance_of(Win32::Registry).to receive(:open).with('SOFTWARE\Microsoft\PowerShell\3\PowerShellEngine',
                                                                         Win32::Registry::KEY_READ | 0x100).and_raise(Win32::Registry::Error.new(2), 'nope')
 
-          expect(described_class.version).to eq(nil)
+          expect(described_class.version).to be_nil
         end
       end
     end
@@ -70,7 +70,7 @@ RSpec.describe Pwsh::WindowsPowerShell do
   describe '.compatible_version?' do
     context 'on non-Windows platforms', unless: Pwsh::Util.on_windows? do
       it 'returns false' do
-        expect(described_class.compatible_version?).to eq(false)
+        expect(described_class.compatible_version?).to be(false)
       end
     end
 
@@ -78,37 +78,37 @@ RSpec.describe Pwsh::WindowsPowerShell do
       context 'when the Windows PowerShell major version is nil' do
         it 'returns false' do
           expect(described_class).to receive(:version).and_return(nil)
-          expect(described_class.compatible_version?).to eq(false)
+          expect(described_class.compatible_version?).to be(false)
         end
       end
       context 'when the Windows PowerShell major version is less than two' do
         it 'returns false' do
           expect(described_class).to receive(:version).and_return('1.0')
-          expect(described_class.compatible_version?).to eq(false)
+          expect(described_class.compatible_version?).to be(false)
         end
       end
       context 'when the Windows PowerShell major version is two' do
         it 'returns true if .NET 3.5 is installed' do
           expect(described_class).to receive(:version).and_return('2.0')
           allow_any_instance_of(Win32::Registry).to receive(:open).with('SOFTWARE\Microsoft\NET Framework Setup\NDP\v3.5', Win32::Registry::KEY_READ | 0x100).and_yield
-          expect(described_class.compatible_version?).to eq(true)
+          expect(described_class.compatible_version?).to be(true)
         end
         it 'returns false if .NET 3.5 is not installed' do
           expect(described_class).to receive(:version).and_return('2.0')
           allow_any_instance_of(Win32::Registry).to receive(:open).with('SOFTWARE\Microsoft\NET Framework Setup\NDP\v3.5', Win32::Registry::KEY_READ | 0x100).and_raise(Win32::Registry::Error, 1)
-          expect(described_class.compatible_version?).to eq(false)
+          expect(described_class.compatible_version?).to be(false)
         end
       end
       context 'when the Windows PowerShell major version is three' do
         it 'returns true' do
           expect(described_class).to receive(:version).and_return('3.0')
-          expect(described_class.compatible_version?).to eq(true)
+          expect(described_class.compatible_version?).to be(true)
         end
       end
       context 'when the Windows PowerShell major version is greater than three' do
         it 'returns true' do
           expect(described_class).to receive(:version).and_return('4.0')
-          expect(described_class.compatible_version?).to eq(true)
+          expect(described_class.compatible_version?).to be(true)
         end
       end
     end
