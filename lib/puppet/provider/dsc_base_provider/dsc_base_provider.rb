@@ -355,7 +355,7 @@ class Puppet::Provider::DscBaseProvider
     name_hash_has_nil_keys = name_hash.count { |_k, v| v.nil? }.positive?
     # We want to throw away all of the empty keys if and only if the manifest
     # declaration is for an absent resource and the resource is actually absent
-    data.reject! { |_k, v| v.nil? } if data[:dsc_ensure] == 'Absent' && name_hash[:dsc_ensure] == 'Absent' && !name_hash_has_nil_keys
+    data.compact! if data[:dsc_ensure] == 'Absent' && name_hash[:dsc_ensure] == 'Absent' && !name_hash_has_nil_keys
 
     # Sort the return for order-insensitive nested enumerable comparison:
     data = recursively_sort(data)
@@ -731,7 +731,7 @@ class Puppet::Provider::DscBaseProvider
       # name = property_name.to_s.gsub(/^dsc_/, '').to_sym
       # Process nested CIM instances first as those neeed to be passed to higher-order
       # instances and must therefore be declared before they must be referenced
-      cim_instance_hashes = nested_cim_instances(property_hash[:value]).flatten.reject(&:nil?)
+      cim_instance_hashes = nested_cim_instances(property_hash[:value]).flatten.compact
       # Sometimes the instances are an empty array
       unless cim_instance_hashes.count.zero?
         cim_instance_hashes.each do |instance|
