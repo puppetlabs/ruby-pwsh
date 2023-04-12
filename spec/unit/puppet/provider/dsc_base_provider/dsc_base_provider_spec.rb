@@ -348,6 +348,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     context 'when `is` is nil' do
       let(:change_set) { { name_hash => { should: should_state } } }
       let(:should_state) { name_hash.merge(dsc_setting: 'Foo') }
+
       it 'attempts to retrieve the resource from the machine to populate `is` value' do
         pending('Implementation only works for when `get` returns an array, but `get` returns one resource as a hash')
         expect(provider).to receive(:get).with(context, [name_hash]).and_return(name_hash.merge(dsc_setting: 'Bar'))

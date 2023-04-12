@@ -253,6 +253,7 @@ RSpec.describe Pwsh::Util do
       }
     end
     let(:powershell_hash) { "@{string = 'string'; number = 1; symbol = some_symbol; boolean = $true; nested_hash = @{another_string = 'foo'; another_number = 2; array = @(1, 2, 3)}}" }
+
     it 'returns a symbol as a non-interpolated string' do
       expect(described_class.format_powershell_value(:apple)).to eq('apple')
     end
