@@ -32,7 +32,7 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
       ].join(' ')
     end
 
-    before(:each) do
+    before do
       reset_command = <<~RESET_COMMAND
         $PsrcPath = '#{psrc_path}'
         # Delete the test PSRC fixture if it exists
@@ -68,7 +68,7 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
       ].join(' ')
     end
 
-    before(:each) do
+    before do
       reset_command = <<~RESET_COMMAND
         $PsrcPath = '#{psrc_path}'
         # Delete the test PSRC fixture if it exists
@@ -104,7 +104,7 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
       ].join(' ')
     end
 
-    before(:each) do
+    before do
       reset_command = <<~RESET_COMMAND
         $PsrcPath = '#{psrc_path}'
         # Delete the test PSRC fixture if it exists

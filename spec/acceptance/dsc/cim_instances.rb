@@ -25,7 +25,7 @@ RSpec.describe 'DSC Acceptance: Complex' do
   end
 
   context 'Managing the access control list of a folder' do
-    before(:each) do
+    before do
       reset_command = <<~RESET_COMMAND
         $TestFolderPath = Join-Path -Path "#{fixtures_path}" -Childpath access_control
         # Delete the test folder if it exists (to clear access control modifications)

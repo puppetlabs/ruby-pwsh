@@ -21,7 +21,7 @@ RSpec.describe 'DSC Acceptance: Complex' do
   end
 
   context 'Adding a new website' do
-    before(:each) do
+    before do
       reset_command = <<~RESET_COMMAND
         # Ensure IIS is not installed
         $Feature = Get-WindowsFeature -Name 'Web-Asp-Net45'
