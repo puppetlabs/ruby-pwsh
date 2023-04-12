@@ -353,7 +353,7 @@ module Pwsh
       # Convert all the key names to upcase so we can be sure to find PATH etc.
       # Also while ruby can have difficulty changing the case of some UTF8 characters, we're
       # only going to use plain ASCII names so this is safe.
-      current_path = Pwsh::Util.on_windows? ? ENV.select { |k, _| k.upcase == 'PATH' }.values[0] : ENV['PATH']
+      current_path = Pwsh::Util.on_windows? ? ENV.select { |k, _| k.casecmp('PATH').zero? }.values[0] : ENV['PATH']
       current_path = '' if current_path.nil?
 
       # Prefer any additional paths
