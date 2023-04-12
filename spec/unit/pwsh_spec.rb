@@ -37,7 +37,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
     def is_osx?
       # Note this test fails if running in JRuby, but because the unit tests are MRI only, this is ok
-      !RUBY_PLATFORM.match(/darwin/).nil?
+      !RUBY_PLATFORM.include?('darwin').nil?
     end
 
     let(:manager) { Pwsh::Manager.instance(ps_command, ps_args) }

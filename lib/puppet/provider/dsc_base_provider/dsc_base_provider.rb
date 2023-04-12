@@ -263,7 +263,7 @@ class Puppet::Provider::DscBaseProvider
     unless error.nil? || error.empty?
       # NB: We should have a way to stop processing this resource *now* without blowing up the whole Puppet run
       # Raising an error stops processing but blows things up while context.err alerts but continues to process
-      if /Logon failure: the user has not been granted the requested logon type at this computer/.match?(error)
+      if error.include?('Logon failure: the user has not been granted the requested logon type at this computer')
         logon_error = "PSDscRunAsCredential account specified (#{name_hash[:dsc_psdscrunascredential]['user']}) does not have appropriate logon rights; are they an administrator?"
         name_hash[:name].nil? ? context.err(logon_error) : context.err(name_hash[:name], logon_error)
         @@logon_failures << name_hash[:dsc_psdscrunascredential].dup
@@ -640,7 +640,7 @@ class Puppet::Provider::DscBaseProvider
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @return [Array] returns an array of attribute names as symbols which are enums
   def enum_attributes(context)
-    context.type.attributes.select { |_name, properties| properties[:type].match(/Enum\[/) }.keys
+    context.type.attributes.select { |_name, properties| properties[:type].include?('Enum[') }.keys
   end
 
   # Look through a fully formatted string, replacing all instances where a value matches the formatted properties
@@ -847,7 +847,7 @@ class Puppet::Provider::DscBaseProvider
       params_block = params_block.gsub("#{param_block_name} = @()", "#{param_block_name} = [#{properties[:mof_type]}]@()")
     end
     # HACK: make CIM instances work:
-    resource[:parameters].select { |_key, hash| hash[:mof_is_embedded] && hash[:mof_type] =~ /\[\]/ }.each do |_property_name, property_hash|
+    resource[:parameters].select { |_key, hash| hash[:mof_is_embedded] && hash[:mof_type].include?('[]') }.each do |_property_name, property_hash|
       formatted_property_hash = interpolate_variables(format(property_hash[:value]))
       params_block = params_block.gsub(formatted_property_hash, "[CimInstance[]]#{formatted_property_hash}")
     end
@@ -888,7 +888,7 @@ class Puppet::Provider::DscBaseProvider
   def format(value)
     Pwsh::Util.format_powershell_value(value)
   rescue RuntimeError => e
-    raise unless /Sensitive \[value redacted\]/.match?(e.message)
+    raise unless e.message.include?('Sensitive [value redacted]')
 
     Pwsh::Util.format_powershell_value(unwrap(value))
   end
