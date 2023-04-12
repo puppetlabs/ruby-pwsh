@@ -27,7 +27,7 @@ group :development do
 end
 
 group :test do
-  gem 'puppet', *location_for(ENV['PUPPET_LOCATION'])
+  gem 'puppet', *location_for(ENV['PUPPET_GEM_VERSION'])
 
   gem 'ffi'
   gem 'rake', '~> 13.0'

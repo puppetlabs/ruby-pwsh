@@ -8,7 +8,9 @@ require 'pwsh/version'
 require 'rspec/core/rake_task'
 require 'yard'
 
-RSpec::Core::RakeTask.new(:spec)
+RSpec::Core::RakeTask.new(:spec) do |t|
+  t.pattern = 'spec/unit/*_spec.rb'
+end
 task default: :spec
 
 YARD::Rake::YardocTask.new do |t|
@@ -70,33 +72,34 @@ def vendor_dsc_module(name, version, destination)
   end
 end
 
-namespace :dsc do
-  namespace :acceptance do
-    desc 'Prep for running DSC acceptance tests'
-    task :spec_prep do
-      # Create the modules fixture folder, if needed
-      modules_folder = File.expand_path('spec/fixtures/modules', File.dirname(__FILE__))
-      FileUtils.mkdir_p(modules_folder) unless Dir.exist?(modules_folder)
-      # symlink the parent folder to the modules folder for puppet
-      symlink_path = File.expand_path('pwshlib', modules_folder)
-      File.symlink(File.dirname(__FILE__), symlink_path) unless Dir.exist?(symlink_path)
-      # Install each of the required modules for acceptance testing
-      # Note: This only works for modules in the dsc namespace on the forge.
-      puppetized_dsc_modules = [
-        { name: 'powershellget', version: '2.2.5-0-1' },
-        { name: 'jeadsc', version: '0.7.2-0-3' },
-        { name: 'xpsdesiredstateconfiguration', version: '9.1.0-0-1' },
-        { name: 'xwebadministration', version: '3.2.0-0-2' },
-        { name: 'accesscontroldsc', version: '1.4.1-0-3' }
-      ]
-      puppetized_dsc_modules.each do |puppet_module|
-        next if Dir.exist?(File.expand_path(puppet_module[:name], modules_folder))
+RSpec::Core::RakeTask.new(:acceptance) do |t|
+  t.pattern = 'spec/acceptance/dsc/*.rb'
+  end
 
-        vendor_dsc_module(puppet_module[:name], puppet_module[:version], modules_folder)
-      end
-    end
-    RSpec::Core::RakeTask.new(:spec) do |t|
-      t.pattern = 'spec/acceptance/dsc/*.rb'
+namespace :acceptance do
+  desc 'Prep for running DSC acceptance tests'
+  task :spec_prep do
+    # Create the modules fixture folder, if needed
+    modules_folder = File.expand_path('spec/fixtures/modules', File.dirname(__FILE__))
+    FileUtils.mkdir_p(modules_folder) unless Dir.exist?(modules_folder)
+    # symlink the parent folder to the modules folder for puppet
+    symlink_path = File.expand_path('pwshlib', modules_folder)
+    File.symlink(File.dirname(__FILE__), symlink_path) unless Dir.exist?(symlink_path)
+    # Install each of the required modules for acceptance testing
+    # Note: This only works for modules in the dsc namespace on the forge.
+    puppetized_dsc_modules = [
+      { name: 'powershellget', version: '2.2.5-0-1' },
+      { name: 'jeadsc', version: '0.7.2-0-3' },
+      { name: 'xpsdesiredstateconfiguration', version: '9.1.0-0-1' },
+      { name: 'xwebadministration', version: '3.2.0-0-2' },
+      { name: 'accesscontroldsc', version: '1.4.1-0-3' }
+    ]
+    puppetized_dsc_modules.each do |puppet_module|
+      next if Dir.exist?(File.expand_path(puppet_module[:name], modules_folder))
+
+      vendor_dsc_module(puppet_module[:name], puppet_module[:version], modules_folder)
     end
   end
 end
+
+task :acceptance => 'acceptance:spec_prep'
