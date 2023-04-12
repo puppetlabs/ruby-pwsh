@@ -352,7 +352,7 @@ class Puppet::Provider::DscBaseProvider
     # The Resource API calls canonicalize against the current state which
     # will lead to dsc_ensure being set to absent in the name_hash even if
     # it was set to present in the manifest
-    name_hash_has_nil_keys = name_hash.select { |_k, v| v.nil? }.count.positive?
+    name_hash_has_nil_keys = name_hash.count { |_k, v| v.nil? }.positive?
     # We want to throw away all of the empty keys if and only if the manifest
     # declaration is for an absent resource and the resource is actually absent
     data.reject! { |_k, v| v.nil? } if data[:dsc_ensure] == 'Absent' && name_hash[:dsc_ensure] == 'Absent' && !name_hash_has_nil_keys
