@@ -42,6 +42,10 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
     let(:manager) { described_class.instance(ps_command, ps_args) }
 
+    let(:powershell_incompleteparseexception_error) { '$ErrorActionPreference = "Stop";if (1 -eq 2) {  ' }
+    let(:powershell_parseexception_error) { '$ErrorActionPreference = "Stop";if (1 -badoperator 2) { Exit 1 }' }
+    let(:powershell_runtime_error) { '$ErrorActionPreference = "Stop";$test = 1/0' }
+
     describe 'when managing the powershell process' do
       describe 'the Manager::instance method' do
         it 'returns the same manager instance / process given the same cmd line and options' do
@@ -263,10 +267,6 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         end
       end
     end
-
-    let(:powershell_runtime_error) { '$ErrorActionPreference = "Stop";$test = 1/0' }
-    let(:powershell_parseexception_error) { '$ErrorActionPreference = "Stop";if (1 -badoperator 2) { Exit 1 }' }
-    let(:powershell_incompleteparseexception_error) { '$ErrorActionPreference = "Stop";if (1 -eq 2) {  ' }
 
     describe 'when provided powershell commands' do
       it 'shows ps version' do

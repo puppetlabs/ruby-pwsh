@@ -3,6 +3,89 @@
 require 'spec_helper'
 
 RSpec.describe Pwsh::Util do
+  let(:snake_case_string) { 'this_is_a_string' }
+  let(:pascal_case_string) { 'ThisIsAString' }
+  let(:kebab_case_string) { 'this-is-a-string' }
+  let(:camel_case_string) { 'thisIsAString' }
+  let(:snake_case_hash_in_an_array) do
+    [
+      'just a string',
+      {
+        some_key: 'a value'
+      },
+      1,
+      {
+        another_key: {
+          nested_key: 1,
+          nested_array: [
+            1,
+            'another string',
+            { super_nested_key: 'value' }
+          ]
+        }
+      }
+    ]
+  end
+  let(:snake_case_hash) do
+    {
+      a: 1,
+      apple_butter: %w[a b c],
+      some_key_value: {
+        nested_key: 1,
+        another_nested_key: 2
+      }
+    }
+  end
+  let(:pascal_case_hash_in_an_array) do
+    [
+      'just a string',
+      {
+        SomeKey: 'a value'
+      },
+      1,
+      {
+        AnotherKey: {
+          NestedKey: 1,
+          NestedArray: [
+            1,
+            'another string',
+            { SuperNestedKey: 'value' }
+          ]
+        }
+      }
+    ]
+  end
+  let(:pascal_case_hash) do
+    {
+      A: 1,
+      AppleButter: %w[a b c],
+      SomeKeyValue: {
+        NestedKey: 1,
+        AnotherNestedKey: 2
+      }
+    }
+  end
+  let(:kebab_case_hash) do
+    {
+      a: 1,
+      'apple-butter': %w[a b c],
+      'some-key-value': {
+        'nested-key': 1,
+        'another-nested-key': 2
+      }
+    }
+  end
+  let(:camel_case_hash) do
+    {
+      a: 1,
+      appleButter: %w[a b c],
+      someKeyValue: {
+        nestedKey: 1,
+        anotherNestedKey: 2
+      }
+    }
+  end
+
   describe '.invalid_directories?' do
     let(:valid_path_a)  { 'C:/some/folder' }
     let(:valid_path_b)  { 'C:/another/folder' }
@@ -55,89 +138,6 @@ RSpec.describe Pwsh::Util do
       expect(described_class.invalid_directories?(empty_members)).to be false
     end
   end
-
-  let(:camel_case_hash) do
-    {
-      a: 1,
-      appleButter: %w[a b c],
-      someKeyValue: {
-        nestedKey: 1,
-        anotherNestedKey: 2
-      }
-    }
-  end
-  let(:kebab_case_hash) do
-    {
-      a: 1,
-      'apple-butter': %w[a b c],
-      'some-key-value': {
-        'nested-key': 1,
-        'another-nested-key': 2
-      }
-    }
-  end
-  let(:pascal_case_hash) do
-    {
-      A: 1,
-      AppleButter: %w[a b c],
-      SomeKeyValue: {
-        NestedKey: 1,
-        AnotherNestedKey: 2
-      }
-    }
-  end
-  let(:pascal_case_hash_in_an_array) do
-    [
-      'just a string',
-      {
-        SomeKey: 'a value'
-      },
-      1,
-      {
-        AnotherKey: {
-          NestedKey: 1,
-          NestedArray: [
-            1,
-            'another string',
-            { SuperNestedKey: 'value' }
-          ]
-        }
-      }
-    ]
-  end
-  let(:snake_case_hash) do
-    {
-      a: 1,
-      apple_butter: %w[a b c],
-      some_key_value: {
-        nested_key: 1,
-        another_nested_key: 2
-      }
-    }
-  end
-  let(:snake_case_hash_in_an_array) do
-    [
-      'just a string',
-      {
-        some_key: 'a value'
-      },
-      1,
-      {
-        another_key: {
-          nested_key: 1,
-          nested_array: [
-            1,
-            'another string',
-            { super_nested_key: 'value' }
-          ]
-        }
-      }
-    ]
-  end
-  let(:camel_case_string) { 'thisIsAString' }
-  let(:kebab_case_string) { 'this-is-a-string' }
-  let(:pascal_case_string) { 'ThisIsAString' }
-  let(:snake_case_string) { 'this_is_a_string' }
 
   describe '.snake_case' do
     it 'converts a string to snake_case' do
