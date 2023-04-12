@@ -451,7 +451,7 @@ class Puppet::Provider::DscBaseProvider
     # path to allow multiple modules to with shared dsc_resources to be installed side by side
     # The old vendored_modules_path: puppet_x/dsc_resources
     # The new vendored_modules_path: puppet_x/<module_name>/dsc_resources
-    root_module_path = load_path.select { |path| path.match?(%r{#{puppetize_name(module_name)}/lib}) }.first
+    root_module_path = load_path.find { |path| path.match?(%r{#{puppetize_name(module_name)}/lib}) }
     vendored_path = if root_module_path.nil?
                       File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + "puppet_x/#{puppetize_name(module_name)}/dsc_resources") # rubocop:disable Style/StringConcatenation
                     else
