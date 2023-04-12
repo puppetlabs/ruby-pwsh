@@ -1786,7 +1786,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.ps_script_content' do
-    let(:gem_root) { File.expand_path('../../../../../../', __FILE__) }
+    let(:gem_root) { File.expand_path('../../../../..', __dir__) }
     let(:template_path) { "#{gem_root}/lib/puppet/provider/dsc_base_provider" }
     let(:functions_file_handle) { instance_double(File, 'functions_file') }
     let(:preamble_file_handle) { instance_double(File, 'preamble_file') }

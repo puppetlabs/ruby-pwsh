@@ -861,7 +861,7 @@ class Puppet::Provider::DscBaseProvider
   # @param resource [Hash] a hash with the information needed to run `Invoke-DscResource`
   # @return [String] A string representing the PowerShell script which will invoke the DSC Resource.
   def ps_script_content(resource)
-    template_path = File.expand_path('../', __FILE__)
+    template_path = File.expand_path(__dir__)
     # Defines the helper functions
     functions     = File.new("#{template_path}/invoke_dsc_resource_functions.ps1").read
     # Defines the response hash and the runtime settings

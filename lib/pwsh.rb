@@ -245,7 +245,7 @@ module Pwsh
     # @return [String] full path to the bootstrap template
     def self.template_path
       # A PowerShell -File compatible path to bootstrap the instance
-      path = File.expand_path('../templates', __FILE__)
+      path = File.expand_path('templates', __dir__)
       path = File.join(path, 'init.ps1').tr('/', '\\')
       "\"#{path}\""
     end
