@@ -5,51 +5,38 @@ source 'https://rubygems.org'
 # Specify your gem's dependencies in pwsh.gemspec
 gemspec
 
-group :test do
-  gem 'ffi'
-  gem 'rake', '>= 10.0'
-  gem 'rspec', '~> 3.0'
-  gem 'rspec-collection_matchers', '~> 1.0'
-  gem 'rspec-its', '~> 1.0'
-  gem 'rubocop', '>= 0.77'
-  gem 'rubocop-rspec'
-  gem 'simplecov'
+def location_for(place_or_version, fake_version = nil)
+  git_url_regex = %r{\A(?<url>(https?|git)[:@][^#]*)(#(?<branch>.*))?}
+  file_url_regex = %r{\Afile:\/\/(?<path>.*)}
+
+  if place_or_version && (git_url = place_or_version.match(git_url_regex))
+    [fake_version, { git: git_url[:url], branch: git_url[:branch], require: false }].compact
+  elsif place_or_version && (file_url = place_or_version.match(file_url_regex))
+    ['>= 0', { path: File.expand_path(file_url[:path]), require: false }]
+  else
+    [place_or_version, { require: false }]
+  end
 end
 
 group :development do
   gem 'faraday-retry'
-  gem 'github_changelog_generator', '~> 1.15' if Gem::Version.new(RUBY_VERSION.dup) >= Gem::Version.new('2.3.0')
+  gem 'fuubar'
+  gem 'pry'
+  gem 'pry-stack_explorer'
   gem 'yard'
 end
 
-group :puppet do
-  gem 'pdk', '~> 1.0'
-  if ENV['PUPPET_GEM_VERSION']
-    gem 'puppet', ENV['PUPPET_GEM_VERSION']
-  else
-    gem 'puppet'
-  end
+group :test do
+  gem 'puppet', *location_for(ENV['PUPPET_LOCATION'])
+
+  gem 'ffi'
+  gem 'rake', '~> 13.0'
+  gem 'rspec', '~> 3.0'
+  gem 'rspec-collection_matchers', '~> 1.0'
+  gem 'rspec-its', '~> 1.0'
+  gem 'rubocop', '~> 1.48', require: false
+  gem 'rubocop-performance', '~> 1.16', require: false
+  gem 'rubocop-rspec', '~> 2.19', require: false
+  gem 'simplecov', require: false
 end
 
-group :pry do
-  gem 'fuubar'
-
-  if Gem::Version.new(RUBY_VERSION.dup) >= Gem::Version.new('2.4.0')
-    gem 'pry-byebug'
-  else
-    gem 'pry-debugger'
-  end
-
-  gem 'pry-stack_explorer'
-end
-
-# Evaluate Gemfile.local and ~/.gemfile if they exist
-extra_gemfiles = [
-  "#{__FILE__}.local",
-  File.join(Dir.home, '.gemfile')
-]
-
-extra_gemfiles.each do |gemfile|
-  eval(File.read(gemfile), binding) if File.file?(gemfile) && File.readable?(gemfile) # rubocop:disable Security/Eval
-end
-# vim: syntax=ruby
