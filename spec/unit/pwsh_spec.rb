@@ -658,7 +658,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       it 'allows forward slashes in working directory', if: Pwsh::Util.on_windows? do
         # Backslashes only apply on Windows filesystems
         work_dir = ENV['WINDIR']
-        forward_work_dir = work_dir.gsub('\\', '/')
+        forward_work_dir = work_dir.tr('\\', '/')
 
         result = manager.execute('(Get-Location).Path', nil, forward_work_dir)[:stdout]
 
@@ -739,7 +739,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
     describe 'when output is written to a PowerShell Stream' do
       it 'collects anything written to verbose stream' do
-        msg = SecureRandom.uuid.to_s.gsub('-', '')
+        msg = SecureRandom.uuid.to_s.delete('-')
         result = manager.execute("$VerbosePreference = 'Continue';Write-Verbose '#{msg}'")
 
         expect(result[:stdout]).to match(/^VERBOSE: #{msg}/)
@@ -747,7 +747,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'collects anything written to debug stream' do
-        msg = SecureRandom.uuid.to_s.gsub('-', '')
+        msg = SecureRandom.uuid.to_s.delete('-')
         result = manager.execute("$debugPreference = 'Continue';Write-debug '#{msg}'")
 
         expect(result[:stdout]).to match(/^DEBUG: #{msg}/)
@@ -755,7 +755,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'collects anything written to Warning stream' do
-        msg = SecureRandom.uuid.to_s.gsub('-', '')
+        msg = SecureRandom.uuid.to_s.delete('-')
         result = manager.execute("Write-Warning '#{msg}'")
 
         expect(result[:stdout]).to match(/^WARNING: #{msg}/)
@@ -763,7 +763,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'collects anything written to Error stream' do
-        msg = SecureRandom.uuid.to_s.gsub('-', '')
+        msg = SecureRandom.uuid.to_s.delete('-')
         result = manager.execute("$ErrorView = 'NormalView' ; Write-Error '#{msg}'")
 
         expect(result[:stdout]).to match(/Write-Error '#{msg}' : #{msg}/)

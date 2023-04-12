@@ -501,7 +501,7 @@ class Puppet::Provider::DscBaseProvider
   # @return [String] a uuid with underscores instead of dashes.
   def random_variable_name
     # PowerShell variables can't include dashes
-    SecureRandom.uuid.gsub('-', '_')
+    SecureRandom.uuid.tr('-', '_')
   end
 
   # Return a Hash containing all of the variables defined for instantiation as well as the Ruby hash for their
@@ -670,7 +670,7 @@ class Puppet::Provider::DscBaseProvider
   def munge_psmodulepath(resource)
     return unless resource[:dscmeta_resource_implementation] == 'Class'
 
-    vendor_path = resource[:vendored_modules_path].gsub('/', '\\')
+    vendor_path = resource[:vendored_modules_path].tr('/', '\\')
     <<~MUNGE_PSMODULEPATH.strip
       $UnmungedPSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath','machine')
       $MungedPSModulePath = $env:PSModulePath + ';#{vendor_path}'
