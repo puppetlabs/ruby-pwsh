@@ -1037,7 +1037,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     it 'includes underscores instead of hyphens' do
       expect(provider.random_variable_name).to match(/_/)
-      expect(provider.random_variable_name).to_not match(/-/)
+      expect(provider.random_variable_name).not_to match(/-/)
     end
   end
 

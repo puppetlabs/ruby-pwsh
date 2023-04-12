@@ -130,11 +130,11 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
           new_manager = Pwsh::Manager.instance(manager.powershell_command, manager.powershell_arguments, debug: true)
 
           # which should be different than the one passed in
-          expect(new_manager).to_not eq(manager)
+          expect(new_manager).not_to eq(manager)
 
           # with a different PID
           second_pid = new_manager.execute('[Diagnostics.Process]::GetCurrentProcess().Id')[:stdout]
-          expect(pid).to_not eq(second_pid)
+          expect(pid).not_to eq(second_pid)
         end
 
         def close_stream(stream, style = :inprocess)
@@ -339,7 +339,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
           expect(result[:stderr][0]).to match(/foo\.exe: not found/)
           expect(result[:stderr][0]).to match(/bar/)
         end
-        expect(result[:exitcode]).to_not eq(0)
+        expect(result[:exitcode]).not_to eq(0)
       end
 
       it 'handles writting to stdout (cmdlet) and stderr' do
@@ -652,7 +652,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
         result = manager.execute('(Get-Location).Path', nil, work_dir)
 
-        expect(result[:exitcode]).to_not eq(0)
+        expect(result[:exitcode]).not_to eq(0)
         expect(result[:errormessage]).to match(/Working directory .+ does not exist/)
       end
 
