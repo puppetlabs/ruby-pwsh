@@ -208,7 +208,6 @@ module Pwsh
       out[:stderr] = out[:stderr].nil? ? [] : [out[:stderr]]
       out[:stderr] += err unless err.nil?
       out[:native_stdout] = native_stdout
-
       out
     end
 
@@ -497,9 +496,7 @@ module Pwsh
     #
     # @return nil
     def write_pipe(input)
-      # For Compat with Ruby 2.1 and lower, it's important to use syswrite and
-      # not write - otherwise, the pipe breaks after writing 1024 bytes.
-      written = @pipe.syswrite(input)
+      written = @pipe.write(input)
       @pipe.flush
 
       if written != input.length # rubocop:disable Style/GuardClause
