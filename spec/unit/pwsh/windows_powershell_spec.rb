@@ -54,7 +54,7 @@ RSpec.describe Pwsh::WindowsPowerShell do
         end
       end
 
-      context 'when Windows PowerShell  is not installed' do
+      context 'when Windows PowerShell is not installed' do
         it 'returns nil and not throw' do
           allow_any_instance_of(Win32::Registry).to receive(:open).with('SOFTWARE\Microsoft\PowerShell\1\PowerShellEngine',
                                                                         Win32::Registry::KEY_READ | 0x100).and_raise(Win32::Registry::Error.new(2), 'nope')
