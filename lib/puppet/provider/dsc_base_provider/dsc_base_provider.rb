@@ -88,7 +88,7 @@ class Puppet::Provider::DscBaseProvider
               # - When the values match case insensitively but the attribute is an enum, prefer the casing of the manifest enum.
               # - When the values match case insensitively and the attribute is not an enum, prefer the casing from invoke_get_method
               canonicalized[key] = r[key] unless same?(value, downcased_resource[key]) && !enum_attributes(context).include?(key)
-              canonicalized.delete(key) unless downcased_resource.keys.include?(key)
+              canonicalized.delete(key) unless downcased_resource.key?(key)
             end
             # Cache the actually canonicalized resource separately
             @@cached_canonicalized_resource << canonicalized.dup
@@ -134,7 +134,7 @@ class Puppet::Provider::DscBaseProvider
         (mandatory_get_attributes(context) - namevar_attributes(context)).include?(attribute)
       end
       # If dsc_psdscrunascredential was specified, re-add it here.
-      mandatory_properties[:dsc_psdscrunascredential] = canonicalized_resource[:dsc_psdscrunascredential] if canonicalized_resource.keys.include?(:dsc_psdscrunascredential)
+      mandatory_properties[:dsc_psdscrunascredential] = canonicalized_resource[:dsc_psdscrunascredential] if canonicalized_resource.key?(:dsc_psdscrunascredential)
     end
     names.collect do |name|
       name = { name: name } if name.is_a? String
@@ -343,7 +343,7 @@ class Puppet::Provider::DscBaseProvider
       end
       # PowerShell does not distinguish between a return of empty array/string
       #  and null but Puppet does; revert to those values if specified.
-      data[type_key] = [] if data[type_key].nil? && query_props.keys.include?(type_key) && query_props[type_key].is_a?(Array)
+      data[type_key] = [] if data[type_key].nil? && query_props.key?(type_key) && query_props[type_key].is_a?(Array)
     end
     # If a resource is found, it's present, so refill this Puppet-only key
     data.merge!({ name: name_hash[:name] })
