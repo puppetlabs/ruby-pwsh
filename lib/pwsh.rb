@@ -55,7 +55,7 @@ module Pwsh
         # ignore any errors trying to tear down this unusable instance
         begin
           manager.exit unless manager.nil? # rubocop:disable Style/SafeNavigation
-        rescue
+        rescue StandardError
           nil
         end
         @@instances[key] = Manager.new(cmd, args, options)
@@ -151,7 +151,7 @@ module Pwsh
                     UNIXSocket.new(pipe_path)
                   end
           break
-        rescue
+        rescue StandardError
           sleep sleep_interval
         end
       end
@@ -224,7 +224,7 @@ module Pwsh
       # rather than expecting the pipe.close to terminate it
       begin
         write_pipe(pipe_command(:exit)) unless @pipe.closed?
-      rescue
+      rescue StandardError
         nil
       end
 
@@ -268,7 +268,7 @@ module Pwsh
 
         # Lower bound protection. The polling resolution is only 50ms.
         timeout_ms = 50 if timeout_ms < 50
-      rescue
+      rescue StandardError
         timeout_ms = 300 * 1000
       end
 
@@ -433,7 +433,7 @@ module Pwsh
         # as this resolves to a HANDLE and then calls the Windows API
         !stream.stat.nil?
     # Any exceptions mean the stream is dead
-    rescue
+    rescue StandardError
       false
     end
 

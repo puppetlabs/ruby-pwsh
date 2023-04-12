@@ -253,7 +253,7 @@ class Puppet::Provider::DscBaseProvider
 
     begin
       data = JSON.parse(output)
-    rescue => e
+    rescue StandardError => e
       context.err(e)
       return nil
     end

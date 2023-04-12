@@ -551,7 +551,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
         begin
           version = `#{ps_command} #{ps_args.join(' ')} -Command \"$PSVersionTable.PSVersion.Major.ToString()\"`.chomp!.to_i
-        rescue
+        rescue StandardError
           puts 'Unable to determine PowerShell version'
           version = -1
         end
