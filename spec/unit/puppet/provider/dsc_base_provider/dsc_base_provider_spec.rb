@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'puppet/resource_api'
 require 'puppet/type'
 require 'puppet/provider/dsc_base_provider/dsc_base_provider'
 require 'json'
@@ -981,11 +982,11 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.invoke_test_method' do
-    subject(:result) { provider.invoke_test_method(context, name, expect(subject).to) }
+    subject(:result) { provider.invoke_test_method(context, name, test_should) }
 
     let(:name) { { name: 'foo', dsc_name: 'bar' } }
-    let(:should) { name.merge(dsc_ensure: 'present') }
-    let(:test_properties) { expect(subject).to.reject { |k, _v| k == :name } }
+    let(:test_should) { name.merge(dsc_ensure: 'present') }
+    let(:test_properties) { test_should.reject { |k, _v| k == :name } }
     let(:invoke_dsc_resource_data) { nil }
 
     before do
