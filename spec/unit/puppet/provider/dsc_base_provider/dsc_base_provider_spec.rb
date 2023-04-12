@@ -717,6 +717,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           allow(JSON).to receive(:parse).with('DSC Data').and_return({ 'errormessage' => dsc_logon_failure_error })
           allow(context).to receive(:err).with(name_hash[:name], puppet_logon_failure_error)
         end
+
         after(:each) do
           described_class.class_variable_set(:@@logon_failures, nil) # rubocop:disable Style/ClassVars
         end
@@ -2066,6 +2067,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       allow(Pwsh::Manager).to receive(:powershell_path).and_return('pwsh')
       allow(Pwsh::Manager).to receive(:powershell_args).and_return('args')
     end
+
     it 'Initializes an instance of the Pwsh::Manager' do
       expect(Puppet::Util::Log).to receive(:level).and_return(:normal)
       expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: false)

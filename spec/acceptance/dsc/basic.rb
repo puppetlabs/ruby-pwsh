@@ -146,6 +146,7 @@ RSpec.describe 'DSC Acceptance: Basic' do
       PREP_USER
       execute_reset_command(prep_command)
     end
+
     after(:all) do
       cleanup_command = <<~CLEANUP_USER.strip
         Remove-LocalUser -Name #{local_user} -ErrorAction Stop
