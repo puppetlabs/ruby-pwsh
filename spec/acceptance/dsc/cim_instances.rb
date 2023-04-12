@@ -1,9 +1,8 @@
 # frozen_string_literal: true
+
 # TODO: Test against mcollera/AccessControlDsc for CIM instance behavior
 # 1. Make sure valid nested CIM instances can be passed to Invoke-DscResource
 # 2. Make sure nested CIM instances can be read back from Invoke-DscResource
-
-# frozen_string_literal: true
 
 require 'spec_helper'
 require 'ruby-pwsh'
