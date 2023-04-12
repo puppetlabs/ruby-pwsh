@@ -148,7 +148,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             let(:actual_resource) { base_resource.merge({ dsc_property: 'Bar' }) }
 
             it 'treats the manifest value as canonical' do
-              expect(canonicalized_resource.first[:dsc_property]).to be(nil)
+              expect(canonicalized_resource.first[:dsc_property]).to be_nil
             end
           end
 
@@ -401,7 +401,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       it 'does not call invoke_test_method and returns nil' do
         expect(provider).not_to receive(:fetch_cached_hashes)
         expect(provider).not_to receive(:invoke_test_method)
-        expect(provider.send(:insync?, context, name, attribute_name, is_hash, should_hash_validate_by_property)).to be nil
+        expect(provider.send(:insync?, context, name, attribute_name, is_hash, should_hash_validate_by_property)).to be_nil
       end
     end
   end
@@ -657,7 +657,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
         it 'returns nil for the value' do
           expect(context).not_to receive(:err)
-          expect(result[:dsc_time]).to be(nil)
+          expect(result[:dsc_time]).to be_nil
         end
       end
 
@@ -669,7 +669,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
         it 'writes an error and sets the value of `dsc_time` to nil' do
           expect(context).to receive(:err).with(/Value returned for DateTime/)
-          expect(result[:dsc_time]).to be(nil)
+          expect(result[:dsc_time]).to be_nil
         end
       end
 
@@ -681,7 +681,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
         it 'writes an error and sets the value of `dsc_time` to nil' do
           expect(context).to receive(:err).with(/Value returned for DateTime/)
-          expect(result[:dsc_time]).to be(nil)
+          expect(result[:dsc_time]).to be_nil
         end
       end
     end
@@ -750,7 +750,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       it 'returns immediately' do
         expect(provider).to receive(:logon_failed_already?).and_return(true)
         expect(context).to receive(:err).with('Logon credentials are invalid')
-        expect(result).to be(nil)
+        expect(result).to be_nil
       end
     end
 
@@ -766,7 +766,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       it 'writes the error via context but does not raise and returns nil' do
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "DSC Error!"}' })
         expect(context).to receive(:err).with('DSC Error!')
-        expect(result).to be(nil)
+        expect(result).to be_nil
       end
     end
 
@@ -981,7 +981,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     context 'when something went wrong calling Invoke-DscResource' do
       it 'falls back on property-by-property state comparison and does not cache anything' do
         expect(context).not_to receive(:err)
-        expect(result).to be(nil)
+        expect(result).to be_nil
         expect(provider.cached_test_results).to eq([])
       end
     end
@@ -1410,7 +1410,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       let(:test_resource) { {} }
 
       it 'returns nil' do
-        expect(result).to be(nil)
+        expect(result).to be_nil
       end
     end
 
@@ -1418,7 +1418,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       let(:test_resource) { { dscmeta_resource_implementation: 'MOF' } }
 
       it 'returns nil' do
-        expect(result).to be(nil)
+        expect(result).to be_nil
       end
     end
 
