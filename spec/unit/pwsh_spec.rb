@@ -812,13 +812,13 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 end
 
 RSpec.describe 'On Windows PowerShell', if: Pwsh::Util.on_windows? && Pwsh::Manager.windows_powershell_supported? do
-  it_should_behave_like 'a PowerShellCodeManager',
-                        Pwsh::Manager.powershell_path,
-                        Pwsh::Manager.powershell_args
+  it_behaves_like 'a PowerShellCodeManager',
+                  Pwsh::Manager.powershell_path,
+                  Pwsh::Manager.powershell_args
 end
 
 RSpec.describe 'On PowerShell Core', if: Pwsh::Manager.pwsh_supported? do
-  it_should_behave_like 'a PowerShellCodeManager',
-                        Pwsh::Manager.pwsh_path,
-                        Pwsh::Manager.pwsh_args
+  it_behaves_like 'a PowerShellCodeManager',
+                  Pwsh::Manager.pwsh_path,
+                  Pwsh::Manager.pwsh_args
 end
