@@ -256,23 +256,29 @@ RSpec.describe Pwsh::Util do
     it 'returns a symbol as a non-interpolated string' do
       expect(described_class.format_powershell_value(:apple)).to eq('apple')
     end
+
     it 'returns a number as a non interpolated string' do
       expect(described_class.format_powershell_value(101)).to eq('101')
       expect(described_class.format_powershell_value(1.1)).to eq('1.1')
     end
+
     it 'returns boolean values as the appropriate PowerShell automatic variable' do
       expect(described_class.format_powershell_value(true)).to eq('$true')
       expect(described_class.format_powershell_value(:false)).to eq('$false') # rubocop:disable Lint/BooleanSymbol
     end
+
     it 'returns a string as an escaped string' do
       expect(described_class.format_powershell_value('some string')).to eq("'some string'")
     end
+
     it 'returns an array as a string representing a PowerShell array' do
       expect(described_class.format_powershell_value(ruby_array)).to eq(powershell_array)
     end
+
     it 'returns a hash as a string representing a PowerShell hash' do
       expect(described_class.format_powershell_value(ruby_hash)).to eq(powershell_hash)
     end
+
     it 'raises an error if an unknown type is passed' do
       expect { described_class.format_powershell_value(described_class) }.to raise_error(/unsupported type Module/)
     end

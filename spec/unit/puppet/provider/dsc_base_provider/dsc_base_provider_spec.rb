@@ -30,12 +30,15 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'initializes the cached_canonicalized_resource class variable' do
       expect(described_class.class_variable_get(:@@cached_canonicalized_resource)).to eq([])
     end
+
     it 'initializes the cached_query_results class variable' do
       expect(described_class.class_variable_get(:@@cached_query_results)).to eq([])
     end
+
     it 'initializes the cached_test_results class variable' do
       expect(described_class.class_variable_get(:@@cached_test_results)).to eq([])
     end
+
     it 'initializes the logon_failures class variable' do
       expect(described_class.class_variable_get(:@@logon_failures)).to eq([])
     end
@@ -59,9 +62,11 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'finds a hash that exactly matches one in the cache' do
       expect(provider.fetch_cached_hashes(cached_hashes, [findable_full_hash])).to eq([findable_full_hash])
     end
+
     it 'finds a hash that is wholly contained by a hash in the cache' do
       expect(provider.fetch_cached_hashes(cached_hashes, [findable_sub_hash])).to eq([findable_full_hash])
     end
+
     it 'returns an empty array if there is no match' do
       expect(provider.fetch_cached_hashes(cached_hashes, [undiscoverable_hash])).to eq([])
     end
@@ -242,6 +247,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider).not_to receive(:invoke_get_method)
       expect(provider.get(context, [{ name: 'foo' }])).to eq([{ name: 'foo', property: 'bar' }])
     end
+
     it 'adds mandatory properties to the name hash when calling invoke_get_method' do
       described_class.class_variable_set(:@@cached_canonicalized_resource, [{ name: 'foo', property: 'bar', dsc_some_parameter: 'baz' }]) # rubocop:disable Style/ClassVars
       allow(context).to receive(:debug)
@@ -391,6 +397,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(provider).to receive(:invoke_test_method).and_return(true)
         expect(provider.send(:insync?, context, name, attribute_name, is_hash, should_hash_validate_by_resource)).to be true
       end
+
       it 'does not call invoke_test_method if the result of a test is already cached' do
         expect(provider).to receive(:fetch_cached_hashes).and_return(cached_test_result)
         expect(provider).not_to receive(:invoke_test_method)
@@ -536,32 +543,40 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(provider).not_to receive(:logon_failed_already?)
         expect { result }.not_to raise_error
       end
+
       it 'writes no errors to the context' do
         expect(context).not_to receive(:err)
         expect { result }.not_to raise_error
       end
+
       it 're-adds the puppet name to the resource' do
         expect(result[:name]).to eq('foo')
       end
+
       it 'caches the result' do
         expect { result }.not_to raise_error
         expect(described_class.class_variable_get(:@@cached_query_results)).to eq([result])
       end
+
       it 'removes unrelated properties from the result' do
         expect(result.keys).not_to include('UnusedProperty')
         expect(result.keys).not_to include('unusedproperty')
         expect(result.keys).not_to include(:unusedproperty)
       end
+
       it 'removes parameters from the result' do
         expect(result[:dsc_param]).to be_nil
       end
+
       it 'handles timestamps' do
         expect(result[:dsc_time]).to eq('TimeStamp:2100-01-01')
       end
+
       it 'downcases keys in cim instance properties' do
         expect(result[:dsc_nestedciminstance].keys).to eq(%w[baz nestedproperty])
         expect(result[:dsc_nestedciminstance]['nestedproperty'].keys).to eq(%w[cim_instance_type nestedbar nestedfoo])
       end
+
       it 'recursively sorts the result for order-insensitive comparisons' do
         expect(result.keys).to eq(%i[dsc_array dsc_ciminstance dsc_ensure dsc_name dsc_nestedciminstance dsc_time name])
         expect(result[:dsc_array]).to eq(%w[bar foo])
@@ -707,10 +722,12 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         it 'errors specifically for a logon failure and returns nil' do
           expect(result).to be_nil
         end
+
         it 'caches the logon failure' do
           expect { result }.not_to raise_error
           expect(described_class.class_variable_get(:@@logon_failures)).to eq([credential_hash])
         end
+
         it 'caches the query results' do
           expect { result }.not_to raise_error
           expect(described_class.class_variable_get(:@@cached_query_results)).to eq([name_hash])
@@ -1029,6 +1046,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'sets the instantiated_variables class variable to {} if not initialized' do
       expect(provider.instantiated_variables).to eq({})
     end
+
     it 'returns the instantiated_variables class variable if already initialized' do
       described_class.class_variable_set(:@@instantiated_variables, { foo: 'bar' }) # rubocop:disable Style/ClassVars
       expect(provider.instantiated_variables).to eq({ foo: 'bar' })
@@ -1073,6 +1091,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         described_class.class_variable_set(:@@logon_failures, [bad_credential_hash]) # rubocop:disable Style/ClassVars
         expect(provider.logon_failed_already?(good_credential_hash)).to be(false)
       end
+
       it 'returns true if the username/password specified are found in the logon_failures class variable' do
         described_class.class_variable_set(:@@logon_failures, [good_credential_hash, bad_credential_hash]) # rubocop:disable Style/ClassVars
         expect(provider.logon_failed_already?(bad_credential_hash)).to be(true)
@@ -1280,15 +1299,19 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'compares hashes regardless of order' do
       expect(provider.same?({ foo: 1, bar: 2 }, { bar: 2, foo: 1 })).to be true
     end
+
     it 'compares hashes with nested arrays regardless of order' do
       expect(provider.same?({ foo: [1, 2], bar: { baz: [1, 2] } }, { foo: [2, 1], bar: { baz: [2, 1] } })).to be true
     end
+
     it 'compares arrays regardless of order' do
       expect(provider.same?([1, 2], [2, 1])).to be true
     end
+
     it 'compares arrays with nested arrays regardless of order' do
       expect(provider.same?([1, [1, 2]], [[2, 1], 1])).to be true
     end
+
     it 'compares non enumerables directly' do
       expect(provider.same?(1, 1)).to be true
       expect(provider.same?(1, 2)).to be false
@@ -1398,6 +1421,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'replaces all discovered pointers to a variable with the variable' do
       expect(provider.interpolate_variables("'FooBar' ; 'FooBar'")).to eq('$some_variable_name ; $some_variable_name')
     end
+
     it 'replaces discovered pointers in reverse order they were stored' do
       expect(provider.interpolate_variables("'Get-Foo \"bar\"'")).to eq('$third_variable_name')
     end
@@ -1428,12 +1452,15 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       it 'sets $UnmungedPSModulePath to the current PSModulePath' do
         expect(result).to match(/\$UnmungedPSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine/)
       end
+
       it 'sets $MungedPSModulePath the vendor path with backslash separators' do
         expect(result).to match(/\$MungedPSModulePath = .+;C:\\foo\\bar/)
       end
+
       it 'updates the system PSModulePath to $MungedPSModulePath' do
         expect(result).to match(/SetEnvironmentVariable\('PSModulePath', \$MungedPSModulePath/)
       end
+
       it 'sets the process level PSModulePath to the modified system PSModulePath' do
         expect(result).to match(/\$env:PSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine/)
       end
@@ -1491,6 +1518,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(first_credential_hash).to eq({ 'user' => 'foo', 'password' => 'foo' })
         expect(second_credential_hash).to eq({ 'user' => 'bar', 'password' => 'bar' })
       end
+
       it 'returns an array of strings each containing the instantiation of a PowerShell variable representing the credential hash' do
         expect(result[0]).to match(/^\$\w+ = New-PSCredential -User foo -Password 'foo#PuppetSensitive'/)
         expect(result[1]).to match(/^\$\w+ = New-PSCredential -User bar -Password 'bar#PuppetSensitive'/)
@@ -1576,6 +1604,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(cim_instance_declarations.first).to match(/\$cim_foo =/)
         expect(cim_instance_declarations.first).to match(/ClassName 'NTFSAccessControlEntry'/)
       end
+
       it 'references nested cim instances as variables in the parent cim instance' do
         cim_instance_declarations = result.split("\n")
         expect(cim_instance_declarations[1]).to match(/\$cim_bar =.+Property @{'accesscontrolentry' = \[CimInstance\[\]\]@\(\$cim_foo\); 'principal' = 'veryRealUserName'}/)
@@ -1627,11 +1656,13 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expected_command = "$foo = New-CimInstance -ClientOnly -ClassName 'SomeClass' -Property @{'foo' = 1; 'bar' = 'two'}"
       expect(provider.format_ciminstance('foo', 'SomeClass', property_hash)).to eq(expected_command)
     end
+
     it 'handles arrays of cim instances' do
       property_hash = [{ 'foo' => 1, 'bar' => 'two' }, { 'foo' => 3, 'bar' => 'four' }]
       expected_cim_instance_array_regex = /Property \[CimInstance\[\]\]@\(@\{'foo' = 1; 'bar' = 'two'}, @\{'foo' = 3; 'bar' = 'four'\}\)/
       expect(provider.format_ciminstance('foo', 'SomeClass', property_hash)).to match(expected_cim_instance_array_regex)
     end
+
     it 'interpolates variables in the case of a cim instance containing a nested instance' do
       described_class.class_variable_set(:@@instantiated_variables, { 'SomeVariable' => { 'bar' => 'ope' } }) # rubocop:disable Style/ClassVars
       property_hash = { 'foo' => { 'bar' => 'ope' } }
@@ -1659,9 +1690,11 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'includes the DSC Resource name in the output hash' do
       expect(result).to match(/Name = 'Foo'/)
     end
+
     it 'includes the specified method in the output hash' do
       expect(result).to match(/Method = 'Get'/)
     end
+
     it 'includes the properties as a hashtable to pass the DSC Resource in the output hash' do
       expect(result).to match(/Property = @\{name = 'foo'\}/)
     end
@@ -1777,27 +1810,34 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'returns a powershell script with the helper functions' do
       expect(provider.ps_script_content('Basic')).to match("Functions Block\n")
     end
+
     it 'includes the preamble' do
       expect(provider.ps_script_content('Basic')).to match("Preamble Block\n")
     end
+
     it 'includes the module path block, if needed' do
       expect(provider.ps_script_content('Basic')).not_to match("PSModulePath Block\n")
       expect(provider.ps_script_content('ClassBasedResource')).to match("PSModulePath Block\n")
     end
+
     it 'includes the credential block, if needed' do
       expect(provider.ps_script_content('Basic')).not_to match("Credential Block\n")
       expect(provider.ps_script_content('ResourceWithCredentials')).to match("Credential Block\n")
     end
+
     it 'includes the cim instances block, if needed' do
       expect(provider.ps_script_content('Basic')).not_to match("Cim Instance Block\n")
       expect(provider.ps_script_content('ResourceWithCimInstances')).to match("Cim Instance Block\n")
     end
+
     it 'includes the parameters block' do
       expect(provider.ps_script_content('Basic')).to match("Parameters Block\n")
     end
+
     it 'includes the postscript block' do
       expect(provider.ps_script_content('Basic')).to match('Postscript Block')
     end
+
     it 'returns a single string with all the blocks joined' do
       expect(provider.ps_script_content('Basic')).to eq(expected_script_content)
     end
@@ -1810,12 +1850,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(Pwsh::Util).to receive(:format_powershell_value).with('foo').and_return('bar')
       expect(provider.format('foo')).to eq('bar')
     end
+
     it 'handles sensitive values especially' do
       expect(Pwsh::Util).to receive(:format_powershell_value).with(sensitive_string).and_raise(RuntimeError, 'Could not format Sensitive [value redacted]')
       expect(provider).to receive(:unwrap).with(sensitive_string).and_return('foo#PuppetSensitive')
       expect(Pwsh::Util).to receive(:format_powershell_value).with('foo#PuppetSensitive').and_return("'foo#PuppetSensitive'")
       expect(provider.format(sensitive_string)).to eq("'foo#PuppetSensitive'")
     end
+
     it 'raises an error if Pwsh::Util raises any error not related to unwrapping a sensitive string' do
       expect(Pwsh::Util).to receive(:format_powershell_value).with('foo').and_raise(RuntimeError, 'Ope!')
       expect { provider.format('foo') }.to raise_error(RuntimeError, 'Ope!')
@@ -1829,12 +1871,15 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'unwraps a sensitive string, appending "#PuppetSensitive" to the end' do
       expect(provider.unwrap(sensitive_string)).to eq(unwrapped_string)
     end
+
     it 'handles sensitive values in a hash' do
       expect(provider.unwrap({ key: sensitive_string })).to eq({ key: unwrapped_string })
     end
+
     it 'handles sensitive values in an array' do
       expect(provider.unwrap([1, sensitive_string])).to eq([1, unwrapped_string])
     end
+
     it 'handles sensitive values in a deeply nested structure' do
       sensitive_structure = {
         array: [sensitive_string, 'ope'],
@@ -1854,6 +1899,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(result[:hash][:nested_array]).to eq([unwrapped_string, 'bar'])
       expect(result[:hash][:nested_hash][:deeply_nested_value]).to eq(unwrapped_string)
     end
+
     it 'returns the input if it does not include any sensitive strings' do
       expect(provider.unwrap('foo bar baz')).to eq('foo bar baz')
     end
@@ -1869,6 +1915,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider.escape_quotes(no_quotes)).to eq(no_quotes)
       expect(provider.escape_quotes(double_quotes)).to eq(double_quotes)
     end
+
     it "replaces single ' with '' in a given string" do
       expect(provider.escape_quotes(single_quotes)).to eq("foo ''bar'' baz")
       expect(provider.escape_quotes(mixed_quotes)).to eq("''foo'' \"bar\" ''\"baz\"''")
@@ -1929,12 +1976,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'does not modify a string without any secrets' do
       expect(provider.redact_secrets(unsensitive_string)).to eq(unsensitive_string)
     end
+
     it 'replaces any unwrapped secret with "#<Sensitive [Value redacted]>"' do
       expect(provider.redact_secrets(sensitive_string)).to eq(redacted_string)
       expect(provider.redact_secrets(sensitive_array)).to eq(redacted_array)
       expect(provider.redact_secrets(sensitive_hash)).to eq(redacted_hash)
       expect(provider.redact_secrets(sensitive_complex)).to eq(redacted_complex)
     end
+
     it 'replaces unwrapped secrets in a multiline string' do
       expect(provider.redact_secrets(multiline_sensitive_string)).to eq(multiline_redacted_string)
       expect(provider.redact_secrets(multiline_sensitive_complex)).to eq(multiline_redacted_complex)
@@ -1995,12 +2044,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'does not modify a string without any secrets' do
       expect(provider.remove_secret_identifiers(unsensitive_string)).to eq(unsensitive_string)
     end
+
     it 'removes the secret identifier from any unwrapped secret' do
       expect(provider.remove_secret_identifiers(sensitive_string)).to eq(redacted_string)
       expect(provider.remove_secret_identifiers(sensitive_array)).to eq(redacted_array)
       expect(provider.remove_secret_identifiers(sensitive_hash)).to eq(redacted_hash)
       expect(provider.remove_secret_identifiers(sensitive_complex)).to eq(redacted_complex)
     end
+
     it 'removes the secret identifier from any unwrapped secrets in a multiline string' do
       expect(provider.remove_secret_identifiers(multiline_sensitive_string)).to eq(multiline_redacted_string)
       expect(provider.remove_secret_identifiers(multiline_sensitive_complex)).to eq(multiline_redacted_complex)
@@ -2017,6 +2068,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: false)
       expect { provider.ps_manager }.not_to raise_error
     end
+
     it 'passes debug as true if Puppet::Util::Log.level is debug' do
       expect(Puppet::Util::Log).to receive(:level).and_return(:debug)
       expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: true)

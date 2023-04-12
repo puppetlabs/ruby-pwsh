@@ -93,6 +93,7 @@ RSpec.describe Pwsh::WindowsPowerShell do
           allow_any_instance_of(Win32::Registry).to receive(:open).with('SOFTWARE\Microsoft\NET Framework Setup\NDP\v3.5', Win32::Registry::KEY_READ | 0x100).and_yield
           expect(described_class.compatible_version?).to be(true)
         end
+
         it 'returns false if .NET 3.5 is not installed' do
           expect(described_class).to receive(:version).and_return('2.0')
           allow_any_instance_of(Win32::Registry).to receive(:open).with('SOFTWARE\Microsoft\NET Framework Setup\NDP\v3.5', Win32::Registry::KEY_READ | 0x100).and_raise(Win32::Registry::Error, 1)
