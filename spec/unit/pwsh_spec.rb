@@ -546,7 +546,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       def current_powershell_major_version(ps_command, ps_args)
         # As this is only used to detect old PS versions we can
         # short circuit detecting the version for PowerShell Core
-        return 6 if ps_command.end_with?('pwsh') || ps_command.end_with?('pwsh.exe')
+        return 6 if ps_command.end_with?('pwsh', 'pwsh.exe')
 
         begin
           version = `#{ps_command} #{ps_args.join(' ')} -Command \"$PSVersionTable.PSVersion.Major.ToString()\"`.chomp!.to_i
