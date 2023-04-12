@@ -981,11 +981,11 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.invoke_test_method' do
-    subject(:result) { provider.invoke_test_method(context, name, should) }
+    subject(:result) { provider.invoke_test_method(context, name, is_expected.to) }
 
     let(:name) { { name: 'foo', dsc_name: 'bar' } }
     let(:should) { name.merge(dsc_ensure: 'present') }
-    let(:test_properties) { should.reject { |k, _v| k == :name } }
+    let(:test_properties) { is_expected.to.reject { |k, _v| k == :name } }
     let(:invoke_dsc_resource_data) { nil }
 
     before do
