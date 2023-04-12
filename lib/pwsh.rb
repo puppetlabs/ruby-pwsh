@@ -336,10 +336,10 @@ module Pwsh
     #
     # @return [String] the absolute path to the PowerShell executable. Returns 'powershell.exe' if no more specific path found.
     def self.powershell_path
-      if File.exist?("#{ENV['SYSTEMROOT']}\\sysnative\\WindowsPowershell\\v1.0\\powershell.exe")
-        "#{ENV['SYSTEMROOT']}\\sysnative\\WindowsPowershell\\v1.0\\powershell.exe"
-      elsif File.exist?("#{ENV['SYSTEMROOT']}\\system32\\WindowsPowershell\\v1.0\\powershell.exe")
-        "#{ENV['SYSTEMROOT']}\\system32\\WindowsPowershell\\v1.0\\powershell.exe"
+      if File.exist?("#{ENV.fetch('SYSTEMROOT', nil)}\\sysnative\\WindowsPowershell\\v1.0\\powershell.exe")
+        "#{ENV.fetch('SYSTEMROOT', nil)}\\sysnative\\WindowsPowershell\\v1.0\\powershell.exe"
+      elsif File.exist?("#{ENV.fetch('SYSTEMROOT', nil)}\\system32\\WindowsPowershell\\v1.0\\powershell.exe")
+        "#{ENV.fetch('SYSTEMROOT', nil)}\\system32\\WindowsPowershell\\v1.0\\powershell.exe"
       else
         'powershell.exe'
       end
@@ -353,7 +353,7 @@ module Pwsh
       # Convert all the key names to upcase so we can be sure to find PATH etc.
       # Also while ruby can have difficulty changing the case of some UTF8 characters, we're
       # only going to use plain ASCII names so this is safe.
-      current_path = Pwsh::Util.on_windows? ? ENV.select { |k, _| k.casecmp('PATH').zero? }.values[0] : ENV['PATH']
+      current_path = Pwsh::Util.on_windows? ? ENV.select { |k, _| k.casecmp('PATH').zero? }.values[0] : ENV.fetch('PATH', nil)
       current_path = '' if current_path.nil?
 
       # Prefer any additional paths
@@ -367,10 +367,10 @@ module Pwsh
         # TODO: What about PS 8?
         # TODO: Need to check on French/Turkish windows if ENV['PROGRAMFILES'] parses UTF8 names correctly
         # TODO: Need to ensure ENV['PROGRAMFILES'] is case insensitive, i.e. ENV['PROGRAMFiles'] should also resolve on Windows
-        search_paths += ";#{ENV['PROGRAMFILES']}\\PowerShell\\6" \
-                        ";#{ENV['PROGRAMFILES(X86)']}\\PowerShell\\6" \
-                        ";#{ENV['PROGRAMFILES']}\\PowerShell\\7" \
-                        ";#{ENV['PROGRAMFILES(X86)']}\\PowerShell\\7"
+        search_paths += ";#{ENV.fetch('PROGRAMFILES', nil)}\\PowerShell\\6" \
+                        ";#{ENV.fetch('PROGRAMFILES(X86)', nil)}\\PowerShell\\6" \
+                        ";#{ENV.fetch('PROGRAMFILES', nil)}\\PowerShell\\7" \
+                        ";#{ENV.fetch('PROGRAMFILES(X86)', nil)}\\PowerShell\\7"
       end
       raise 'No paths discovered to search for Powershell!' if search_paths.split(File::PATH_SEPARATOR).empty?
 

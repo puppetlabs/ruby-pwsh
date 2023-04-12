@@ -658,7 +658,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
       it 'allows forward slashes in working directory', if: Pwsh::Util.on_windows? do
         # Backslashes only apply on Windows filesystems
-        work_dir = ENV['WINDIR']
+        work_dir = ENV.fetch('WINDIR', nil)
         forward_work_dir = work_dir.tr('\\', '/')
 
         result = manager.execute('(Get-Location).Path', nil, forward_work_dir)[:stdout]
@@ -667,7 +667,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'uses a specific working directory if set' do
-        work_dir = Pwsh::Util.on_windows? ? ENV['WINDIR'] : Dir.home
+        work_dir = Pwsh::Util.on_windows? ? ENV.fetch('WINDIR', nil) : Dir.home
 
         result = manager.execute('(Get-Location).Path', nil, work_dir)[:stdout]
 
@@ -675,7 +675,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'does not reuse the same working directory between runs' do
-        work_dir = Pwsh::Util.on_windows? ? ENV['WINDIR'] : Dir.home
+        work_dir = Pwsh::Util.on_windows? ? ENV.fetch('WINDIR', nil) : Dir.home
         current_work_dir = Pwsh::Util.on_windows? ? Dir.getwd.tr('/', '\\') : Dir.getwd
 
         first_cwd = manager.execute('(Get-Location).Path', nil, work_dir)[:stdout]
