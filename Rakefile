@@ -72,6 +72,19 @@ def vendor_dsc_module(name, version, destination)
   end
 end
 
+# Ensure that winrm is configured on the target system.
+#
+# @return [Object] The result of the command execution.
+def configure_winrm
+  return unless Gem.win_platform?
+
+  command = 'pwsh.exe -NoProfile -NonInteractive -NoLogo -ExecutionPolicy Bypass -File "spec/acceptance/support/setup_winrm.ps1"'
+  system(command)
+rescue StandardError => e
+  puts "Failed to configure WinRM: #{e}"
+  exit 1
+end
+
 RSpec::Core::RakeTask.new(:acceptance) do |t|
   t.pattern = 'spec/acceptance/dsc/*.rb'
   end
@@ -99,6 +112,9 @@ namespace :acceptance do
 
       vendor_dsc_module(puppet_module[:name], puppet_module[:version], modules_folder)
     end
+
+    # Configure WinRM for acceptance tests
+    configure_winrm
   end
 end
 
