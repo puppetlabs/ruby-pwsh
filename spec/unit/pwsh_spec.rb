@@ -332,11 +332,8 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         expect(result[:stdout]).to be_nil
         if Pwsh::Util.on_windows?
           expect(result[:stderr]).to eq(["'foo.exe' is not recognized as an internal or external command,\r\noperable program or batch file.\r\n"])
-        elsif is_osx?
-          expect(result[:stderr][0]).to match(/foo\.exe: command not found/)
-          expect(result[:stderr][0]).to match(/bar/)
         else
-          expect(result[:stderr][0]).to match(/foo\.exe: not found/)
+          expect(result[:stderr][0]).to match(/foo\.exe:(?:.*)not found/)
           expect(result[:stderr][0]).to match(/bar/)
         end
         expect(result[:exitcode]).not_to eq(0)
