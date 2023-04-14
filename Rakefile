@@ -3,44 +3,14 @@
 require 'bundler/gem_tasks'
 require 'rubocop/rake_task'
 require 'fileutils'
-require 'github_changelog_generator/task'
 require 'open3'
 require 'pwsh/version'
 require 'rspec/core/rake_task'
 require 'yard'
 
-GitHubChangelogGenerator::RakeTask.new :changelog do |config|
-  config.user = 'puppetlabs'
-  config.project = 'ruby-pwsh'
-  config.future_release = Pwsh::VERSION
-  config.since_tag = '0.1.0'
-  config.exclude_labels = ['maint']
-  config.header = "# Change log\n\nAll notable changes to this project will be documented in this file." \
-                  'The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).'
-  config.add_pr_wo_labels = true
-  config.issues = false
-  config.merge_prefix = '### UNCATEGORIZED PRS; GO LABEL THEM'
-  config.configure_sections = {
-    'Changed' => {
-      'prefix' => '### Changed',
-      'labels' => %w[backwards-incompatible]
-    },
-    'Added' => {
-      'prefix' => '### Added',
-      'labels' => %w[feature enhancement]
-    },
-    'Fixed' => {
-      'prefix' => '### Fixed',
-      'labels' => %w[bugfix]
-    }
-  }
+RSpec::Core::RakeTask.new(:spec) do |t|
+  t.pattern = 'spec/unit/*_spec.rb'
 end
-
-RuboCop::RakeTask.new(:rubocop) do |task|
-  task.options = %w[-D -S -E]
-end
-
-RSpec::Core::RakeTask.new(:spec)
 task default: :spec
 
 YARD::Rake::YardocTask.new do |t|
@@ -102,33 +72,50 @@ def vendor_dsc_module(name, version, destination)
   end
 end
 
-namespace :dsc do
-  namespace :acceptance do
-    desc 'Prep for running DSC acceptance tests'
-    task :spec_prep do
-      # Create the modules fixture folder, if needed
-      modules_folder = File.expand_path('spec/fixtures/modules', File.dirname(__FILE__))
-      FileUtils.mkdir_p(modules_folder) unless Dir.exist?(modules_folder)
-      # symlink the parent folder to the modules folder for puppet
-      symlink_path = File.expand_path('pwshlib', modules_folder)
-      File.symlink(File.dirname(__FILE__), symlink_path) unless Dir.exist?(symlink_path)
-      # Install each of the required modules for acceptance testing
-      # Note: This only works for modules in the dsc namespace on the forge.
-      puppetized_dsc_modules = [
-        { name: 'powershellget', version: '2.2.5-0-1' },
-        { name: 'jeadsc', version: '0.7.2-0-3' },
-        { name: 'xpsdesiredstateconfiguration', version: '9.1.0-0-1' },
-        { name: 'xwebadministration', version: '3.2.0-0-2' },
-        { name: 'accesscontroldsc', version: '1.4.1-0-3' }
-      ]
-      puppetized_dsc_modules.each do |puppet_module|
-        next if Dir.exist?(File.expand_path(puppet_module[:name], modules_folder))
+# Ensure that winrm is configured on the target system.
+#
+# @return [Object] The result of the command execution.
+def configure_winrm
+  return unless Gem.win_platform?
 
-        vendor_dsc_module(puppet_module[:name], puppet_module[:version], modules_folder)
-      end
+  command = 'pwsh.exe -NoProfile -NonInteractive -NoLogo -ExecutionPolicy Bypass -File "spec/acceptance/support/setup_winrm.ps1"'
+  system(command)
+rescue StandardError => e
+  puts "Failed to configure WinRM: #{e}"
+  exit 1
+end
+
+RSpec::Core::RakeTask.new(:acceptance) do |t|
+  t.pattern = 'spec/acceptance/dsc/*.rb'
+  end
+
+namespace :acceptance do
+  desc 'Prep for running DSC acceptance tests'
+  task :spec_prep do
+    # Create the modules fixture folder, if needed
+    modules_folder = File.expand_path('spec/fixtures/modules', File.dirname(__FILE__))
+    FileUtils.mkdir_p(modules_folder) unless Dir.exist?(modules_folder)
+    # symlink the parent folder to the modules folder for puppet
+    symlink_path = File.expand_path('pwshlib', modules_folder)
+    File.symlink(File.dirname(__FILE__), symlink_path) unless Dir.exist?(symlink_path)
+    # Install each of the required modules for acceptance testing
+    # Note: This only works for modules in the dsc namespace on the forge.
+    puppetized_dsc_modules = [
+      { name: 'powershellget', version: '2.2.5-0-1' },
+      { name: 'jeadsc', version: '0.7.2-0-3' },
+      { name: 'xpsdesiredstateconfiguration', version: '9.1.0-0-1' },
+      { name: 'xwebadministration', version: '3.2.0-0-2' },
+      { name: 'accesscontroldsc', version: '1.4.1-0-3' }
+    ]
+    puppetized_dsc_modules.each do |puppet_module|
+      next if Dir.exist?(File.expand_path(puppet_module[:name], modules_folder))
+
+      vendor_dsc_module(puppet_module[:name], puppet_module[:version], modules_folder)
     end
-    RSpec::Core::RakeTask.new(:spec) do |t|
-      t.pattern = 'spec/acceptance/dsc/*.rb'
-    end
+
+    # Configure WinRM for acceptance tests
+    configure_winrm
   end
 end
+
+task :acceptance => 'acceptance:spec_prep'

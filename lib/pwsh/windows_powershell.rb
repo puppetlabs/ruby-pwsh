@@ -82,7 +82,7 @@ if Pwsh::Util.on_windows?
           HKLM.open(PS_ONE_REG_PATH, ACCESS_TYPE) do |reg|
             version = reg[REG_KEY]
           end
-        rescue
+        rescue StandardError
           version = nil
         end
         version
@@ -98,7 +98,7 @@ if Pwsh::Util.on_windows?
           HKLM.open(PS_THREE_REG_PATH, ACCESS_TYPE) do |reg|
             version = reg[REG_KEY]
           end
-        rescue
+        rescue StandardError
           version = nil
         end
         version

@@ -22,3 +22,6 @@ Gemfile.lock
 /spec/fixtures/modules/
 /spec/fixtures/test.pp
 /spec/fixtures/website/
+
+# Acceptance Testing files
+*.tar.gz

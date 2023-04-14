@@ -55,7 +55,7 @@ module Pwsh
         # ignore any errors trying to tear down this unusable instance
         begin
           manager.exit unless manager.nil? # rubocop:disable Style/SafeNavigation
-        rescue
+        rescue StandardError
           nil
         end
         @@instances[key] = Manager.new(cmd, args, options)
@@ -151,7 +151,7 @@ module Pwsh
                     UNIXSocket.new(pipe_path)
                   end
           break
-        rescue
+        rescue StandardError
           sleep sleep_interval
         end
       end
@@ -208,7 +208,6 @@ module Pwsh
       out[:stderr] = out[:stderr].nil? ? [] : [out[:stderr]]
       out[:stderr] += err unless err.nil?
       out[:native_stdout] = native_stdout
-
       out
     end
 
@@ -224,7 +223,7 @@ module Pwsh
       # rather than expecting the pipe.close to terminate it
       begin
         write_pipe(pipe_command(:exit)) unless @pipe.closed?
-      rescue
+      rescue StandardError
         nil
       end
 
@@ -245,8 +244,8 @@ module Pwsh
     # @return [String] full path to the bootstrap template
     def self.template_path
       # A PowerShell -File compatible path to bootstrap the instance
-      path = File.expand_path('../templates', __FILE__)
-      path = File.join(path, 'init.ps1').gsub('/', '\\')
+      path = File.expand_path('templates', __dir__)
+      path = File.join(path, 'init.ps1').tr('/', '\\')
       "\"#{path}\""
     end
 
@@ -268,7 +267,7 @@ module Pwsh
 
         # Lower bound protection. The polling resolution is only 50ms.
         timeout_ms = 50 if timeout_ms < 50
-      rescue
+      rescue StandardError
         timeout_ms = 300 * 1000
       end
 
@@ -308,17 +307,17 @@ module Pwsh
 
       # PS Side expects Invoke-PowerShellUserCode is always the return value here
       # TODO: Refactor to use <<~ as soon as we can :sob:
-      <<-CODE
-$params = @{
-  Code                     = @'
-#{powershell_code}
-'@
-  TimeoutMilliseconds      = #{timeout_ms}
-  WorkingDirectory         = "#{working_dir}"
-  AdditionalEnvironmentVariables = #{additional_environment_variables}
-}
+      <<~CODE
+        $params = @{
+          Code                     = @'
+        #{powershell_code}
+        '@
+          TimeoutMilliseconds      = #{timeout_ms}
+          WorkingDirectory         = "#{working_dir}"
+          AdditionalEnvironmentVariables = #{additional_environment_variables}
+        }
 
-Invoke-PowerShellUserCode @params
+        Invoke-PowerShellUserCode @params
       CODE
     end
 
@@ -336,10 +335,10 @@ Invoke-PowerShellUserCode @params
     #
     # @return [String] the absolute path to the PowerShell executable. Returns 'powershell.exe' if no more specific path found.
     def self.powershell_path
-      if File.exist?("#{ENV['SYSTEMROOT']}\\sysnative\\WindowsPowershell\\v1.0\\powershell.exe")
-        "#{ENV['SYSTEMROOT']}\\sysnative\\WindowsPowershell\\v1.0\\powershell.exe"
-      elsif File.exist?("#{ENV['SYSTEMROOT']}\\system32\\WindowsPowershell\\v1.0\\powershell.exe")
-        "#{ENV['SYSTEMROOT']}\\system32\\WindowsPowershell\\v1.0\\powershell.exe"
+      if File.exist?("#{ENV.fetch('SYSTEMROOT', nil)}\\sysnative\\WindowsPowershell\\v1.0\\powershell.exe")
+        "#{ENV.fetch('SYSTEMROOT', nil)}\\sysnative\\WindowsPowershell\\v1.0\\powershell.exe"
+      elsif File.exist?("#{ENV.fetch('SYSTEMROOT', nil)}\\system32\\WindowsPowershell\\v1.0\\powershell.exe")
+        "#{ENV.fetch('SYSTEMROOT', nil)}\\system32\\WindowsPowershell\\v1.0\\powershell.exe"
       else
         'powershell.exe'
       end
@@ -353,7 +352,7 @@ Invoke-PowerShellUserCode @params
       # Convert all the key names to upcase so we can be sure to find PATH etc.
       # Also while ruby can have difficulty changing the case of some UTF8 characters, we're
       # only going to use plain ASCII names so this is safe.
-      current_path = Pwsh::Util.on_windows? ? ENV.select { |k, _| k.upcase == 'PATH' }.values[0] : ENV['PATH']
+      current_path = Pwsh::Util.on_windows? ? ENV.select { |k, _| k.casecmp('PATH').zero? }.values[0] : ENV.fetch('PATH', nil)
       current_path = '' if current_path.nil?
 
       # Prefer any additional paths
@@ -367,10 +366,10 @@ Invoke-PowerShellUserCode @params
         # TODO: What about PS 8?
         # TODO: Need to check on French/Turkish windows if ENV['PROGRAMFILES'] parses UTF8 names correctly
         # TODO: Need to ensure ENV['PROGRAMFILES'] is case insensitive, i.e. ENV['PROGRAMFiles'] should also resolve on Windows
-        search_paths += ";#{ENV['PROGRAMFILES']}\\PowerShell\\6" \
-                        ";#{ENV['PROGRAMFILES(X86)']}\\PowerShell\\6" \
-                        ";#{ENV['PROGRAMFILES']}\\PowerShell\\7" \
-                        ";#{ENV['PROGRAMFILES(X86)']}\\PowerShell\\7"
+        search_paths += ";#{ENV.fetch('PROGRAMFILES', nil)}\\PowerShell\\6" \
+                        ";#{ENV.fetch('PROGRAMFILES(X86)', nil)}\\PowerShell\\6" \
+                        ";#{ENV.fetch('PROGRAMFILES', nil)}\\PowerShell\\7" \
+                        ";#{ENV.fetch('PROGRAMFILES(X86)', nil)}\\PowerShell\\7"
       end
       raise 'No paths discovered to search for Powershell!' if search_paths.split(File::PATH_SEPARATOR).empty?
 
@@ -433,7 +432,7 @@ Invoke-PowerShellUserCode @params
         # as this resolves to a HANDLE and then calls the Windows API
         !stream.stat.nil?
     # Any exceptions mean the stream is dead
-    rescue
+    rescue StandardError
       false
     end
 
@@ -497,9 +496,7 @@ Invoke-PowerShellUserCode @params
     #
     # @return nil
     def write_pipe(input)
-      # For Compat with Ruby 2.1 and lower, it's important to use syswrite and
-      # not write - otherwise, the pipe breaks after writing 1024 bytes.
-      written = @pipe.syswrite(input)
+      written = @pipe.write(input)
       @pipe.flush
 
       if written != input.length # rubocop:disable Style/GuardClause
@@ -541,7 +538,7 @@ Invoke-PowerShellUserCode @params
       read_from_pipe(pipe, 0) { |s| output << s } while self.class.readable?(pipe)
 
       # String has been binary up to this point, so force UTF-8 now
-      output == [] ? [] : [output.join('').force_encoding(Encoding::UTF_8)]
+      output == [] ? [] : [output.join.force_encoding(Encoding::UTF_8)]
     end
 
     # Open threads and pipes to read stdout and stderr from the PowerShell manager,
@@ -592,8 +589,8 @@ Invoke-PowerShellUserCode @params
 
       [
         output,
-        stdout == [] ? nil : stdout.join(''), # native stdout
-        stderr_reader.value                   # native stderr
+        stdout == [] ? nil : stdout.join, # native stdout
+        stderr_reader.value # native stderr
       ]
     ensure
       # Failsafe if the prior unlock was never reached / Mutex wasn't unlocked

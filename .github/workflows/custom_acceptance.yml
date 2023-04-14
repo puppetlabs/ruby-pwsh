@@ -1,0 +1,68 @@
+# This exists so we can force the acceptance tests to run under
+# powershell.exe.
+#
+# For such a small edge case it does not seem sensible adding extra
+# complication in to the shared actions at this point.
+#
+# Hopefully this is only a temporary work-around.
+name: "Gem Acceptance"
+
+on:
+  workflow_call:
+    inputs:
+      ruby_version:
+        description: "The target Ruby version."
+        required: false
+        default: "2.7"
+        type: "string"
+      puppet_version:
+        description: "The target Puppet version."
+        required: false
+        default: "puppet7-nightly"
+        type: "string"
+      rake_task:
+        description: "The name of the rake task that executes acceptance tests"
+        required: false
+        default: "acceptance"
+        type: "string"
+      runs_on:
+        description: "The operating system used for the runner."
+        required: false
+        default: "ubuntu-latest"
+        type: "string"
+
+jobs:
+  acceptance:
+    name: "acceptance"
+    runs-on: ${{ inputs.runs_on }}
+
+    env:
+      PUPPET_GEM_VERSION: ${{ inputs.puppet_version }}
+
+    steps:
+
+      - name: "checkout"
+        uses: "actions/checkout@v3"
+
+      - name: "export environment"
+        run: |
+          echo "PUPPET_GEM_VERSION=${{ inputs.puppet_gem_version }} >> $GITHUB_ENV"
+
+      - name: "setup ruby"
+        uses: "ruby/setup-ruby@v1"
+        with:
+          ruby-version: ${{ inputs.ruby_version }}
+          bundler-cache: true
+
+      - name: "bundle environment"
+        run: |
+          echo ::group::bundler environment
+          bundle env
+          echo ::endgroup::
+
+      - name: "execute acceptance tests"
+        shell: powershell
+        run: |
+          # This generic task to run acceptance tests.
+          # It should be overridden in the Rakefile.
+          bundle exec rake ${{ inputs.rake_task }}

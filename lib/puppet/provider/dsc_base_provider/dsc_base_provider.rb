@@ -88,7 +88,7 @@ class Puppet::Provider::DscBaseProvider
               # - When the values match case insensitively but the attribute is an enum, prefer the casing of the manifest enum.
               # - When the values match case insensitively and the attribute is not an enum, prefer the casing from invoke_get_method
               canonicalized[key] = r[key] unless same?(value, downcased_resource[key]) && !enum_attributes(context).include?(key)
-              canonicalized.delete(key) unless downcased_resource.keys.include?(key)
+              canonicalized.delete(key) unless downcased_resource.key?(key)
             end
             # Cache the actually canonicalized resource separately
             @@cached_canonicalized_resource << canonicalized.dup
@@ -134,7 +134,7 @@ class Puppet::Provider::DscBaseProvider
         (mandatory_get_attributes(context) - namevar_attributes(context)).include?(attribute)
       end
       # If dsc_psdscrunascredential was specified, re-add it here.
-      mandatory_properties[:dsc_psdscrunascredential] = canonicalized_resource[:dsc_psdscrunascredential] if canonicalized_resource.keys.include?(:dsc_psdscrunascredential)
+      mandatory_properties[:dsc_psdscrunascredential] = canonicalized_resource[:dsc_psdscrunascredential] if canonicalized_resource.key?(:dsc_psdscrunascredential)
     end
     names.collect do |name|
       name = { name: name } if name.is_a? String
@@ -253,7 +253,7 @@ class Puppet::Provider::DscBaseProvider
 
     begin
       data = JSON.parse(output)
-    rescue => e
+    rescue StandardError => e
       context.err(e)
       return nil
     end
@@ -263,7 +263,7 @@ class Puppet::Provider::DscBaseProvider
     unless error.nil? || error.empty?
       # NB: We should have a way to stop processing this resource *now* without blowing up the whole Puppet run
       # Raising an error stops processing but blows things up while context.err alerts but continues to process
-      if error =~ /Logon failure: the user has not been granted the requested logon type at this computer/
+      if error.include?('Logon failure: the user has not been granted the requested logon type at this computer')
         logon_error = "PSDscRunAsCredential account specified (#{name_hash[:dsc_psdscrunascredential]['user']}) does not have appropriate logon rights; are they an administrator?"
         name_hash[:name].nil? ? context.err(logon_error) : context.err(name_hash[:name], logon_error)
         @@logon_failures << name_hash[:dsc_psdscrunascredential].dup
@@ -343,19 +343,19 @@ class Puppet::Provider::DscBaseProvider
       end
       # PowerShell does not distinguish between a return of empty array/string
       #  and null but Puppet does; revert to those values if specified.
-      data[type_key] = [] if data[type_key].nil? && query_props.keys.include?(type_key) && query_props[type_key].is_a?(Array)
+      data[type_key] = [] if data[type_key].nil? && query_props.key?(type_key) && query_props[type_key].is_a?(Array)
     end
     # If a resource is found, it's present, so refill this Puppet-only key
-    data.merge!({ name: name_hash[:name] })
+    data[:name] = name_hash[:name]
 
     # Have to check for this to avoid a weird canonicalization warning
     # The Resource API calls canonicalize against the current state which
     # will lead to dsc_ensure being set to absent in the name_hash even if
     # it was set to present in the manifest
-    name_hash_has_nil_keys = name_hash.select { |_k, v| v.nil? }.count.positive?
+    name_hash_has_nil_keys = name_hash.count { |_k, v| v.nil? }.positive?
     # We want to throw away all of the empty keys if and only if the manifest
     # declaration is for an absent resource and the resource is actually absent
-    data.reject! { |_k, v| v.nil? } if data[:dsc_ensure] == 'Absent' && name_hash[:dsc_ensure] == 'Absent' && !name_hash_has_nil_keys
+    data.compact! if data[:dsc_ensure] == 'Absent' && name_hash[:dsc_ensure] == 'Absent' && !name_hash_has_nil_keys
 
     # Sort the return for order-insensitive nested enumerable comparison:
     data = recursively_sort(data)
@@ -451,7 +451,7 @@ class Puppet::Provider::DscBaseProvider
     # path to allow multiple modules to with shared dsc_resources to be installed side by side
     # The old vendored_modules_path: puppet_x/dsc_resources
     # The new vendored_modules_path: puppet_x/<module_name>/dsc_resources
-    root_module_path = load_path.select { |path| path.match?(%r{#{puppetize_name(module_name)}/lib}) }.first
+    root_module_path = load_path.find { |path| path.match?(%r{#{puppetize_name(module_name)}/lib}) }
     vendored_path = if root_module_path.nil?
                       File.expand_path(Pathname.new(__FILE__).dirname + '../../../' + "puppet_x/#{puppetize_name(module_name)}/dsc_resources") # rubocop:disable Style/StringConcatenation
                     else
@@ -501,7 +501,7 @@ class Puppet::Provider::DscBaseProvider
   # @return [String] a uuid with underscores instead of dashes.
   def random_variable_name
     # PowerShell variables can't include dashes
-    SecureRandom.uuid.gsub('-', '_')
+    SecureRandom.uuid.tr('-', '_')
   end
 
   # Return a Hash containing all of the variables defined for instantiation as well as the Ruby hash for their
@@ -640,7 +640,7 @@ class Puppet::Provider::DscBaseProvider
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @return [Array] returns an array of attribute names as symbols which are enums
   def enum_attributes(context)
-    context.type.attributes.select { |_name, properties| properties[:type].match(/Enum\[/) }.keys
+    context.type.attributes.select { |_name, properties| properties[:type].include?('Enum[') }.keys
   end
 
   # Look through a fully formatted string, replacing all instances where a value matches the formatted properties
@@ -670,7 +670,7 @@ class Puppet::Provider::DscBaseProvider
   def munge_psmodulepath(resource)
     return unless resource[:dscmeta_resource_implementation] == 'Class'
 
-    vendor_path = resource[:vendored_modules_path].gsub('/', '\\')
+    vendor_path = resource[:vendored_modules_path].tr('/', '\\')
     <<~MUNGE_PSMODULEPATH.strip
       $UnmungedPSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath','machine')
       $MungedPSModulePath = $env:PSModulePath + ';#{vendor_path}'
@@ -731,7 +731,7 @@ class Puppet::Provider::DscBaseProvider
       # name = property_name.to_s.gsub(/^dsc_/, '').to_sym
       # Process nested CIM instances first as those neeed to be passed to higher-order
       # instances and must therefore be declared before they must be referenced
-      cim_instance_hashes = nested_cim_instances(property_hash[:value]).flatten.reject(&:nil?)
+      cim_instance_hashes = nested_cim_instances(property_hash[:value]).flatten.compact
       # Sometimes the instances are an empty array
       unless cim_instance_hashes.count.zero?
         cim_instance_hashes.each do |instance|
@@ -743,7 +743,7 @@ class Puppet::Provider::DscBaseProvider
         end
       end
       # We have to handle arrays of CIM instances slightly differently
-      if property_hash[:mof_type] =~ /\[\]$/
+      if /\[\]$/.match?(property_hash[:mof_type])
         class_name = property_hash[:mof_type].gsub('[]', '')
         property_hash[:value].each do |hash|
           variable_name = random_variable_name
@@ -847,7 +847,7 @@ class Puppet::Provider::DscBaseProvider
       params_block = params_block.gsub("#{param_block_name} = @()", "#{param_block_name} = [#{properties[:mof_type]}]@()")
     end
     # HACK: make CIM instances work:
-    resource[:parameters].select { |_key, hash| hash[:mof_is_embedded] && hash[:mof_type] =~ /\[\]/ }.each do |_property_name, property_hash|
+    resource[:parameters].select { |_key, hash| hash[:mof_is_embedded] && hash[:mof_type].include?('[]') }.each do |_property_name, property_hash|
       formatted_property_hash = interpolate_variables(format(property_hash[:value]))
       params_block = params_block.gsub(formatted_property_hash, "[CimInstance[]]#{formatted_property_hash}")
     end
@@ -861,7 +861,7 @@ class Puppet::Provider::DscBaseProvider
   # @param resource [Hash] a hash with the information needed to run `Invoke-DscResource`
   # @return [String] A string representing the PowerShell script which will invoke the DSC Resource.
   def ps_script_content(resource)
-    template_path = File.expand_path('../', __FILE__)
+    template_path = File.expand_path(__dir__)
     # Defines the helper functions
     functions     = File.new("#{template_path}/invoke_dsc_resource_functions.ps1").read
     # Defines the response hash and the runtime settings
@@ -888,7 +888,7 @@ class Puppet::Provider::DscBaseProvider
   def format(value)
     Pwsh::Util.format_powershell_value(value)
   rescue RuntimeError => e
-    raise unless e.message =~ /Sensitive \[value redacted\]/
+    raise unless e.message.include?('Sensitive [value redacted]')
 
     Pwsh::Util.format_powershell_value(unwrap(value))
   end
@@ -948,12 +948,12 @@ class Puppet::Provider::DscBaseProvider
   def handle_secrets(text, replacement, error_message)
     # Every secret unwrapped in this module will unwrap as "'secret#{SECRET_POSTFIX}'"
     # Currently, no known resources specify a SecureString instead of a PSCredential object.
-    return text unless text.match(/#{Regexp.quote(SECRET_POSTFIX)}/)
+    return text unless /#{Regexp.quote(SECRET_POSTFIX)}/.match?(text)
 
     # In order to reduce time-to-parse, look at each line individually and *only* attempt
     # to substitute if a naive match for the secret postfix is found on the line.
     modified_text = text.split("\n").map do |line|
-      if line.match(/#{Regexp.quote(SECRET_POSTFIX)}/)
+      if /#{Regexp.quote(SECRET_POSTFIX)}/.match?(line)
         line.gsub(SECRET_DATA_REGEX, replacement)
       else
         line
@@ -963,7 +963,7 @@ class Puppet::Provider::DscBaseProvider
     modified_text = modified_text.join("\n")
 
     # Something has gone wrong, error loudly
-    raise error_message if modified_text =~ /#{Regexp.quote(SECRET_POSTFIX)}/
+    raise error_message if /#{Regexp.quote(SECRET_POSTFIX)}/.match?(modified_text)
 
     modified_text
   end

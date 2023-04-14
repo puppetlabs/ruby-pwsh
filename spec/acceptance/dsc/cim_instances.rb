@@ -1,9 +1,8 @@
 # frozen_string_literal: true
+
 # TODO: Test against mcollera/AccessControlDsc for CIM instance behavior
 # 1. Make sure valid nested CIM instances can be passed to Invoke-DscResource
 # 2. Make sure nested CIM instances can be read back from Invoke-DscResource
-
-# frozen_string_literal: true
 
 require 'spec_helper'
 require 'ruby-pwsh'
@@ -26,7 +25,7 @@ RSpec.describe 'DSC Acceptance: Complex' do
   end
 
   context 'Managing the access control list of a folder' do
-    before(:each) do
+    before do
       reset_command = <<~RESET_COMMAND
         $TestFolderPath = Join-Path -Path "#{fixtures_path}" -Childpath access_control
         # Delete the test folder if it exists (to clear access control modifications)
@@ -62,7 +61,7 @@ RSpec.describe 'DSC Acceptance: Complex' do
           ]
         }
       MANIFEST
-      File.open(test_manifest, 'w') { |file| file.write(content) }
+      File.write(test_manifest, content)
       # Apply the test manifest
       first_run_result = powershell.execute(puppet_apply)
       expect(first_run_result[:exitcode]).to be(2)

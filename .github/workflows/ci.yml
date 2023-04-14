@@ -12,62 +12,38 @@ jobs:
       fail-fast: false
       matrix:
         ruby_version:
-          - '2.5'
           - '2.7'
-    name: "spec (ruby ${{ matrix.ruby_version }})"
+          - '3.2'
+        include:
+          - ruby_version: '2.7'
+            puppet_version: '~> 7.0'
+          - ruby_version: '3.2'
+            puppet_version: 'https://github.com/puppetlabs/puppet'
+    name: "spec (ruby ${{ matrix.ruby_version }} | puppet ${{ matrix.puppet_version }})"
     uses: "puppetlabs/cat-github-actions/.github/workflows/gem_ci.yml@main"
     secrets: "inherit"
     with:
       ruby_version: ${{ matrix.ruby_version }}
+      puppet_gem_version: ${{ matrix.puppet_version }}
 
   acceptance:
     needs: "spec"
-    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        os:
-          - "windows-latest"
-          - "windows-2019"
-        puppet:
-          - '~> 6'
-          - '~> 7'
+        ruby_version:
+          - "2.7"
+          - "3.2"
         include:
-          - puppet: '~> 6'
-            ruby: 2.5
-          - puppet: '~> 7'
-            ruby: 2.7
-    env:
-      PUPPET_GEM_VERSION: ${{ matrix.puppet }}
-
-    steps:
-      - name: "checkout"
-        uses: "actions/checkout@v3"
-
-      - name: "setup ruby"
-        uses: "ruby/setup-ruby@v1"
-        with:
-          ruby-version: ${{ matrix.ruby }}
-          bundler-cache: true
-
-      - name: "bundle environment"
-        run: |
-          echo ::group::bundler environment
-          bundle env
-          echo ::endgroup::
-
-      - name: "setup winrm"
-        shell: "powershell"
-        run: |
-          Get-ChildItem WSMan:\localhost\Listener\ -OutVariable Listeners | Format-List * -Force
-          $HTTPListener = $Listeners | Where-Object -FilterScript { $_.Keys.Contains('Transport=HTTP') }
-          If ($HTTPListener.Count -eq 0) {
-            winrm create winrm/config/Listener?Address=*+Transport=HTTP
-            winrm e winrm/config/listener
-          }
-
-      - name: "acceptance"
-        shell: "powershell"
-        run: |
-          bundle exec rake dsc:acceptance:spec_prep
-          bundle exec rake dsc:acceptance:spec
+          - ruby-version: '2.7'
+            puppet_version: '~> 7.0'
+          - ruby_version: '3.2'
+            puppet_version: 'https://github.com/puppetlabs/puppet' # puppet8'
+        runs_on:
+          - "windows-latest"
+    name: "spec (${{ matrix.runs_on}} ruby ${{ matrix.ruby_version }} | puppet ${{ matrix.puppet_version }})"
+    uses: "./.github/workflows/custom_acceptance.yml"
+    secrets: "inherit"
+    with:
+      ruby_version: ${{ matrix.ruby_version }}
+      puppet_version: ${{ matrix.puppet_version }}
+      runs_on: ${{ matrix.runs_on }}
