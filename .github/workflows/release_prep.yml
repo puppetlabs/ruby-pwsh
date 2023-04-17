@@ -18,7 +18,3 @@ jobs:
       target: "${{ github.event.inputs.target }}"
       version: "${{ github.event.inputs.version }}"
     secrets: "inherit"
-
-  module_release_prep:
-    uses: "puppetlabs/cat-github-actions/.github/workflows/module_release_prep.yml@main"
-    secrets: "inherit"
