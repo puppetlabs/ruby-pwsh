@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [v0.11.0-rc.1](https://github.com/puppetlabs/ruby-pwsh/tree/v0.11.0-rc.1) - 2023-04-17
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v0.10.3...v0.11.0-rc.1)
+
+### Changed
+- (CONT-867) Ruby 3 / Puppet 8 Support [#208](https://github.com/puppetlabs/ruby-pwsh/pull/208) ([chelnak](https://github.com/chelnak))
+
 ## [v0.10.3](https://github.com/puppetlabs/ruby-pwsh/tree/v0.10.3) - 2022-12-19
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/0.10.2...v0.10.3)
