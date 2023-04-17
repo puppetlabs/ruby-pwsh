@@ -40,7 +40,7 @@ jobs:
             puppet_version: 'https://github.com/puppetlabs/puppet' # puppet8'
         runs_on:
           - "windows-latest"
-    name: "spec (${{ matrix.runs_on}} ruby ${{ matrix.ruby_version }} | puppet ${{ matrix.puppet_version }})"
+    name: "acceptance (${{ matrix.runs_on}} ruby ${{ matrix.ruby_version }} | puppet ${{ matrix.puppet_version }})"
     uses: "./.github/workflows/custom_acceptance.yml"
     secrets: "inherit"
     with:
