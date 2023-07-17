@@ -12,7 +12,7 @@ jobs:
   label:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: "puppetlabs/community-labeller@v0"
+      - uses: "puppetlabs/community-labeller@v1"
         name: "Label issues or pull requests"
         with:
           label_name: "community"
