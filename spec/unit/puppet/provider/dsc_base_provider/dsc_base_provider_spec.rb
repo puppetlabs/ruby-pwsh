@@ -84,8 +84,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     before do
       allow(context).to receive(:debug)
-      allow(provider).to receive(:namevar_attributes).and_return(namevar_keys)
-      allow(provider).to receive(:fetch_cached_hashes).and_return(cached_canonicalized_resource)
+      allow(provider).to receive_messages(namevar_attributes: namevar_keys, fetch_cached_hashes: cached_canonicalized_resource)
     end
 
     context 'when a manifest resource has meta parameters' do
@@ -126,8 +125,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
       context 'when invoke_get_method returns a resource' do
         before do
-          allow(provider).to receive(:parameter_attributes).and_return(parameter_keys)
-          allow(provider).to receive(:enum_attributes).and_return([])
+          allow(provider).to receive_messages(parameter_attributes: parameter_keys, enum_attributes: [])
         end
 
         context 'when canonicalizing property values' do
@@ -270,8 +268,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     before do
       allow(context).to receive(:type).and_return(type)
-      allow(type).to receive(:namevars).and_return(%i[name dsc_name])
-      allow(type).to receive(:attributes).and_return(attributes)
+      allow(type).to receive_messages(namevars: %i[name dsc_name], attributes: attributes)
     end
 
     context 'when the resource is not ensurable' do
@@ -520,12 +517,11 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     before do
       allow(context).to receive(:debug)
-      allow(provider).to receive(:mandatory_get_attributes).and_return(mandatory_get_attributes)
+      allow(provider).to receive_messages(mandatory_get_attributes: mandatory_get_attributes, ps_manager: ps_manager)
       allow(provider).to receive(:invocable_resource).with(query_props, context, 'get').and_return(resource)
       allow(provider).to receive(:ps_script_content).with(resource).and_return(script)
       allow(provider).to receive(:redact_secrets).with(script)
       allow(provider).to receive(:remove_secret_identifiers).with(script).and_return(script)
-      allow(provider).to receive(:ps_manager).and_return(ps_manager)
       allow(context).to receive(:type).and_return(type)
       allow(type).to receive(:attributes).and_return(attributes)
     end
@@ -1803,13 +1799,10 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       allow(preamble_file_handle).to receive(:read).and_return('Preamble Block')
       allow(File).to receive(:new).with("#{template_path}/invoke_dsc_resource_postscript.ps1").and_return(postscript_file_handle)
       allow(postscript_file_handle).to receive(:read).and_return('Postscript Block')
-      allow(provider).to receive(:munge_psmodulepath).and_return('')
+      allow(provider).to receive_messages(munge_psmodulepath: '', prepare_credentials: '', prepare_cim_instances: '', invoke_params: 'Parameters Block')
       allow(provider).to receive(:munge_psmodulepath).with('ClassBasedResource').and_return('PSModulePath Block')
-      allow(provider).to receive(:prepare_credentials).and_return('')
       allow(provider).to receive(:prepare_credentials).with('ResourceWithCredentials').and_return('Credential Block')
-      allow(provider).to receive(:prepare_cim_instances).and_return('')
       allow(provider).to receive(:prepare_cim_instances).with('ResourceWithCimInstances').and_return('Cim Instance Block')
-      allow(provider).to receive(:invoke_params).and_return('Parameters Block')
     end
 
     it 'returns a powershell script with the helper functions' do
@@ -2065,8 +2058,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   describe '.ps_manager' do
     before do
-      allow(Pwsh::Manager).to receive(:powershell_path).and_return('pwsh')
-      allow(Pwsh::Manager).to receive(:powershell_args).and_return('args')
+      allow(Pwsh::Manager).to receive_messages(powershell_path: 'pwsh', powershell_args: 'args')
     end
 
     it 'Initializes an instance of the Pwsh::Manager' do

@@ -290,7 +290,7 @@ class Puppet::Provider::DscBaseProvider
   # @return [Boolean, Void] returns true/false if the resource is/isn't in the desired state and
   #   the validation mode is set to resource, otherwise nil.
   def insync?(context, name, _property_name, _is_hash, should_hash)
-    return nil if should_hash[:validation_mode] != 'resource'
+    return false if should_hash[:validation_mode] != 'resource'
 
     prior_result = fetch_cached_hashes(@@cached_test_results, [name])
     prior_result.empty? ? invoke_test_method(context, name, should_hash) : prior_result.first[:in_desired_state]
@@ -492,7 +492,7 @@ class Puppet::Provider::DscBaseProvider
     # Puppet module names must only include lowercase letters, digits and underscores
     name = name.gsub(/[^a-z0-9_]/, '_')
     # Puppet module names must not start with a number so if it does, append the letter 'a' to the name. Eg: '7zip' becomes 'a7zip'
-    name = name.match?(/^\d/) ? "a#{name}" : name # rubocop:disable Lint/UselessAssignment
+    name = "a#{name}" if name.match?(/^\d/) # rubocop:disable Lint/UselessAssignment
   end
 
   # Return a UUID with the dashes turned into underscores to enable the specifying of guaranteed-unique

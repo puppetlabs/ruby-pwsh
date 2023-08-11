@@ -610,7 +610,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         expect(result[:stdout]).to match(/200 OK Glenn/)
         expect(result[:stdout]).to match(/DEBUG: 304 Not Modified James/)
         # then command may have \r\n injected, so remove those for comparison
-        expect(result[:stdout].gsub(/\r\n/, '')).to include(command)
+        expect(result[:stdout].gsub("\r\n", '')).to include(command)
         # and it should end with the Write-Error content
         expect(result[:stdout]).to match(/404 Craig Not Found/)
       end
