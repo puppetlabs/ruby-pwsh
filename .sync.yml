@@ -1,0 +1,19 @@
+---
+".gitlab-ci.yml":
+  delete: true
+appveyor.yml:
+  delete: true
+spec/spec_helper.rb:
+  unmanaged: true
+.github/workflows/auto_release.yml:
+  unmanaged: true
+.github/workflows/ci.yml:
+  unmanaged: true
+.github/workflows/nightly.yml:
+  unmanaged: true
+.github/workflows/release.yml:
+  unmanaged: true
+.travis.yml:
+  delete: true
+Rakefile:
+  unmanaged: true
