@@ -43,7 +43,9 @@
     {
       "operatingsystem": "OSX ",
       "operatingsystemrelease": [
-        "10.15"
+        "10.15",
+        "11",
+        "12"
       ]
     },
     {
