@@ -18,7 +18,7 @@ jobs:
           - ruby_version: '2.7'
             puppet_version: '~> 7.0'
           - ruby_version: '3.2'
-            puppet_version: 'https://github.com/puppetlabs/puppet'
+            puppet_version: '~> 8.0'
     name: "spec (ruby ${{ matrix.ruby_version }} | puppet ${{ matrix.puppet_version }})"
     uses: "puppetlabs/cat-github-actions/.github/workflows/gem_ci.yml@main"
     secrets: "inherit"
@@ -37,7 +37,7 @@ jobs:
           - ruby-version: '2.7'
             puppet_version: '~> 7.0'
           - ruby_version: '3.2'
-            puppet_version: 'https://github.com/puppetlabs/puppet' # puppet8'
+            puppet_version: '~> 8.0'
         runs_on:
           - "windows-latest"
     name: "acceptance (${{ matrix.runs_on}} ruby ${{ matrix.ruby_version }} | puppet ${{ matrix.puppet_version }})"

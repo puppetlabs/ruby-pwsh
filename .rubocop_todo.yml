@@ -22,37 +22,11 @@ Gemspec/RequiredRubyVersion:
     - 'ruby-pwsh.gemspec'
 
 # Offense count: 1
-# This cop supports safe autocorrection (--autocorrect).
-# Layout/HeredocIndentation:
-#   Exclude:
-#     - 'lib/pwsh.rb'
-#
-# Offense count: 1
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: EnforcedStyle, IndentationWidth.
-# SupportedStyles: aligned, indented
-# Layout/LineEndStringConcatenationIndentation:
-#   Exclude:
-#     - 'ruby-pwsh.gemspec'
-#
-# Offense count: 2
-# This cop supports safe autocorrection (--autocorrect).
-# Lint/AmbiguousOperatorPrecedence:
-#   Exclude:
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 1
 # Configuration parameters: IgnoreLiteralBranches, IgnoreConstantBranches.
 Lint/DuplicateBranch:
   Exclude:
     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
 
-# Offense count: 1
-# This cop supports safe autocorrection (--autocorrect).
-# Lint/DuplicateMagicComment:
-#   Exclude:
-#     - 'spec/acceptance/dsc/cim_instances.rb'
-#
 # Offense count: 1
 # Configuration parameters: AllowComments.
 Lint/EmptyClass:
@@ -105,103 +79,16 @@ Naming/FileName:
     - 'lib/ruby-pwsh.rb'
 
 # Offense count: 1
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# Performance/Casecmp:
-#   Exclude:
-#     - 'lib/pwsh.rb'
-#
-# Offense count: 1
 # Configuration parameters: MinSize.
 Performance/CollectionLiteralInLoop:
   Exclude:
     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
 
-# Offense count: 1
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# Performance/Count:
-#   Exclude:
-#     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-#
-# Offense count: 1
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# Performance/Detect:
-#   Exclude:
-#     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-#
-# Offense count: 1
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: IncludeActiveSupportAliases.
-# Performance/DoubleStartEndWith:
-#   Exclude:
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 3
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# Performance/InefficientHashSearch:
-#   Exclude:
-#     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-#
-# Offense count: 2
-# This cop supports safe autocorrection (--autocorrect).
-# Performance/RedundantMatch:
-#   Exclude:
-#     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-#
-# Offense count: 1
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# Configuration parameters: MaxKeyValuePairs.
-# Performance/RedundantMerge:
-#   Exclude:
-#     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-#
-# Offense count: 8
-# This cop supports safe autocorrection (--autocorrect).
-# Performance/RegexpMatch:
-#   Exclude:
-#     - 'bin/metadata-json-lint'
-#     - 'bin/rubocop'
-#     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-#
-# Offense count: 7
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# Performance/StringInclude:
-#   Exclude:
-#     - 'bin/metadata-json-lint'
-#     - 'bin/rubocop'
-#     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 8
-# This cop supports safe autocorrection (--autocorrect).
-# Performance/StringReplacement:
-#   Exclude:
-#     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-#     - 'lib/pwsh.rb'
-#     - 'spec/unit/pwsh_spec.rb'
-#
 # Offense count: 11
 RSpec/AnyInstance:
   Exclude:
     - 'spec/unit/pwsh/windows_powershell_spec.rb'
 
-# Offense count: 45
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# RSpec/BeEq:
-#   Exclude:
-#     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
-#     - 'spec/unit/pwsh/windows_powershell_spec.rb'
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 7
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: EnforcedStyle.
-# SupportedStyles: be, be_nil
-# RSpec/BeNil:
-#   Exclude:
-#     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
-#     - 'spec/unit/pwsh/version_spec.rb'
-#     - 'spec/unit/pwsh_spec.rb'
-#
 # Offense count: 5
 RSpec/BeforeAfterAll:
   Exclude:
@@ -210,21 +97,6 @@ RSpec/BeforeAfterAll:
     - 'spec/support/**/*.rb'
     - 'spec/acceptance/dsc/basic.rb'
 
-# Offense count: 1
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: EnforcedStyle.
-# SupportedStyles: be_a, be_kind_of
-# RSpec/ClassCheck:
-#   Exclude:
-#     - 'spec/unit/pwsh/version_spec.rb'
-#
-# Offense count: 55
-# This cop supports safe autocorrection (--autocorrect).
-# RSpec/ContextMethod:
-#   Exclude:
-#     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
-#     - 'spec/unit/pwsh/util_spec.rb'
-#
 # Offense count: 81
 # Configuration parameters: Prefixes, AllowedPatterns.
 # Prefixes: when, with, without
@@ -254,66 +126,11 @@ RSpec/DescribeClass:
     - 'spec/acceptance/dsc/complex.rb'
     - 'spec/unit/pwsh_spec.rb'
 
-# Offense count: 4
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# Configuration parameters: SkipBlocks, EnforcedStyle.
-# SupportedStyles: described_class, explicit
-# RSpec/DescribedClass:
-#   Exclude:
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 59
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: AllowConsecutiveOneLiners.
-# RSpec/EmptyLineAfterExample:
-#   Exclude:
-#     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
-#     - 'spec/unit/pwsh/util_spec.rb'
-#     - 'spec/unit/pwsh/windows_powershell_spec.rb'
-#
-# Offense count: 9
-# This cop supports safe autocorrection (--autocorrect).
-# RSpec/EmptyLineAfterExampleGroup:
-#   Exclude:
-#     - 'spec/acceptance/dsc/basic.rb'
-#     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
-#     - 'spec/unit/pwsh/windows_powershell_spec.rb'
-#
-# Offense count: 3
-# This cop supports safe autocorrection (--autocorrect).
-# RSpec/EmptyLineAfterFinalLet:
-#   Exclude:
-#     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
-#     - 'spec/unit/pwsh/util_spec.rb'
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 3
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: AllowConsecutiveOneLiners.
-# RSpec/EmptyLineAfterHook:
-#   Exclude:
-#     - 'spec/acceptance/dsc/basic.rb'
-#     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
-#
 # Offense count: 31
 # Configuration parameters: CountAsOne.
 RSpec/ExampleLength:
   Max: 70
 
-# Offense count: 1
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: CustomTransform, IgnoredWords, DisallowedExamples.
-# DisallowedExamples: works
-# RSpec/ExampleWording:
-#   Exclude:
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 1
-# This cop supports safe autocorrection (--autocorrect).
-# RSpec/ExcessiveDocstringSpacing:
-#   Exclude:
-#     - 'spec/unit/pwsh/windows_powershell_spec.rb'
-#
 # Offense count: 7
 # Configuration parameters: Include, CustomTransform, IgnoreMethods, SpecSuffixOnly.
 # Include: **/*_spec*rb*, **/spec/**/*
@@ -327,43 +144,6 @@ RSpec/FilePath:
     - 'spec/unit/pwsh/version_spec.rb'
     - 'spec/unit/pwsh/windows_powershell_spec.rb'
 
-# Offense count: 38
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: .
-# SupportedStyles: implicit, each, example
-# RSpec/HookArgument:
-#   EnforcedStyle: each
-#
-# Offense count: 2
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: .
-# SupportedStyles: is_expected, should
-# RSpec/ImplicitExpect:
-#   EnforcedStyle: should
-#
-# Offense count: 2
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: EnforcedStyle.
-# SupportedStyles: single_line_only, single_statement_only, disallow, require_implicit
-# RSpec/ImplicitSubject:
-#   Exclude:
-#     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
-#
-# Offense count: 2
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: EnforcedStyle.
-# SupportedStyles: it_behaves_like, it_should_behave_like
-# RSpec/ItBehavesLike:
-#   Exclude:
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 13
-# This cop supports safe autocorrection (--autocorrect).
-# RSpec/LetBeforeExamples:
-#   Exclude:
-#     - 'spec/unit/pwsh/util_spec.rb'
-#     - 'spec/unit/pwsh_spec.rb'
-#
 # Offense count: 102
 # Configuration parameters: .
 # SupportedStyles: have_received, receive
@@ -397,21 +177,6 @@ RSpec/NoExpectationExample:
     - 'spec/unit/pwsh/windows_powershell_spec.rb'
     - 'spec/unit/pwsh_spec.rb'
 
-# Offense count: 5
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: EnforcedStyle.
-# SupportedStyles: not_to, to_not
-# RSpec/NotToNot:
-#   Exclude:
-#     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 3
-# This cop supports safe autocorrection (--autocorrect).
-# RSpec/ScatteredLet:
-#   Exclude:
-#     - 'spec/unit/pwsh_spec.rb'
-#
 # Offense count: 55
 RSpec/StubbedMock:
   Exclude:
@@ -424,24 +189,11 @@ RSpec/SubjectStub:
   Exclude:
     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
 
-# Offense count: 15
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# Configuration parameters: .
-# SupportedStyles: constant, string
-# RSpec/VerifiedDoubleReference:
-#   EnforcedStyle: string
-#
 # Offense count: 6
 Style/ClassVars:
   Exclude:
     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
 
-# Offense count: 2
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# Style/CollectionCompact:
-#   Exclude:
-#     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-#
 # Offense count: 1
 # Configuration parameters: AllowedConstants.
 Style/Documentation:
@@ -450,67 +202,6 @@ Style/Documentation:
     - 'test/**/*'
     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
 
-# Offense count: 2
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# Style/EnvHome:
-#   Exclude:
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 3
-# This cop supports safe autocorrection (--autocorrect).
-# Style/ExpandPathArguments:
-#   Exclude:
-#     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-#     - 'lib/pwsh.rb'
-#     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
-#
-# Offense count: 14
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: AllowedVars.
-# Style/FetchEnvVar:
-#   Exclude:
-#     - 'lib/pwsh.rb'
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 2
-# This cop supports safe autocorrection (--autocorrect).
-# Style/FileWrite:
-#   Exclude:
-#     - 'spec/acceptance/dsc/cim_instances.rb'
-#     - 'spec/acceptance/dsc/complex.rb'
-#
-# Offense count: 2
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# Configuration parameters: Methods.
-# Style/RedundantArgument:
-#   Exclude:
-#     - 'lib/pwsh.rb'
-#
-# Offense count: 5
-# This cop supports safe autocorrection (--autocorrect).
-# Style/RedundantStringEscape:
-#   Exclude:
-#     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
-#     - 'spec/unit/pwsh/util_spec.rb'
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 9
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: EnforcedStyle.
-# SupportedStyles: implicit, explicit
-# Style/RescueStandardError:
-#   Exclude:
-#     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-#     - 'lib/pwsh.rb'
-#     - 'lib/pwsh/windows_powershell.rb'
-#     - 'spec/unit/pwsh_spec.rb'
-#
-# Offense count: 1
-# This cop supports unsafe autocorrection (--autocorrect-all).
-# Style/SelectByRegexp:
-#   Exclude:
-#     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-#
 # Offense count: 121
 # This cop supports safe autocorrection (--autocorrect).
 # Configuration parameters: AllowHeredoc, AllowURI, URISchemes, IgnoreCopDirectives, AllowedPatterns.

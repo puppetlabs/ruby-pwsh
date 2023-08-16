@@ -18,7 +18,7 @@ on:
       puppet_version:
         description: "The target Puppet version."
         required: false
-        default: "puppet7-nightly"
+        default: "puppet8"
         type: "string"
       rake_task:
         description: "The name of the rake task that executes acceptance tests"
@@ -36,9 +36,6 @@ jobs:
     name: "acceptance"
     runs-on: ${{ inputs.runs_on }}
 
-    env:
-      PUPPET_GEM_VERSION: ${{ inputs.puppet_version }}
-
     steps:
 
       - name: "checkout"
@@ -46,7 +43,7 @@ jobs:
 
       - name: "export environment"
         run: |
-          echo "PUPPET_GEM_VERSION=${{ inputs.puppet_gem_version }} >> $GITHUB_ENV"
+          echo "PUPPET_GEM_VERSION=${{ inputs.puppet_version }} >> $GITHUB_ENV"
 
       - name: "setup ruby"
         uses: "ruby/setup-ruby@v1"
