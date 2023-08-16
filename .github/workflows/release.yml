@@ -14,3 +14,26 @@ jobs:
     with:
       target: "${{ github.event.inputs.target }}"
     secrets: "inherit"
+  
+  module_release:
+    needs: gem_release
+    runs-on: "ubuntu-latest"
+
+    steps:
+
+      - name: "Checkout"
+        uses: "actions/checkout@v3"
+        with:
+          ref: "${{ github.ref }}"
+          clean: true
+          fetch-depth: 0
+
+      - name: "PDK build"
+        uses: "docker://puppet/pdk:3.0.0.0"
+        with:
+          args: "build"
+
+      - name: "Publish module"
+        uses: "docker://puppet/pdk:3.0.0.0"
+        with:
+          args: 'release publish --forge-token ${{ secrets.FORGE_API_KEY }} --force'
