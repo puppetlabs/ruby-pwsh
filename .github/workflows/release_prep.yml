@@ -28,6 +28,7 @@ jobs:
       - name: "Checkout"
         uses: "actions/checkout@v3"
         with:
+          ref: 'release-prep'
           fetch-depth: 0
 
       - name: "Update metadata.json"
@@ -49,5 +50,7 @@ jobs:
           git commit -m "Module Release prep v${{ steps.get_version.outputs.version }}"
       
       - name: "Push changes"
-        run: |
-          git push origin release-prep
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release-prep
