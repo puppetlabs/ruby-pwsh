@@ -1,5 +1,9 @@
 # ruby-pwsh
 
+[![Code Owners](https://img.shields.io/badge/owners-DevX--team-blue)](https://github.com/puppetlabs/ruby-pwsh/blob/main/CODEOWNERS)
+[![ci](https://github.com/puppetlabs/ruby-pwsh/actions/workflows/ci.yml/badge.svg)](https://github.com/puppetlabs/ruby-pwsh/actions/workflows/ci.yml)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/puppetlabs/ruby-pwsh)
+
 > _The PowerShell gem._
 
 This gem enables you to execute PowerShell from within ruby without having to instantiate and tear down a PowerShell process for each command called.
