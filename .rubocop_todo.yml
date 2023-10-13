@@ -131,19 +131,6 @@ RSpec/DescribeClass:
 RSpec/ExampleLength:
   Max: 70
 
-# Offense count: 7
-# Configuration parameters: Include, CustomTransform, IgnoreMethods, SpecSuffixOnly.
-# Include: **/*_spec*rb*, **/spec/**/*
-RSpec/FilePath:
-  Exclude:
-    - 'spec/acceptance/dsc/basic.rb'
-    - 'spec/acceptance/dsc/cim_instances.rb'
-    - 'spec/acceptance/dsc/class.rb'
-    - 'spec/acceptance/dsc/complex.rb'
-    - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
-    - 'spec/unit/pwsh/version_spec.rb'
-    - 'spec/unit/pwsh/windows_powershell_spec.rb'
-
 # Offense count: 102
 # Configuration parameters: .
 # SupportedStyles: have_received, receive
