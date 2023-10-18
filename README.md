@@ -85,3 +85,7 @@ The following platforms are supported:
 - OSX
 - RedHat
 - Ubuntu
+
+## License
+
+This codebase is licensed under Apache 2.0. However, the open source dependencies included in this codebase might be subject to other software licenses such as AGPL, GPL2.0, and MIT.
