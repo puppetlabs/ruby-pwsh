@@ -303,7 +303,7 @@ class Puppet::Provider::DscBaseProvider
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @param name_hash [Hash] the hash of namevars to be passed as properties to `Invoke-DscResource`
   # @return [Hash] returns a hash representing the DSC resource munged to the representation the Puppet Type expects
-  def invoke_get_method(context, name_hash)
+  def invoke_get_method(context, name_hash) # rubocop:disable Metrics/AbcSize
     context.debug("retrieving #{name_hash.inspect}")
 
     query_props = name_hash.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
@@ -322,6 +322,9 @@ class Puppet::Provider::DscBaseProvider
     data.keys.each do |key| # rubocop:disable Style/HashEachMethods
       type_key = "dsc_#{key.downcase}".to_sym
       data[type_key] = data.delete(key)
+      # If a paramter returned to puppet by DSC matches the value of the parameter passed in the manifest both downcased
+      # Update to accept the value passed in by the user from the manifest, which functionally equivalent to received value in DSC anyway
+      data[type_key] = name_hash[type_key] if data[type_key].to_s.casecmp(name_hash[type_key].to_s).zero?
 
       # Special handling for CIM Instances
       if data[type_key].is_a?(Enumerable)
