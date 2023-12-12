@@ -656,8 +656,8 @@ class Puppet::Provider::DscBaseProvider
     modified_string
   end
 
-  # Parses a resource definition (as from `invocable_resource`) and, if the resource is implemented
-  # as a PowerShell class, ensures the System environment variable for PSModulePath is munged to
+  # Parses a resource definition (as from `invocable_resource`) and
+  # ensures the System environment variable for PSModulePath is munged to
   # include the vendored PowerShell modules. Due to a bug in PSDesiredStateConfiguration, class-based
   # DSC Resources cannot be called via Invoke-DscResource by path, only by module name, *and* the
   # module must be discoverable in the system-level PSModulePath. The postscript for invocation has
@@ -666,8 +666,6 @@ class Puppet::Provider::DscBaseProvider
   # @param resource [Hash] a hash with the information needed to run `Invoke-DscResource`
   # @return [String] A multi-line string which sets the PSModulePath at the system level
   def munge_psmodulepath(resource)
-    return unless resource[:dscmeta_resource_implementation] == 'Class'
-
     vendor_path = resource[:vendored_modules_path].tr('/', '\\')
     <<~MUNGE_PSMODULEPATH.strip
       $UnmungedPSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath','machine')
