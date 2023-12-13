@@ -5,17 +5,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [v1.0.1](https://github.com/puppetlabs/ruby-pwsh/tree/v1.0.1) - 2023-12-13
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v1.0.0...v1.0.1)
+
+### Fixed
+
+- (CAT-1617) - Always load vendored module in PSModulePath [#261](https://github.com/puppetlabs/ruby-pwsh/pull/261) ([jordanbreen28](https://github.com/jordanbreen28))
+
 ## [v1.0.0](https://github.com/puppetlabs/ruby-pwsh/tree/v1.0.0) - 2023-08-17
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v0.11.0...v1.0.0)
-
-### Added
-
-- (feat) - Add support for Ubuntu 22.04 [#232](https://github.com/puppetlabs/ruby-pwsh/pull/232) ([jordanbreen28](https://github.com/jordanbreen28))
-- (feat) - add Windows 11 & Server 2022 support [#231](https://github.com/puppetlabs/ruby-pwsh/pull/231) ([jordanbreen28](https://github.com/jordanbreen28))
-- (feat) - Add support for Fedora 36 [#230](https://github.com/puppetlabs/ruby-pwsh/pull/230) ([jordanbreen28](https://github.com/jordanbreen28))
-- (feat) - Add support for OSX 11&12 [#229](https://github.com/puppetlabs/ruby-pwsh/pull/229) ([jordanbreen28](https://github.com/jordanbreen28))
-- (feat) - Add support for Debian 11 [#228](https://github.com/puppetlabs/ruby-pwsh/pull/228) ([jordanbreen28](https://github.com/jordanbreen28))
 
 ### Changed
 - (maint) - Drop Support for Debian 8/9 [#227](https://github.com/puppetlabs/ruby-pwsh/pull/227) ([jordanbreen28](https://github.com/jordanbreen28))
@@ -24,6 +24,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 - (maint) - Drop Support for OSX 10.14 [#224](https://github.com/puppetlabs/ruby-pwsh/pull/224) ([jordanbreen28](https://github.com/jordanbreen28))
 - (maint) - Drop Support for Windows 2008(R2)/7/8 [#223](https://github.com/puppetlabs/ruby-pwsh/pull/223) ([jordanbreen28](https://github.com/jordanbreen28))
 - (CAT-1172) - Add Puppet 8 Support/Drop Puppet 6 Support [#221](https://github.com/puppetlabs/ruby-pwsh/pull/221) ([jordanbreen28](https://github.com/jordanbreen28))
+
+### Added
+
+- (feat) - Add support for Ubuntu 22.04 [#232](https://github.com/puppetlabs/ruby-pwsh/pull/232) ([jordanbreen28](https://github.com/jordanbreen28))
+- (feat) - add Windows 11 & Server 2022 support [#231](https://github.com/puppetlabs/ruby-pwsh/pull/231) ([jordanbreen28](https://github.com/jordanbreen28))
+- (feat) - Add support for Fedora 36 [#230](https://github.com/puppetlabs/ruby-pwsh/pull/230) ([jordanbreen28](https://github.com/jordanbreen28))
+- (feat) - Add support for OSX 11&12 [#229](https://github.com/puppetlabs/ruby-pwsh/pull/229) ([jordanbreen28](https://github.com/jordanbreen28))
+- (feat) - Add support for Debian 11 [#228](https://github.com/puppetlabs/ruby-pwsh/pull/228) ([jordanbreen28](https://github.com/jordanbreen28))
 
 ### Fixed
 
