@@ -13,6 +13,14 @@ RSpec::Core::RakeTask.new(:spec) do |t|
 end
 task default: :spec
 
+namespace :spec do
+  desc 'Run RSpec code examples with coverage collection'
+  task :coverage do
+    ENV['COVERAGE'] = 'yes'
+    Rake::Task['spec'].execute
+  end
+end
+
 YARD::Rake::YardocTask.new do |t|
 end
 # Used in vendor_dsc_module

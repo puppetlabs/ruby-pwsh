@@ -25,17 +25,18 @@ group :development do
   gem "metadata-json-lint", '~> 3.0',            require: false
   gem "puppetlabs_spec_helper", '~> 6.0',        require: false
   gem "rspec-puppet-facts", '~> 2.0',            require: false
-  gem "codecov", '~> 0.2',                       require: false
   gem "dependency_checker", '~> 1.0.0',          require: false
   gem "parallel_tests", '= 3.12.1',              require: false
   gem "pry", '~> 0.10',                          require: false
-  gem "simplecov-console", '~> 0.5',             require: false
   gem "puppet-debugger", '~> 1.0',               require: false
   gem "rubocop", '= 1.48.1',                     require: false
   gem "rubocop-performance", '= 1.16.0',         require: false
   gem "rubocop-rspec", '= 2.19.0',               require: false
   gem "puppet-strings", '~> 4.0',                require: false
   gem "rb-readline", '= 0.5.5',                  require: false, platforms: [:mswin, :mingw, :x64_mingw]
+  gem 'codecov', '~> 0.6.0',                     require: false
+  gem 'simplecov', '~> 0.21.0',                  require: false
+  gem 'simplecov-console', '~> 0.9.0',           require: false
 end
 group :system_tests do
   gem "puppet_litmus", '~> 1.0', require: false, platforms: [:ruby, :x64_mingw]
