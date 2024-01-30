@@ -9,7 +9,7 @@ require 'rspec/core/rake_task'
 require 'yard'
 
 RSpec::Core::RakeTask.new(:spec) do |t|
-  t.pattern = 'spec/unit/*_spec.rb'
+  t.pattern = 'spec/unit/**/*_spec.rb'
 end
 task default: :spec
 
