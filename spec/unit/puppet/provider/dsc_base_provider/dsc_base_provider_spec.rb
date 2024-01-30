@@ -794,6 +794,44 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
     end
 
+    context 'when the invocation script errors with a collision' do
+      it 'writes a notice via context and applies successfully on retry' do
+        expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
+        expect(context).to receive(:notice).with(/Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour./).once
+        expect(context).to receive(:notice).with('Sleeping for 60 seconds.').twice
+        expect(context).to receive(:notice).with(/Retrying: attempt [1-2] of 5/).twice
+        expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
+        expect(context).to receive(:notice).with('Attempt 1 of 5 failed.')
+        allow(provider).to receive(:sleep)
+        expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": null}' })
+        expect { result }.not_to raise_error
+      end
+
+      it 'writes a error via context and fails to apply when all retry attempts used' do
+        expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
+                                               .exactly(5).times
+        expect(context).to receive(:notice).with(/Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour./).once
+        expect(context).to receive(:notice).with('Sleeping for 60 seconds.').exactly(5).times
+        expect(context).to receive(:notice).with(/Retrying: attempt [1-6] of 5/).exactly(5).times
+        expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
+        expect(context).to receive(:notice).with(/Attempt [1-6] of 5 failed/).exactly(5).times
+        expect(context).to receive(:err).with(/The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked/)
+        allow(provider).to receive(:sleep)
+        expect(result).to be_nil
+      end
+
+      it 'writes an error via context and fails to apply when encountering an unexpected error' do
+        expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
+        expect(context).to receive(:notice).with(/Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour./).once
+        expect(context).to receive(:notice).with('Sleeping for 60 seconds.').once
+        expect(context).to receive(:notice).with(/Retrying: attempt 1 of 5/).once
+        allow(provider).to receive(:sleep)
+        expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "Some unexpected error"}' }).once
+        expect(context).to receive(:err).with(/Some unexpected error/)
+        expect(result).to be_nil
+      end
+    end
+
     context 'when the invocation script returns data without errors' do
       it 'filters for the correct properties to invoke and returns the results' do
         expect(ps_manager).to receive(:execute).with("Script: #{apply_props}").and_return({ stdout: '{"in_desired_state": true, "errormessage": null}' })
