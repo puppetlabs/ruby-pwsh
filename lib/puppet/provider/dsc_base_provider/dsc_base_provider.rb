@@ -666,7 +666,7 @@ class Puppet::Provider::DscBaseProvider
   # @param resource [Hash] a hash with the information needed to run `Invoke-DscResource`
   # @return [String] A multi-line string which sets the PSModulePath at the system level
   def munge_psmodulepath(resource)
-    vendor_path = resource[:vendored_modules_path].tr('/', '\\')
+    vendor_path = resource[:vendored_modules_path]&.tr('/', '\\')
     <<~MUNGE_PSMODULEPATH.strip
       $UnmungedPSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath','machine')
       $MungedPSModulePath = $env:PSModulePath + ';#{vendor_path}'

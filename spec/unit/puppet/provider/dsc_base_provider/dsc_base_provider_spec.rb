@@ -2,23 +2,24 @@
 
 require 'spec_helper'
 require 'puppet/type'
+require 'puppet/resource_api'
 require 'puppet/provider/dsc_base_provider/dsc_base_provider'
 require 'json'
 
 RSpec.describe Puppet::Provider::DscBaseProvider do
   subject(:provider) { described_class.new }
 
-  let(:context) { instance_double(Puppet::ResourceApi::PuppetContext) }
-  let(:type) { instance_double(Puppet::ResourceApi::TypeDefinition) }
+  let(:context) { instance_double(Puppet::ResourceApi::BaseContext, 'context') }
+  let(:type) { instance_double(Puppet::ResourceApi::TypeDefinition, 'typedef') }
   let(:ps_manager) { instance_double(Pwsh::Manager) }
   let(:execute_response) { { stdout: nil, stderr: nil, exitcode: 0 } }
 
   # Reset the caches after each run
   after do
-    described_class.instance_variable_set(:@cached_canonicalized_resource, [])
-    described_class.instance_variable_set(:@cached_query_results, [])
-    described_class.instance_variable_set(:@cached_test_results, [])
-    described_class.instance_variable_set(:@logon_failures, [])
+    provider.instance_variable_set(:@cached_canonicalized_resource, [])
+    provider.instance_variable_set(:@cached_query_results, [])
+    provider.instance_variable_set(:@cached_test_results, [])
+    provider.instance_variable_set(:@logon_failures, [])
   end
 
   describe '.initialize' do
@@ -28,27 +29,30 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     it 'initializes the cached_canonicalized_resource instance variable' do
-      expect(described_class.instance_variable_get(:@cached_canonicalized_resource)).to eq([])
+      expect(provider.instance_variable_get(:@cached_canonicalized_resource)).to eq([])
     end
 
     it 'initializes the cached_query_results instance variable' do
-      expect(described_class.instance_variable_get(:@cached_query_results)).to eq([])
+      expect(provider.instance_variable_get(:@cached_query_results)).to eq([])
     end
 
     it 'initializes the cached_test_results instance variable' do
-      expect(described_class.instance_variable_get(:@cached_test_results)).to eq([])
+      expect(provider.instance_variable_get(:@cached_test_results)).to eq([])
     end
 
     it 'initializes the logon_failures instance variable' do
-      expect(described_class.instance_variable_get(:@logon_failures)).to eq([])
+      expect(provider.instance_variable_get(:@logon_failures)).to eq([])
     end
   end
 
   describe '.cached_test_results' do
     let(:cache_value) { %w[foo bar] }
 
+    before do
+      provider.instance_variable_set(:@cached_test_results, cache_value)
+    end
+
     it 'returns the value of the @cached_test_results instance variable' do
-      described_class.instance_variable_set(:@cached_test_results, cache_value)
       expect(provider.cached_test_results).to eq(cache_value)
     end
   end
@@ -237,11 +241,11 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   describe '.get' do
     after do
-      described_class.instance_variable_set(:@cached_canonicalized_resource, [])
+      provider.instance_variable_set(:@cached_canonicalized_resource, [])
     end
 
     it 'checks the cached results, returning if one exists for the specified names' do
-      described_class.instance_variable_set(:@cached_canonicalized_resource, [])
+      provider.instance_variable_set(:@cached_canonicalized_resource, [])
       allow(context).to receive(:debug)
       expect(provider).to receive(:fetch_cached_hashes).with([], [{ name: 'foo' }]).and_return([{ name: 'foo', property: 'bar' }])
       expect(provider).not_to receive(:invoke_get_method)
@@ -249,7 +253,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     it 'adds mandatory properties to the name hash when calling invoke_get_method' do
-      described_class.instance_variable_set(:@cached_canonicalized_resource, [{ name: 'foo', property: 'bar', dsc_some_parameter: 'baz' }])
+      provider.instance_variable_set(:@cached_canonicalized_resource, [{ name: 'foo', property: 'bar', dsc_some_parameter: 'baz' }])
       allow(context).to receive(:debug)
       expect(provider).to receive(:fetch_cached_hashes).with([], [{ name: 'foo' }]).and_return([])
       expect(provider).to receive(:namevar_attributes).and_return([:name]).exactly(3).times
@@ -530,7 +534,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     after do
-      described_class.instance_variable_set(:@cached_query_results, nil)
+      provider.instance_variable_set(:@cached_query_results, [])
     end
 
     context 'when the invocation script returns data without errors' do
@@ -557,7 +561,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
       it 'caches the result' do
         expect { result }.not_to raise_error
-        expect(described_class.instance_variable_get(:@cached_query_results)).to eq([result])
+        expect(provider.instance_variable_get(:@cached_query_results)).to eq([result])
       end
 
       it 'removes unrelated properties from the result' do
@@ -719,7 +723,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
 
         after do
-          described_class.instance_variable_set(:@logon_failures, [])
+          provider.instance_variable_set(:@logon_failures, [])
         end
 
         it 'errors specifically for a logon failure and returns nil' do
@@ -728,12 +732,12 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
         it 'caches the logon failure' do
           expect { result }.not_to raise_error
-          expect(described_class.instance_variable_get(:@logon_failures)).to eq([credential_hash])
+          expect(provider.instance_variable_get(:@logon_failures)).to eq([credential_hash])
         end
 
         it 'caches the query results' do
           expect { result }.not_to raise_error
-          expect(described_class.instance_variable_get(:@cached_query_results)).to eq([name_hash])
+          expect(provider.instance_variable_get(:@cached_query_results)).to eq([name_hash])
         end
       end
 
@@ -981,11 +985,11 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.invoke_test_method' do
-    subject(:result) { provider.invoke_test_method(context, name, expect(subject).to) }
+    subject(:result) { provider.invoke_test_method(context, name, should_hash) }
 
     let(:name) { { name: 'foo', dsc_name: 'bar' } }
-    let(:should) { name.merge(dsc_ensure: 'present') }
-    let(:test_properties) { expect(subject).to.reject { |k, _v| k == :name } }
+    let(:should_hash) { name.merge(dsc_ensure: 'present') }
+    let(:test_properties) { should_hash.reject { |k, _v| k == :name } }
     let(:invoke_dsc_resource_data) { nil }
 
     before do
@@ -995,7 +999,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     after do
-      described_class.instance_variable_set(:@cached_test_results, [])
+      provider.instance_variable_set(:@cached_test_results, [])
     end
 
     context 'when something went wrong calling Invoke-DscResource' do
@@ -1043,7 +1047,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   describe '.instantiated_variables' do
     after do
-      described_class.instance_variable_set(:@instantiated_variables, [])
+      provider.instance_variable_set(:@instantiated_variables, [])
     end
 
     it 'sets the instantiated_variables instance variable to {} if not initialized' do
@@ -1051,20 +1055,20 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     it 'returns the instantiated_variables instance variable if already initialized' do
-      described_class.instance_variable_set(:@instantiated_variables, { foo: 'bar' })
+      provider.instance_variable_set(:@instantiated_variables, { foo: 'bar' })
       expect(provider.instantiated_variables).to eq({ foo: 'bar' })
     end
   end
 
   describe '.clear_instantiated_variables!' do
     after do
-      described_class.instance_variable_set(:@instantiated_variables, [])
+      provider.instance_variable_set(:@instantiated_variables, [])
     end
 
     it 'sets the instantiated_variables instance variable to {}' do
-      described_class.instance_variable_set(:@instantiated_variables, { foo: 'bar' })
+      provider.instance_variable_set(:@instantiated_variables, { foo: 'bar' })
       expect { provider.clear_instantiated_variables! }.not_to raise_error
-      expect(described_class.instance_variable_get(:@instantiated_variables)).to eq({})
+      expect(provider.instance_variable_get(:@instantiated_variables)).to eq({})
     end
   end
 
@@ -1087,16 +1091,16 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       after do
-        described_class.instance_variable_set(:@logon_failures, [])
+        provider.instance_variable_set(:@logon_failures, [])
       end
 
       it 'returns false if there have been no failed logons with the username/password combination' do
-        described_class.instance_variable_set(:@logon_failures, [bad_credential_hash])
+        provider.instance_variable_set(:@logon_failures, [bad_credential_hash])
         expect(provider.logon_failed_already?(good_credential_hash)).to be(false)
       end
 
       it 'returns true if the username/password specified are found in the logon_failures instance variable' do
-        described_class.instance_variable_set(:@logon_failures, [good_credential_hash, bad_credential_hash])
+        provider.instance_variable_set(:@logon_failures, [good_credential_hash, bad_credential_hash])
         expect(provider.logon_failed_already?(bad_credential_hash)).to be(true)
       end
     end
@@ -1437,16 +1441,18 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     context 'when the resource does not have the dscmeta_resource_implementation key' do
       let(:test_resource) { {} }
 
-      it 'returns nil' do
-        expect(result).to be_nil
+      it 'sets $UnmungedPSModulePath to the current PSModulePath' do
+        # since https://github.com/puppetlabs/ruby-pwsh/pull/261 we load vendored path for MOF resources as well
+        expect(result).to match(/\$UnmungedPSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine/)
       end
     end
 
     context "when the resource's dscmeta_resource_implementation is not 'Class'" do
       let(:test_resource) { { dscmeta_resource_implementation: 'MOF' } }
 
-      it 'returns nil' do
-        expect(result).to be_nil
+      # since https://github.com/puppetlabs/ruby-pwsh/pull/261 we load vendored path for MOF resources as well
+      it 'sets $UnmungedPSModulePath to the current PSModulePath' do
+        expect(result).to match(/\$UnmungedPSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine/)
       end
     end
 
@@ -1510,7 +1516,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       after do
-        described_class.instance_variable_set(:@instantiated_variables, [])
+        provider.instance_variable_set(:@instantiated_variables, [])
       end
 
       it 'writes the ruby representation of the credentials as the value of a key named for the new variable into the instantiated_variables cache' do
@@ -1543,7 +1549,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     subject(:result) { provider.prepare_cim_instances(test_resource) }
 
     after do
-      described_class.instance_variable_set(:@instantiated_variables, [])
+      provider.instance_variable_set(:@instantiated_variables, [])
     end
 
     context 'when a cim instance is passed without nested cim instances' do
@@ -1652,7 +1658,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   describe '.format_ciminstance' do
     after do
-      described_class.instance_variable_set(:@instantiated_variables, [])
+      provider.instance_variable_set(:@instantiated_variables, [])
     end
 
     it 'defines and returns a new cim instance as a PowerShell variable, passing the class name and property hash' do
@@ -1668,7 +1674,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     it 'interpolates variables in the case of a cim instance containing a nested instance' do
-      described_class.instance_variable_set(:@instantiated_variables, { 'SomeVariable' => { 'bar' => 'ope' } })
+      provider.instance_variable_set(:@instantiated_variables, { 'SomeVariable' => { 'bar' => 'ope' } })
       property_hash = { 'foo' => { 'bar' => 'ope' } }
       expect(provider.format_ciminstance('foo', 'SomeClass', property_hash)).to match(/@\{'foo' = \$SomeVariable\}/)
     end
