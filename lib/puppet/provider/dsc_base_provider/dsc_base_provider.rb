@@ -5,7 +5,7 @@ require 'ruby-pwsh'
 require 'pathname'
 require 'json'
 
-class Puppet::Provider::DscBaseProvider
+class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # Initializes the provider, preparing the instance variables which cache:
   # - the canonicalized resources across calls
   # - query results
@@ -244,6 +244,7 @@ class Puppet::Provider::DscBaseProvider
     script_content = ps_script_content(resource)
     context.debug("Script:\n #{redact_secrets(script_content)}")
     output = ps_manager.execute(remove_secret_identifiers(script_content))[:stdout]
+
     if output.nil?
       context.err('Nothing returned')
       return nil
@@ -256,8 +257,10 @@ class Puppet::Provider::DscBaseProvider
       return nil
     end
     context.debug("raw data received: #{data.inspect}")
+    collision_error_matcher = /The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked/
 
     error = data['errormessage']
+
     unless error.nil? || error.empty?
       # NB: We should have a way to stop processing this resource *now* without blowing up the whole Puppet run
       # Raising an error stops processing but blows things up while context.err alerts but continues to process
@@ -267,11 +270,53 @@ class Puppet::Provider::DscBaseProvider
         @logon_failures << name_hash[:dsc_psdscrunascredential].dup
         # This is a hack to handle the query cache to prevent a second lookup
         @cached_query_results << name_hash # if fetch_cached_hashes(@cached_query_results, [data]).empty?
+      elsif error.match?(collision_error_matcher)
+        context.notice('Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour.')
+        retry_invoke_dsc_resource(context, 5, 60, collision_error_matcher) do
+          data = ps_manager.execute(remove_secret_identifiers(script_content))[:stdout]
+        end
       else
         context.err(error)
       end
       # Either way, something went wrong and we didn't get back a good result, so return nil
       return nil
+    end
+    data
+  end
+
+  # Retries Invoke-DscResource when returned error matches error regex supplied as param.
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param max_retry_count [Int] max number of times to retry Invoke-DscResource
+  # @param retry_wait_interval_secs [Int] Time delay between retries
+  # @param error_matcher [String] the regex pattern to match with error
+  def retry_invoke_dsc_resource(context, max_retry_count, retry_wait_interval_secs, error_matcher)
+    try = 0
+    while try < max_retry_count
+      try += 1
+      # notify and wait for retry interval
+      context.notice("Sleeping for #{retry_wait_interval_secs} seconds.")
+      sleep retry_wait_interval_secs
+      # notify and retry
+      context.notice("Retrying: attempt #{try} of #{max_retry_count}.")
+      data = JSON.parse(yield)
+      # if no error, break
+      if data['errormessage'].nil?
+        break
+      # check if error matches error matcher supplied
+      elsif data['errormessage'].match?(error_matcher)
+        # if last attempt, return error
+        if try == max_retry_count
+          context.notice("Attempt #{try} of #{max_retry_count} failed. No more retries.")
+          # all attempts failed, raise error
+          return context.err(data['errormessage'])
+        end
+        # if not last attempt, notify, continue and retry
+        context.notice("Attempt #{try} of #{max_retry_count} failed.")
+        next
+      else
+        # if we get an unexpected error, return
+        return context.err(data['errormessage'])
+      end
     end
     data
   end
