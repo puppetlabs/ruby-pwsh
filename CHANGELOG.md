@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [v1.1.0](https://github.com/puppetlabs/ruby-pwsh/tree/v1.1.0) - 2024-01-31
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v1.0.1...v1.1.0)
+
+### Added
+
+- (feat) - add retries on failed dsc invocation [#282](https://github.com/puppetlabs/ruby-pwsh/pull/282) ([jordanbreen28](https://github.com/jordanbreen28))
+
+### Fixed
+
+- (CAT-1688) Upgrade rubocop to `~> 1.50.0` [#279](https://github.com/puppetlabs/ruby-pwsh/pull/279) ([LukasAud](https://github.com/LukasAud))
+
 ## [v1.0.1](https://github.com/puppetlabs/ruby-pwsh/tree/v1.0.1) - 2023-12-13
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v1.0.0...v1.0.1)
