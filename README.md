@@ -19,7 +19,7 @@ ddddd
 gem 'ruby-pwsh'dddd
 ```
 
-And then execute:
+And then execute:dddd
 
 ```shell
 bundle install
