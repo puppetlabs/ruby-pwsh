@@ -14,9 +14,9 @@ The `Manager` class enables you to execute and interoperate with PowerShell from
 ## Installation
 
 Add this line to your application's Gemfile:
-
+ddddd
 ```ruby
-gem 'ruby-pwsh'
+gem 'ruby-pwsh'dddd
 ```
 
 And then execute:
