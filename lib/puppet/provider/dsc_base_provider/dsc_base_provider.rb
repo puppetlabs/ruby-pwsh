@@ -44,6 +44,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @param resources [Hash] the hash of the resource to canonicalize from either manifest or invocation
   # @return [Hash] returns a hash representing the current state of the object, if it exists
+  # rubocop:disable Metrics/BlockLength, Metrics/MethodLength
   def canonicalize(context, resources)
     canonicalized_resources = []
     resources.collect do |r|
@@ -83,9 +84,18 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
             downcased_result.each do |key, value|
               # Canonicalize to the manifest value unless the downcased strings match and the attribute is not an enum:
               # - When the values don't match at all, the manifest value is desired;
-              # - When the values match case insensitively but the attribute is an enum, prefer the casing of the manifest enum.
-              # - When the values match case insensitively and the attribute is not an enum, prefer the casing from invoke_get_method
-              canonicalized[key] = r[key] unless same?(value, downcased_resource[key]) && !enum_attributes(context).include?(key)
+              # - When the values match case insensitively but the attribute is an enum, and the casing from invoke_get_method
+              #   is not int the enum, prefer the casing of the manifest enum.
+              # - When the values match case insensitively and the attribute is not an enum, or is an enum and invoke_get_method casing
+              #   is in the enum, prefer the casing from invoke_get_method
+              is_enum = enum_attributes(context).include?(key)
+              canonicalized_value_in_enum = if is_enum
+                                              enum_values(context, key).include?(canonicalized[key])
+                                            else
+                                              false
+                                            end
+              match_insensitively = same?(value, downcased_resource[key])
+              canonicalized[key] = r[key] unless match_insensitively && (canonicalized_value_in_enum || !is_enum)
               canonicalized.delete(key) unless downcased_resource.key?(key)
             end
             # Cache the actually canonicalized resource separately
@@ -104,6 +114,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     context.debug("Canonicalized Resources: #{canonicalized_resources}")
     canonicalized_resources
   end
+  # rubocop:enable Metrics/BlockLength, Metrics/MethodLength
 
   # Attempts to retrieve an instance of the DSC resource, invoking the `Get` method and passing any
   # namevars as the Properties to Invoke-DscResource. The result object, if any, is compared to the
@@ -684,6 +695,28 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @return [Array] returns an array of attribute names as symbols which are enums
   def enum_attributes(context)
     context.type.attributes.select { |_name, properties| properties[:type].include?('Enum[') }.keys
+  end
+
+  # Parses the DSC resource type definition to retrieve the values of any attributes which are specified as enums
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param attribute [String] the enum attribute to retrieve the allowed values from
+  # @return [Array] returns an array of attribute names as symbols which are enums
+  def enum_values(context, attribute)
+    # Get the attribute's type string for the given key
+    type_string = context.type.attributes[attribute][:type]
+
+    # Return an empty array if the key doesn't have an Enum type or doesn't exist
+    return [] unless type_string&.include?('Enum[')
+
+    # Extract the enum values from the type string
+    enum_content = type_string.match(/Enum\[(.*?)\]/)&.[](1)
+
+    # Return an empty array if we couldn't find the enum values
+    return [] if enum_content.nil?
+
+    # Return an array of the enum values, stripped of extra whitespace and quote marks
+    enum_content.split(',').map { |val| val.strip.delete('\'') }
   end
 
   # Look through a fully formatted string, replacing all instances where a value matches the formatted properties
