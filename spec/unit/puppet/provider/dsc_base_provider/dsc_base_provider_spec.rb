@@ -179,6 +179,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             end
 
             it 'treats the manifest value as canonical' do
+              expect(context).to receive(:type).and_return(type)
+              expect(type).to receive(:attributes).and_return({ dsc_property: { type: "Enum['Dword']" } })
               expect(canonicalized_resource.first[:dsc_property]).to eq('Dword')
             end
           end
