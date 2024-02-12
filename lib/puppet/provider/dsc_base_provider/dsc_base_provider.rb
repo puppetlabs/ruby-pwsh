@@ -310,24 +310,16 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       # notify and retry
       context.notice("Retrying: attempt #{try} of #{max_retry_count}.")
       data = JSON.parse(yield)
-      # if no error, break
-      if data['errormessage'].nil?
-        break
-      # check if error matches error matcher supplied
-      elsif data['errormessage'].match?(error_matcher)
-        # if last attempt, return error
-        if try == max_retry_count
-          context.notice("Attempt #{try} of #{max_retry_count} failed. No more retries.")
-          # all attempts failed, raise error
-          return context.err(data['errormessage'])
-        end
-        # if not last attempt, notify, continue and retry
-        context.notice("Attempt #{try} of #{max_retry_count} failed.")
-        next
-      else
-        # if we get an unexpected error, return
-        return context.err(data['errormessage'])
-      end
+      # if no error, assume successful invocation and break
+      break if data['errormessage'].nil?
+
+      # notify of failed retry
+      context.notice("Attempt #{try} of #{max_retry_count} failed.")
+      # return if error does not match expceted error, or all retries exhausted
+      return context.err(data['errormessage']) unless data['errormessage'].match?(error_matcher) && try < max_retry_count
+
+      # else, retry
+      next
     end
     data
   end

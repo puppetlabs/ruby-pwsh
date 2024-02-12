@@ -814,9 +814,9 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
                                                .exactly(5).times
         expect(context).to receive(:notice).with(/Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour./).once
         expect(context).to receive(:notice).with('Sleeping for 60 seconds.').exactly(5).times
-        expect(context).to receive(:notice).with(/Retrying: attempt [1-6] of 5/).exactly(5).times
+        expect(context).to receive(:notice).with(/Retrying: attempt [1-5] of 5/).exactly(5).times
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
-        expect(context).to receive(:notice).with(/Attempt [1-6] of 5 failed/).exactly(5).times
+        expect(context).to receive(:notice).with(/Attempt [1-5] of 5 failed/).exactly(5).times
         expect(context).to receive(:err).with(/The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked/)
         allow(provider).to receive(:sleep)
         expect(result).to be_nil
@@ -829,6 +829,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(context).to receive(:notice).with(/Retrying: attempt 1 of 5/).once
         allow(provider).to receive(:sleep)
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "Some unexpected error"}' }).once
+        expect(context).to receive(:notice).with(/Attempt 1 of 5 failed/).once
         expect(context).to receive(:err).with(/Some unexpected error/)
         expect(result).to be_nil
       end
