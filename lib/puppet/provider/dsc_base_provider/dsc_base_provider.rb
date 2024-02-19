@@ -351,7 +351,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @param name_hash [Hash] the hash of namevars to be passed as properties to `Invoke-DscResource`
   # @return [Hash] returns a hash representing the DSC resource munged to the representation the Puppet Type expects
-  def invoke_get_method(context, name_hash)
+  def invoke_get_method(context, name_hash) # rubocop:disable Metrics/AbcSize
     context.debug("retrieving #{name_hash.inspect}")
 
     query_props = name_hash.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
@@ -393,6 +393,8 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     end
     # If a resource is found, it's present, so refill this Puppet-only key
     data[:name] = name_hash[:name]
+
+    data = stringify_nil_attributes(context, data)
 
     # Have to check for this to avoid a weird canonicalization warning
     # The Resource API calls canonicalize against the current state which
@@ -661,6 +663,20 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @return [Array] returns an array of attribute names as symbols which are mandatory for set operations
   def mandatory_set_attributes(context)
     context.type.attributes.select { |_attribute, properties| properties[:mandatory_for_set] }.keys
+  end
+
+  # Parses the DSC resource type definition to retrieve the names of any attributes which are specifed as required strings
+  # This is used to ensure that any nil values are converted to empty strings to match puppets expecetd value
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param data [Hash] the hash of properties returned from the DSC resource
+  # @return [Hash] returns a data hash with any nil values converted to empty strings
+  def stringify_nil_attributes(context, data)
+    nil_strings = data.select { |_name, value| value.nil? }.keys
+    string_attrs = context.type.attributes.select { |_name, properties| properties[:type] == 'String' }.keys
+    string_attrs.each do |attribute|
+      data[attribute] = '' if nil_strings.include?(attribute)
+    end
+    data
   end
 
   # Parses the DSC resource type definition to retrieve the names of any attributes which are specified as namevars
