@@ -1,0 +1,23 @@
+fixtures:
+  forge_modules:
+    powershellget: 
+      repo: 'dsc/powershellget'
+      ref: '2.2.5-0-1'
+    jeadsc:
+      repo: 'dsc/jeadsc'
+      ref: '0.7.2-0-3'
+    xpsdesiredstateconfiguration:
+      repo: 'dsc/xpsdesiredstateconfiguration'
+      ref: '9.1.0-0-1'
+    xwebadministration:
+      repo: 'dsc/xwebadministration'
+      ref: '3.2.0-0-2'
+    accesscontroldsc:
+      repo: 'dsc/accesscontroldsc'
+      ref: '1.4.1-0-3'
+  repositories:
+    facts: 'https://github.com/puppetlabs/puppetlabs-facts.git'
+    puppet_agent:
+      repo: 'https://github.com/puppetlabs/puppetlabs-puppet_agent.git'
+      ref: v4.13.0
+    provision: 'https://github.com/puppetlabs/provision.git'

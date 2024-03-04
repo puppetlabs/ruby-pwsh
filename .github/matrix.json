@@ -1,0 +1,7 @@
+[
+    {
+        "label":"Windows-2022",
+        "provider":"provision_service",
+        "image":"windows-2022"
+    }
+]
