@@ -26,7 +26,7 @@ group :development do
   gem "puppetlabs_spec_helper", '~> 6.0',        require: false
   gem "rspec-puppet-facts", '~> 2.0',            require: false
   gem "dependency_checker", '~> 1.0.0',          require: false
-  gem "parallel_tests", '= 3.12.1',              require: false
+  gem "parallel_tests", '4.5.2',              require: false
   gem "pry", '~> 0.10',                          require: false
   gem "puppet-debugger", '~> 1.0',               require: false
   gem "rubocop", '~> 1.50.0',                    require: false
