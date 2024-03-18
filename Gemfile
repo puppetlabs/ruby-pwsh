@@ -34,7 +34,7 @@ group :development do
   gem "rubocop-rspec", '= 2.19.0',               require: false
   gem "puppet-strings", '~> 4.0',                require: false
   gem "rb-readline", '= 0.5.5',                  require: false, platforms: [:mswin, :mingw, :x64_mingw]
-  gem 'simplecov', '~> 0.21.0',                  require: false
+  gem 'simplecov', '~> 0.22.0',                  require: false
   gem 'simplecov-console', '~> 0.9.0',           require: false
 end
 group :system_tests do
