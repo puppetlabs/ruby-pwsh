@@ -12,7 +12,9 @@ module Pwsh
     def on_windows?
       # Ruby only sets File::ALT_SEPARATOR on Windows and the Ruby standard
       # library uses that to test what platform it's on.
-      !!File::ALT_SEPARATOR
+      require 'rbconfig'
+      is_windows = (RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/)
+      !!is_windows
     end
 
     # Verify paths specified are valid directories which exist.
