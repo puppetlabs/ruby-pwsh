@@ -1076,6 +1076,10 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   def ps_manager
     debug_output = Puppet::Util::Log.level == :debug
     # TODO: Allow you to specify an alternate path, either to pwsh generally or a specific pwsh path.
-    Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args, debug: debug_output)
+    if Pwsh::Util.on_windows?
+      Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args, debug: debug_output)
+    else
+      Pwsh::Manager.instance(Pwsh::Manager.pwsh_path, Pwsh::Manager.pwsh_args, debug: debug_output)
+    end
   end
 end
