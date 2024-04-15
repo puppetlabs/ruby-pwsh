@@ -2110,21 +2110,44 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.ps_manager' do
-    before do
-      allow(Pwsh::Manager).to receive(:powershell_path).and_return('pwsh')
-      allow(Pwsh::Manager).to receive(:powershell_args).and_return('args')
+    describe '.ps_manager on non-Windows' do
+      before do
+        allow(Pwsh::Util).to receive(:on_windows?).and_return(false)
+        allow(Pwsh::Manager).to receive(:pwsh_path).and_return('pwsh')
+        allow(Pwsh::Manager).to receive(:pwsh_args).and_return('args')
+      end
+
+      it 'Initializes an instance of the Pwsh::Manager' do
+        expect(Puppet::Util::Log).to receive(:level).and_return(:normal)
+        expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: false)
+        expect { provider.ps_manager }.not_to raise_error
+      end
+
+      it 'passes debug as true if Puppet::Util::Log.level is debug' do
+        expect(Puppet::Util::Log).to receive(:level).and_return(:debug)
+        expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: true)
+        expect { provider.ps_manager }.not_to raise_error
+      end
     end
 
-    it 'Initializes an instance of the Pwsh::Manager' do
-      expect(Puppet::Util::Log).to receive(:level).and_return(:normal)
-      expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: false)
-      expect { provider.ps_manager }.not_to raise_error
-    end
+    describe '.ps_manager on Windows' do
+      before do
+        allow(Pwsh::Util).to receive(:on_windows?).and_return(true)
+        allow(Pwsh::Manager).to receive(:powershell_path).and_return('pwsh')
+        allow(Pwsh::Manager).to receive(:powershell_args).and_return('args')
+      end
 
-    it 'passes debug as true if Puppet::Util::Log.level is debug' do
-      expect(Puppet::Util::Log).to receive(:level).and_return(:debug)
-      expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: true)
-      expect { provider.ps_manager }.not_to raise_error
+      it 'Initializes an instance of the Pwsh::Manager' do
+        expect(Puppet::Util::Log).to receive(:level).and_return(:normal)
+        expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: false)
+        expect { provider.ps_manager }.not_to raise_error
+      end
+
+      it 'passes debug as true if Puppet::Util::Log.level is debug' do
+        expect(Puppet::Util::Log).to receive(:level).and_return(:debug)
+        expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: true)
+        expect { provider.ps_manager }.not_to raise_error
+      end
     end
   end
 end
