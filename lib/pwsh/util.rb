@@ -7,12 +7,12 @@ module Pwsh
     module_function
 
     # Verifies whether or not the current context is running on a Windows node.
+    # Implementation copied from `facets`: https://github.com/rubyworks/facets/blob/main/lib/standard/facets/rbconfig.rb
     #
     # @return [Bool] true if on windows
     def on_windows?
-      # Ruby only sets File::ALT_SEPARATOR on Windows and the Ruby standard
-      # library uses that to test what platform it's on.
-      !!File::ALT_SEPARATOR
+      host_os = RbConfig::CONFIG['host_os']
+      !!(host_os =~ /mswin|mingw/)
     end
 
     # Verify paths specified are valid directories which exist.
