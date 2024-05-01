@@ -23,7 +23,7 @@ group :development do
   gem "voxpupuli-puppet-lint-plugins", '~> 5.0', require: false
   gem "facterdb", '~> 1.18',                     require: false
   gem "metadata-json-lint", '~> 3.0',            require: false
-  gem "puppetlabs_spec_helper", '~> 6.0',        require: false
+  gem "puppetlabs_spec_helper", '~> 7.2',        require: false
   gem "rspec-puppet-facts", '~> 2.0',            require: false
   gem "dependency_checker", '~> 1.0.0',          require: false
   gem "parallel_tests", '= 3.12.1',              require: false
