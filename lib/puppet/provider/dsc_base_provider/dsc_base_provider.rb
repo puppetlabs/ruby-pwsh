@@ -15,6 +15,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     @cached_query_results = []
     @cached_test_results = []
     @logon_failures = []
+    @timeout = nil # default timeout, ps_manager.execute is expecting nil by default..
     super
   end
 
@@ -251,13 +252,17 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       context.err('Logon credentials are invalid')
       return nil
     end
+    specify_dsc_timeout(name_hash)
     resource = invocable_resource(props, context, method)
     script_content = ps_script_content(resource)
+    context.debug("Invoke-DSC Timeout: #{@timeout} milliseconds") if @timeout
     context.debug("Script:\n #{redact_secrets(script_content)}")
-    output = ps_manager.execute(remove_secret_identifiers(script_content))[:stdout]
+    output = ps_manager.execute(remove_secret_identifiers(script_content), @timeout)[:stdout]
 
     if output.nil?
-      context.err('Nothing returned')
+      message = 'Nothing returned.'
+      message += " There is a timeout of #{@timeout} milliseconds set, ensure the DSC resource has enough time to apply." unless @timeout.nil?
+      context.err(message)
       return nil
     end
 
@@ -293,6 +298,18 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       return nil
     end
     data
+  end
+
+  # Sets the @timeout instance variable.
+  # @param name_hash [Hash] the hash of namevars to be passed as properties to `Invoke-DscResource`
+  # The @timeout variable is set to the value of name_hash[:dsc_timeout] in milliseconds
+  # If name_hash[:dsc_timeout] is nil, @timeout is not changed.
+  # If @timeout is already set to a value other than nil,
+  # it is changed only if it's different from name_hash[:dsc_timeout]..
+  def specify_dsc_timeout(name_hash)
+    return unless name_hash[:dsc_timeout] && (@timeout.nil? || @timeout != name_hash[:dsc_timeout])
+
+    @timeout = name_hash[:dsc_timeout] * 1000
   end
 
   # Retries Invoke-DscResource when returned error matches error regex supplied as param.
