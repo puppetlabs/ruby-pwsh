@@ -835,6 +835,26 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
     end
 
+    context 'when a dsc_timeout is specified' do
+      let(:should_hash) { name.merge(dsc_timeout: 5) }
+      let(:apply_props_with_timeout) { { dsc_name: 'foo', dsc_timeout: 5 } }
+      let(:resource_with_timeout) { "Resource: #{apply_props_with_timeout}" }
+      let(:script_with_timeout) { "Script: #{apply_props_with_timeout}" }
+
+      before do
+        allow(provider).to receive(:invocable_resource).with(apply_props_with_timeout, context, 'set').and_return(resource_with_timeout)
+        allow(provider).to receive(:ps_script_content).with(resource_with_timeout).and_return(script_with_timeout)
+        allow(provider).to receive(:remove_secret_identifiers).with(script_with_timeout).and_return(script_with_timeout)
+      end
+
+      it 'sets @timeout and passes it to ps_manager.execute' do
+        provider.instance_variable_set(:@timeout, nil)
+        expect(ps_manager).to receive(:execute).with(script_with_timeout, 5000).and_return({ stdout: '{"in_desired_state": true, "errormessage": null}' })
+        provider.invoke_set_method(context, name, should_hash)
+        expect(provider.instance_variable_get(:@timeout)).to eq(5000)
+      end
+    end
+
     context 'when the invocation script returns data without errors' do
       it 'filters for the correct properties to invoke and returns the results' do
         expect(ps_manager).to receive(:execute).with("Script: #{apply_props}", nil).and_return({ stdout: '{"in_desired_state": true, "errormessage": null}' })
