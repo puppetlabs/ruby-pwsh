@@ -261,18 +261,17 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
 
     if output[:stdout].nil?
       message = 'Nothing returned.'
-      message += " #{output[:errormessage]}" if output[:errormessage]&.match?(/PowerShell module timeout \(\d+ ms\) exceeded while executing/)
       context.err(message)
       return nil
     end
 
     begin
-      data = JSON.parse(output[:stdout])
+      data = JSON.parse(output)
     rescue StandardError => e
       context.err(e)
       return nil
     end
-    context.debug("raw data received: #{data.inspect}")
+    context.debug("raw data received: #{data['stdout'].inspect}")
     collision_error_matcher = /The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked/
 
     error = data['errormessage']
@@ -289,7 +288,10 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       elsif error.match?(collision_error_matcher)
         context.notice('Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour.')
         retry_invoke_dsc_resource(context, 5, 60, collision_error_matcher) do
-          data = ps_manager.execute(remove_secret_identifiers(script_content))[:stdout]
+          data = JSON.parse(ps_manager.execute(remove_secret_identifiers(script_content)))
+        rescue StandardError => e
+          context.err(e)
+          return nil
         end
       else
         context.err(error)
@@ -297,7 +299,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       # Either way, something went wrong and we didn't get back a good result, so return nil
       return nil
     end
-    data
+    data['stdout']
   end
 
   # Sets the @timeout instance variable.
