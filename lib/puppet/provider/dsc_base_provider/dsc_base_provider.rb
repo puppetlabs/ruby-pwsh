@@ -257,17 +257,17 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     script_content = ps_script_content(resource)
     context.debug("Invoke-DSC Timeout: #{@timeout} milliseconds") if @timeout
     context.debug("Script:\n #{redact_secrets(script_content)}")
-    output = ps_manager.execute(remove_secret_identifiers(script_content), @timeout)[:stdout]
+    output = ps_manager.execute(remove_secret_identifiers(script_content), @timeout)
 
-    if output.nil?
+    if output[:stdout].nil?
       message = 'Nothing returned.'
-      message += " There is a timeout of #{@timeout} milliseconds set, ensure the DSC resource has enough time to apply." unless @timeout.nil?
+      message += " #{output[:errormessage]}" if output[:errormessage]&.match?(/PowerShell module timeout \(\d+ ms\) exceeded while executing/)
       context.err(message)
       return nil
     end
 
     begin
-      data = JSON.parse(output)
+      data = JSON.parse(output[:stdout])
     rescue StandardError => e
       context.err(e)
       return nil
