@@ -108,7 +108,7 @@ module Pwsh
       @powershell_command = cmd
       @powershell_arguments = args
 
-      raise "Bad configuration for ENV['lib']=#{ENV['lib']} - invalid path" if Pwsh::Util.invalid_directories?(ENV['lib'])
+      warn "Bad configuration for ENV['lib']=#{ENV['lib']} - invalid path" if Pwsh::Util.invalid_directories?(ENV['lib'])
 
       if Pwsh::Util.on_windows?
         # Named pipes under Windows will automatically be mounted in \\.\pipe\...
