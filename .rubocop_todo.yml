@@ -138,10 +138,10 @@ RSpec/MultipleDescribes:
 RSpec/MultipleExpectations:
   Max: 15
 
-# Offense count: 107
+# Offense count: 109
 # Configuration parameters: AllowSubject.
 RSpec/MultipleMemoizedHelpers:
-  Max: 17
+  Max: 19
 
 # Offense count: 55
 # Configuration parameters: AllowedGroups.

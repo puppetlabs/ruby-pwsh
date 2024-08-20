@@ -87,13 +87,15 @@ RSpec.describe Pwsh::Util do
   end
 
   describe '.invalid_directories?' do
-    let(:valid_path_a)  { 'C:/some/folder' }
-    let(:valid_path_b)  { 'C:/another/folder' }
-    let(:valid_paths)   { 'C:/some/folder;C:/another/folder' }
-    let(:invalid_path)  { 'C:/invalid/path' }
-    let(:mixed_paths)   { 'C:/some/folder;C:/invalid/path;C:/another/folder' }
-    let(:empty_string)  { '' }
-    let(:empty_members) { 'C:/some/folder;;C:/another/folder' }
+    let(:valid_path_a)     { 'C:/some/folder' }
+    let(:valid_path_b)     { 'C:/another/folder' }
+    let(:valid_paths)      { 'C:/some/folder;C:/another/folder' }
+    let(:invalid_path)     { 'C:/invalid/path' }
+    let(:mixed_paths)      { 'C:/some/folder;C:/another/folder;C:/invalid/path' }
+    let(:empty_string)     { '' }
+    let(:file_path)        { 'C:/some/folder/file.txt' }
+    let(:non_existent_dir) { 'C:/some/dir/that/doesnt/exist' }
+    let(:empty_members)    { 'C:/some/folder;;C:/another/folder' }
 
     it 'returns false if passed nil' do
       expect(described_class.invalid_directories?(nil)).to be false
@@ -103,8 +105,13 @@ RSpec.describe Pwsh::Util do
       expect(described_class.invalid_directories?('')).to be false
     end
 
+    it 'returns false if a file path is provided' do
+      expect(described_class.invalid_directories?(file_path)).to be false
+    end
+
     it 'returns false if one valid path is provided' do
       expect(described_class).to receive(:on_windows?).and_return(true)
+      expect(File).to receive(:exist?).with(valid_path_a).and_return(true)
       expect(File).to receive(:directory?).with(valid_path_a).and_return(true)
       expect(described_class.invalid_directories?(valid_path_a)).to be false
     end
@@ -112,30 +119,55 @@ RSpec.describe Pwsh::Util do
     it 'returns false if a collection of valid paths is provided' do
       expect(described_class).to receive(:on_windows?).and_return(true)
       expect(File).to receive(:directory?).with(valid_path_a).and_return(true)
+      expect(File).to receive(:exist?).with(valid_path_a).and_return(true)
       expect(File).to receive(:directory?).with(valid_path_b).and_return(true)
+      expect(File).to receive(:exist?).with(valid_path_b).and_return(true)
       expect(described_class.invalid_directories?(valid_paths)).to be false
     end
 
     it 'returns true if there is only one path and it is invalid' do
       expect(described_class).to receive(:on_windows?).and_return(true)
+      expect(File).to receive(:exist?).with(invalid_path).and_return(true)
       expect(File).to receive(:directory?).with(invalid_path).and_return(false)
       expect(described_class.invalid_directories?(invalid_path)).to be true
     end
 
     it 'returns true if the collection has on valid and one invalid member' do
       expect(described_class).to receive(:on_windows?).and_return(true)
+      expect(File).to receive(:exist?).with(valid_path_a).and_return(true)
       expect(File).to receive(:directory?).with(valid_path_a).and_return(true)
+      expect(File).to receive(:exist?).with(valid_path_b).and_return(true)
       expect(File).to receive(:directory?).with(valid_path_b).and_return(true)
+      expect(File).to receive(:exist?).with(invalid_path).and_return(true)
       expect(File).to receive(:directory?).with(invalid_path).and_return(false)
       expect(described_class.invalid_directories?(mixed_paths)).to be true
     end
 
     it 'returns false if collection has empty members but other entries are valid' do
       expect(described_class).to receive(:on_windows?).and_return(true)
+      expect(File).to receive(:exist?).with(valid_path_a).and_return(true)
       expect(File).to receive(:directory?).with(valid_path_a).and_return(true)
+      expect(File).to receive(:exist?).with(valid_path_b).and_return(true)
       expect(File).to receive(:directory?).with(valid_path_b).and_return(true)
       allow(File).to receive(:directory?).with('')
       expect(described_class.invalid_directories?(empty_members)).to be false
+    end
+
+    it 'returns true if a collection has valid members but also contains a file path' do
+      expect(described_class).to receive(:on_windows?).and_return(true)
+      expect(File).to receive(:exist?).with(valid_path_a).and_return(true)
+      expect(File).to receive(:directory?).with(valid_path_a).and_return(true)
+      expect(File).to receive(:exist?).with(file_path).and_return(true)
+      expect(File).to receive(:directory?).with(file_path).and_return(false)
+      expect(described_class.invalid_directories?("#{valid_path_a};#{file_path}")).to be true
+    end
+
+    it 'returns false if a collection has valid members but contains a non-existent dir path' do
+      expect(described_class).to receive(:on_windows?).and_return(true)
+      expect(File).to receive(:exist?).with(valid_path_a).and_return(true)
+      expect(File).to receive(:directory?).with(valid_path_a).and_return(true)
+      expect(File).to receive(:exist?).with(non_existent_dir).and_return(false)
+      expect(described_class.invalid_directories?("#{valid_path_a};#{non_existent_dir}")).to be false
     end
   end
 
