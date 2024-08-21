@@ -105,8 +105,11 @@ RSpec.describe Pwsh::Util do
       expect(described_class.invalid_directories?('')).to be false
     end
 
-    it 'returns false if a file path is provided' do
-      expect(described_class.invalid_directories?(file_path)).to be false
+    it 'returns true if a file path is provided' do
+      expect(described_class).to receive(:on_windows?).and_return(true)
+      expect(File).to receive(:exist?).with(file_path).and_return(true)
+      expect(File).to receive(:directory?).with(file_path).and_return(false)
+      expect(described_class.invalid_directories?(file_path)).to be true
     end
 
     it 'returns false if one valid path is provided' do
