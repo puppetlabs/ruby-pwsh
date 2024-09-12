@@ -66,6 +66,13 @@
         "20.04",
         "22.04"
       ]
+    },
+    {
+      "operatingsystem": "AlmaLinux",
+      "operatingsystemrelease": [
+        "8",
+        "9"
+      ]
     }
   ],
   "requirements": [
