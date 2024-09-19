@@ -85,6 +85,7 @@ The following platforms are supported:
 - OSX
 - RedHat
 - Ubuntu
+- AlmaLinux
 
 ## Limitations
 
