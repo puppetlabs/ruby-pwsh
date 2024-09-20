@@ -682,16 +682,16 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     context.type.attributes.select { |_attribute, properties| properties[:mandatory_for_set] }.keys
   end
 
-  # Parses the DSC resource type definition to retrieve the names of any attributes which are specified as required strings
-  # This is used to ensure that any nil values are converted to empty strings to match puppets expected value
+  # Parses the DSC resource type definition to retrieve the names of any attributes which are specifed as required strings
+  # This is used to ensure that any nil values are converted to empty strings to match puppets expecetd value
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @param data [Hash] the hash of properties returned from the DSC resource
   # @return [Hash] returns a data hash with any nil values converted to empty strings
   def stringify_nil_attributes(context, data)
-    nil_attributes = data.select { |_name, value| value.nil? }.keys
-    nil_attributes.each do |nil_attr|
-      attribute_type = context.type.attributes[nil_attr][:type]
-      data[nil_attr] = '' if (attribute_type.include?('Enum[') && enum_values(context, nil_attr).include?('')) || attribute_type == 'String'
+    nil_strings = data.select { |_name, value| value.nil? }.keys
+    string_attrs = context.type.attributes.select { |_name, properties| properties[:type] == 'String' }.keys
+    string_attrs.each do |attribute|
+      data[attribute] = '' if nil_strings.include?(attribute)
     end
     data
   end
