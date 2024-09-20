@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [v1.2.1](https://github.com/puppetlabs/ruby-pwsh/tree/v1.2.1) - 2024-09-20
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v1.2.0...v1.2.1)
+
+### Added
+
+- AlmaLinux 8/9 added to metadata.json [#338](https://github.com/puppetlabs/ruby-pwsh/pull/338) ([alex501212](https://github.com/alex501212))
+
+### Fixed
+
+- Revert "Fix empty string nullification" [#342](https://github.com/puppetlabs/ruby-pwsh/pull/342) ([jordanbreen28](https://github.com/jordanbreen28))
+- (maint) - Fix incorrect test for file_path [#335](https://github.com/puppetlabs/ruby-pwsh/pull/335) ([jordanbreen28](https://github.com/jordanbreen28))
+- (CAT-1991) - Skip missing dirs invalid_dir method [#334](https://github.com/puppetlabs/ruby-pwsh/pull/334) ([jordanbreen28](https://github.com/jordanbreen28))
+
 ## [v1.2.0](https://github.com/puppetlabs/ruby-pwsh/tree/v1.2.0) - 2024-08-15
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v1.1.1...v1.2.0)
