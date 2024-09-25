@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [v1.2.2](https://github.com/puppetlabs/ruby-pwsh/tree/v1.2.2) - 2024-09-25
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v1.2.1...v1.2.2)
+
+### Fixed
+
+- (CAT-2061) Fix empty string nullification [#346](https://github.com/puppetlabs/ruby-pwsh/pull/346) ([david22swan](https://github.com/david22swan))
+
 ## [v1.2.1](https://github.com/puppetlabs/ruby-pwsh/tree/v1.2.1) - 2024-09-20
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v1.2.0...v1.2.1)
