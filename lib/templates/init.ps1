@@ -152,7 +152,7 @@ function Invoke-PowerShellUserCode {
     # Set any provided environment variables
     if ($AdditionalEnvironmentVariables -ne $null) {
       $AdditionalEnvironmentVariables.GetEnumerator() |
-        ForEach-Object -Process { Set-Item -Path "Env:\$($_.Name)" -Value $_.Value }
+        ForEach-Object -Process { Set-Item -Path "Env:\$($_.Name)" -Value "$($_.Value)" }
     }
 
     # We clear the commands before each new command to avoid command pollution This does not need
