@@ -6,7 +6,8 @@ Try {
 } Finally {
   If (![string]::IsNullOrEmpty($UnmungedPSModulePath)) {
     # Reset the PSModulePath
-    [System.Environment]::SetEnvironmentVariable('PSModulePath', $UnmungedPSModulePath, [System.EnvironmentVariableTarget]::Machine)
+    #[System.Environment]::SetEnvironmentVariable('PSModulePath', $UnmungedPSModulePath, [System.EnvironmentVariableTarget]::Machine) #commented becose of long execution time
+    Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -Name 'PSModulePath' -Value $UnmungedPSModulePath
     $env:PSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath', 'machine')
   }
 }
