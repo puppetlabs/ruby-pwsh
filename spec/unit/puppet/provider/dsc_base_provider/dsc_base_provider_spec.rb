@@ -1529,7 +1529,6 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       it 'updates the system PSModulePath to $MungedPSModulePath' do
-        -Name 'PSModulePath' -Value $MungedPSModulePath
         expect(result).to match(/-Name 'PSModulePath' -Value \$MungedPSModulePath/)
       end
 
