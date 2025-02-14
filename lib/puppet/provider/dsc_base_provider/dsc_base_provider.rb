@@ -899,7 +899,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   #
   # @param resource [Hash] a hash with the information needed to run `Invoke-DscResource`
   # @return [String] A string representing the PowerShell definition of the InvokeParams hash
-  def invoke_params(resource)
+  def invoke_params(resource) # rubocop:disable Metrics/MethodLength
     params = {
       Name: resource[:dscmeta_resource_friendly_name],
       Method: resource[:dsc_invoke_method],
@@ -917,6 +917,10 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       params[:ModuleName] = resource[:dscmeta_module_name]
     end
     resource[:parameters].each do |property_name, property_hash|
+      # ignore dsc_timeout, since it is only used to specify the powershell command timeout
+      # and timeout itself is not a parameter to the DSC resource
+      next if property_name == :dsc_timeout
+
       # strip dsc_ from the beginning of the property name declaration
       name = property_name.to_s.gsub(/^dsc_/, '').to_sym
       params[:Property][name] = case property_hash[:mof_type]
