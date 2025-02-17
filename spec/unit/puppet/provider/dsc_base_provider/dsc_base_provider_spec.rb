@@ -439,7 +439,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           mof_is_embedded: false
         },
         dsc_psdscrunascredential: {
-          type: 'Optional[Struct[{ user => String[1], password => Sensitive[String[1]] }]]',
+          type: 'Optional[Struct[{ user => String[1], password => Variant[String[1], Sensitive[String[1]]] }]]',
           behaviour: :parameter,
           mandatory_for_get: false,
           mandatory_for_set: false,
@@ -886,7 +886,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             mof_is_embedded: false
           },
           dsc_psdscrunascredential: {
-            type: 'Optional[Struct[{ user => String[1], password => Sensitive[String[1]] }]]',
+            type: 'Optional[Struct[{ user => String[1], password => Variant[String[1], Sensitive[String[1]]] }]]',
             desc: 'The Credential to run DSC under',
             behaviour: :parameter,
             mandatory_for_get: false,
@@ -1552,6 +1552,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       let(:test_resource) { base_resource.merge(additional_parameters) }
 
       before do
+        allow(Puppet::Pops::Types::PSensitiveType::Sensitive).to receive(:===).with(foo_password).and_return(true)
+        allow(Puppet::Pops::Types::PSensitiveType::Sensitive).to receive(:===).with(bar_password).and_return(true)
         allow(foo_password).to receive(:unwrap).and_return('foo')
         allow(bar_password).to receive(:unwrap).and_return('bar')
       end
@@ -1789,6 +1791,11 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
         let(:variable_interpolated_param_hash) do
           "$InvokeParams = @{Name = 'Foo'; Method = 'Get'; Property = @{credential = $SomeCredential}; ModuleName = 'PuppetDsc'}"
+        end
+
+        before do
+          allow(Puppet::Pops::Types::PSensitiveType::Sensitive).to receive(:===).with(password).and_return(true)
+          allow(password).to receive(:unwrap).and_return('bar')
         end
 
         it 'unwraps the credential hash and interpolates the appropriate variable' do
