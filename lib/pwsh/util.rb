@@ -7,28 +7,24 @@ module Pwsh
     module_function
 
     # Verifies whether or not the current context is running on a Windows node.
+    # Implementation copied from `facets`: https://github.com/rubyworks/facets/blob/main/lib/standard/facets/rbconfig.rb
     #
     # @return [Bool] true if on windows
     def on_windows?
-      # Ruby only sets File::ALT_SEPARATOR on Windows and the Ruby standard
-      # library uses that to test what platform it's on.
-      !!File::ALT_SEPARATOR
+      host_os = RbConfig::CONFIG['host_os']
+      !!(host_os =~ /mswin|mingw/)
     end
 
-    # Verify paths specified are valid directories which exist.
-    #
-    # @return [Bool] true if any directories specified do not exist
+    # Verify paths specified are valid directories.
+    # Skips paths which do not exist.
+    # @return [Bool] true if any paths specified are not valid directories
     def invalid_directories?(path_collection)
-      invalid_paths = false
+      return false if path_collection.nil? || path_collection.empty?
 
-      return invalid_paths if path_collection.nil? || path_collection.empty?
+      delimiter = on_windows? ? ';' : ':'
+      paths = path_collection.split(delimiter)
 
-      paths = on_windows? ? path_collection.split(';') : path_collection.split(':')
-      paths.each do |path|
-        invalid_paths = true unless File.directory?(path) || path.empty?
-      end
-
-      invalid_paths
+      paths.any? { |path| !path.empty? && File.exist?(path) && !File.directory?(path) }
     end
 
     # Return a string or symbol converted to snake_case

@@ -541,7 +541,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     context 'when the invocation script returns data without errors' do
       before do
-        allow(ps_manager).to receive(:execute).with(script).and_return({ stdout: 'DSC Data' })
+        allow(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: 'DSC Data' })
         allow(JSON).to receive(:parse).with('DSC Data').and_return(parsed_invocation_data)
         allow(Puppet::Pops::Time::Timestamp).to receive(:parse).with('2100-01-01').and_return('TimeStamp:2100-01-01')
         allow(provider).to receive(:fetch_cached_hashes).and_return([])
@@ -659,15 +659,15 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     context 'when the DSC invocation errors' do
       it 'writes an error and returns nil' do
         expect(provider).not_to receive(:logon_failed_already?)
-        expect(ps_manager).to receive(:execute).with(script).and_return({ stdout: nil })
-        expect(context).to receive(:err).with('Nothing returned')
+        expect(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: nil })
+        expect(context).to receive(:err).with('Nothing returned.')
         expect(result).to be_nil
       end
     end
 
     context 'when handling DateTimes' do
       before do
-        allow(ps_manager).to receive(:execute).with(script).and_return({ stdout: 'DSC Data' })
+        allow(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: 'DSC Data' })
         allow(JSON).to receive(:parse).with('DSC Data').and_return(parsed_invocation_data)
         allow(provider).to receive(:fetch_cached_hashes).and_return([])
       end
@@ -719,7 +719,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       context 'when the credential is invalid' do
         before do
           allow(provider).to receive(:logon_failed_already?).and_return(false)
-          allow(ps_manager).to receive(:execute).with(script).and_return({ stdout: 'DSC Data' })
+          allow(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: 'DSC Data' })
           allow(JSON).to receive(:parse).with('DSC Data').and_return({ 'errormessage' => dsc_logon_failure_error })
           allow(context).to receive(:err).with(name_hash[:name], puppet_logon_failure_error)
         end
@@ -783,7 +783,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     context 'when the invocation script returns nil' do
       it 'errors via context but does not raise' do
         expect(ps_manager).to receive(:execute).and_return({ stdout: nil })
-        expect(context).to receive(:err).with('Nothing returned')
+        expect(context).to receive(:err).with('Nothing returned.')
         expect { result }.not_to raise_error
       end
     end
@@ -835,9 +835,29 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
     end
 
+    context 'when a dsc_timeout is specified' do
+      let(:should_hash) { name.merge(dsc_timeout: 5) }
+      let(:apply_props_with_timeout) { { dsc_name: 'foo', dsc_timeout: 5 } }
+      let(:resource_with_timeout) { "Resource: #{apply_props_with_timeout}" }
+      let(:script_with_timeout) { "Script: #{apply_props_with_timeout}" }
+
+      before do
+        allow(provider).to receive(:invocable_resource).with(apply_props_with_timeout, context, 'set').and_return(resource_with_timeout)
+        allow(provider).to receive(:ps_script_content).with(resource_with_timeout).and_return(script_with_timeout)
+        allow(provider).to receive(:remove_secret_identifiers).with(script_with_timeout).and_return(script_with_timeout)
+      end
+
+      it 'sets @timeout and passes it to ps_manager.execute' do
+        provider.instance_variable_set(:@timeout, nil)
+        expect(ps_manager).to receive(:execute).with(script_with_timeout, 5000).and_return({ stdout: '{"in_desired_state": true, "errormessage": null}' })
+        provider.invoke_set_method(context, name, should_hash)
+        expect(provider.instance_variable_get(:@timeout)).to eq(5000)
+      end
+    end
+
     context 'when the invocation script returns data without errors' do
       it 'filters for the correct properties to invoke and returns the results' do
-        expect(ps_manager).to receive(:execute).with("Script: #{apply_props}").and_return({ stdout: '{"in_desired_state": true, "errormessage": null}' })
+        expect(ps_manager).to receive(:execute).with("Script: #{apply_props}", nil).and_return({ stdout: '{"in_desired_state": true, "errormessage": null}' })
         expect(context).not_to receive(:err)
         expect(result).to eq({ 'in_desired_state' => true, 'errormessage' => nil })
       end
@@ -2117,21 +2137,44 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.ps_manager' do
-    before do
-      allow(Pwsh::Manager).to receive(:powershell_path).and_return('pwsh')
-      allow(Pwsh::Manager).to receive(:powershell_args).and_return('args')
+    describe '.ps_manager on non-Windows' do
+      before do
+        allow(Pwsh::Util).to receive(:on_windows?).and_return(false)
+        allow(Pwsh::Manager).to receive(:pwsh_path).and_return('pwsh')
+        allow(Pwsh::Manager).to receive(:pwsh_args).and_return('args')
+      end
+
+      it 'Initializes an instance of the Pwsh::Manager' do
+        expect(Puppet::Util::Log).to receive(:level).and_return(:normal)
+        expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: false)
+        expect { provider.ps_manager }.not_to raise_error
+      end
+
+      it 'passes debug as true if Puppet::Util::Log.level is debug' do
+        expect(Puppet::Util::Log).to receive(:level).and_return(:debug)
+        expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: true)
+        expect { provider.ps_manager }.not_to raise_error
+      end
     end
 
-    it 'Initializes an instance of the Pwsh::Manager' do
-      expect(Puppet::Util::Log).to receive(:level).and_return(:normal)
-      expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: false)
-      expect { provider.ps_manager }.not_to raise_error
-    end
+    describe '.ps_manager on Windows' do
+      before do
+        allow(Pwsh::Util).to receive(:on_windows?).and_return(true)
+        allow(Pwsh::Manager).to receive(:powershell_path).and_return('pwsh')
+        allow(Pwsh::Manager).to receive(:powershell_args).and_return('args')
+      end
 
-    it 'passes debug as true if Puppet::Util::Log.level is debug' do
-      expect(Puppet::Util::Log).to receive(:level).and_return(:debug)
-      expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: true)
-      expect { provider.ps_manager }.not_to raise_error
+      it 'Initializes an instance of the Pwsh::Manager' do
+        expect(Puppet::Util::Log).to receive(:level).and_return(:normal)
+        expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: false)
+        expect { provider.ps_manager }.not_to raise_error
+      end
+
+      it 'passes debug as true if Puppet::Util::Log.level is debug' do
+        expect(Puppet::Util::Log).to receive(:level).and_return(:debug)
+        expect(Pwsh::Manager).to receive(:instance).with('pwsh', 'args', debug: true)
+        expect { provider.ps_manager }.not_to raise_error
+      end
     end
   end
 end

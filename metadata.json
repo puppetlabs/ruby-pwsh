@@ -1,6 +1,6 @@
 {
   "name": "puppetlabs-pwshlib",
-  "version": "1.1.1",
+  "version": "1.2.2",
   "author": "puppetlabs",
   "summary": "Provide library code for interoperating with PowerShell.",
   "license": "MIT",
@@ -66,6 +66,13 @@
         "20.04",
         "22.04"
       ]
+    },
+    {
+      "operatingsystem": "AlmaLinux",
+      "operatingsystemrelease": [
+        "8",
+        "9"
+      ]
     }
   ],
   "requirements": [
@@ -74,7 +81,7 @@
       "version_requirement": ">= 7.0.0 < 9.0.0"
     }
   ],
-  "pdk-version": "3.0.0",
+  "pdk-version": "3.0.1",
   "template-url": "https://github.com/puppetlabs/pdk-templates.git#main",
-  "template-ref": "tags/3.0.0-0-g5bfc1c0"
+  "template-ref": "tags/3.2.0-0-gb257ef1"
 }

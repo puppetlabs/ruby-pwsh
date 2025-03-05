@@ -15,6 +15,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     @cached_query_results = []
     @cached_test_results = []
     @logon_failures = []
+    @timeout = nil # default timeout, ps_manager.execute is expecting nil by default..
     super
   end
 
@@ -251,18 +252,22 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       context.err('Logon credentials are invalid')
       return nil
     end
+    specify_dsc_timeout(name_hash)
     resource = invocable_resource(props, context, method)
     script_content = ps_script_content(resource)
+    context.debug("Invoke-DSC Timeout: #{@timeout} milliseconds") if @timeout
     context.debug("Script:\n #{redact_secrets(script_content)}")
-    output = ps_manager.execute(remove_secret_identifiers(script_content))[:stdout]
+    output = ps_manager.execute(remove_secret_identifiers(script_content), @timeout)
 
-    if output.nil?
-      context.err('Nothing returned')
+    if output[:stdout].nil?
+      message = 'Nothing returned.'
+      message += " #{output[:errormessage]}" if output[:errormessage]&.match?(/PowerShell module timeout \(\d+ ms\) exceeded while executing/)
+      context.err(message)
       return nil
     end
 
     begin
-      data = JSON.parse(output)
+      data = JSON.parse(output[:stdout])
     rescue StandardError => e
       context.err(e)
       return nil
@@ -293,6 +298,18 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       return nil
     end
     data
+  end
+
+  # Sets the @timeout instance variable.
+  # @param name_hash [Hash] the hash of namevars to be passed as properties to `Invoke-DscResource`
+  # The @timeout variable is set to the value of name_hash[:dsc_timeout] in milliseconds
+  # If name_hash[:dsc_timeout] is nil, @timeout is not changed.
+  # If @timeout is already set to a value other than nil,
+  # it is changed only if it's different from name_hash[:dsc_timeout]..
+  def specify_dsc_timeout(name_hash)
+    return unless name_hash[:dsc_timeout] && (@timeout.nil? || @timeout != name_hash[:dsc_timeout])
+
+    @timeout = name_hash[:dsc_timeout] * 1000
   end
 
   # Retries Invoke-DscResource when returned error matches error regex supplied as param.
@@ -665,16 +682,16 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     context.type.attributes.select { |_attribute, properties| properties[:mandatory_for_set] }.keys
   end
 
-  # Parses the DSC resource type definition to retrieve the names of any attributes which are specifed as required strings
-  # This is used to ensure that any nil values are converted to empty strings to match puppets expecetd value
+  # Parses the DSC resource type definition to retrieve the names of any attributes which are specified as required strings
+  # This is used to ensure that any nil values are converted to empty strings to match puppets expeceted value
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @param data [Hash] the hash of properties returned from the DSC resource
   # @return [Hash] returns a data hash with any nil values converted to empty strings
   def stringify_nil_attributes(context, data)
-    nil_strings = data.select { |_name, value| value.nil? }.keys
-    string_attrs = context.type.attributes.select { |_name, properties| properties[:type] == 'String' }.keys
-    string_attrs.each do |attribute|
-      data[attribute] = '' if nil_strings.include?(attribute)
+    nil_attributes = data.select { |_name, value| value.nil? }.keys
+    nil_attributes.each do |nil_attr|
+      attribute_type = context.type.attributes[nil_attr][:type]
+      data[nil_attr] = '' if (attribute_type.start_with?('Optional[Enum[', 'Enum[') && enum_values(context, nil_attr).include?('')) || attribute_type == 'String'
     end
     data
   end
@@ -882,7 +899,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   #
   # @param resource [Hash] a hash with the information needed to run `Invoke-DscResource`
   # @return [String] A string representing the PowerShell definition of the InvokeParams hash
-  def invoke_params(resource)
+  def invoke_params(resource) # rubocop:disable Metrics/MethodLength
     params = {
       Name: resource[:dscmeta_resource_friendly_name],
       Method: resource[:dsc_invoke_method],
@@ -900,6 +917,10 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       params[:ModuleName] = resource[:dscmeta_module_name]
     end
     resource[:parameters].each do |property_name, property_hash|
+      # ignore dsc_timeout, since it is only used to specify the powershell command timeout
+      # and timeout itself is not a parameter to the DSC resource
+      next if property_name == :dsc_timeout
+
       # strip dsc_ from the beginning of the property name declaration
       name = property_name.to_s.gsub(/^dsc_/, '').to_sym
       params[:Property][name] = case property_hash[:mof_type]
@@ -1101,6 +1122,10 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   def ps_manager
     debug_output = Puppet::Util::Log.level == :debug
     # TODO: Allow you to specify an alternate path, either to pwsh generally or a specific pwsh path.
-    Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args, debug: debug_output)
+    if Pwsh::Util.on_windows?
+      Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args, debug: debug_output)
+    else
+      Pwsh::Manager.instance(Pwsh::Manager.pwsh_path, Pwsh::Manager.pwsh_args, debug: debug_output)
+    end
   end
 end
