@@ -1529,7 +1529,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       it 'updates the system PSModulePath to $MungedPSModulePath' do
-        expect(result).to match(/SetEnvironmentVariable\('PSModulePath', \$MungedPSModulePath/)
+        expect(result).to match(/-Name 'PSModulePath' -Value \$MungedPSModulePath/)
       end
 
       it 'sets the process level PSModulePath to the modified system PSModulePath' do
