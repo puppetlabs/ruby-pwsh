@@ -773,7 +773,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     <<~MUNGE_PSMODULEPATH.strip
       $UnmungedPSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath','machine')
       $MungedPSModulePath = $env:PSModulePath + ';#{vendor_path}'
-      [System.Environment]::SetEnvironmentVariable('PSModulePath', $MungedPSModulePath, [System.EnvironmentVariableTarget]::Machine)
+      Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment' -Name 'PSModulePath' -Value $MungedPSModulePath
       $env:PSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath','machine')
     MUNGE_PSMODULEPATH
   end
