@@ -794,7 +794,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       variable_name = random_variable_name
       credential_hash = {
         'user' => property_hash[:value]['user'],
-        'password' => escape_quotes(property_hash[:value]['password'].unwrap)
+        'password' => escape_quotes(unwrap_string(property_hash[:value]['password']))
       }
       credentials_block << format_pscredential(variable_name, credential_hash)
       instantiated_variables.merge!(variable_name => credential_hash)
@@ -899,7 +899,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   #
   # @param resource [Hash] a hash with the information needed to run `Invoke-DscResource`
   # @return [String] A string representing the PowerShell definition of the InvokeParams hash
-  def invoke_params(resource)
+  def invoke_params(resource) # rubocop:disable Metrics/MethodLength
     params = {
       Name: resource[:dscmeta_resource_friendly_name],
       Method: resource[:dsc_invoke_method],
@@ -917,6 +917,10 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       params[:ModuleName] = resource[:dscmeta_module_name]
     end
     resource[:parameters].each do |property_name, property_hash|
+      # ignore dsc_timeout, since it is only used to specify the powershell command timeout
+      # and timeout itself is not a parameter to the DSC resource
+      next if property_name == :dsc_timeout
+
       # strip dsc_ from the beginning of the property name declaration
       name = property_name.to_s.gsub(/^dsc_/, '').to_sym
       params[:Property][name] = case property_hash[:mof_type]
@@ -925,7 +929,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
                                   # the Credential hash interpolable as it will be replaced by a variable reference.
                                   {
                                     'user' => property_hash[:value]['user'],
-                                    'password' => escape_quotes(property_hash[:value]['password'].unwrap)
+                                    'password' => escape_quotes(unwrap_string(property_hash[:value]['password']))
                                   }
                                 when 'DateTime'
                                   # These have to be handled specifically because they rely on the *Puppet* DateTime,
@@ -1011,6 +1015,31 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       unwrapped = []
       value.each do |v|
         unwrapped << unwrap(v)
+      end
+      unwrapped
+    else
+      value
+    end
+  end
+
+  # Unwrap sensitive strings and handle string
+  #
+  # @param value [Object] The object to unwrap sensitive data inside of
+  # @return [Object] The object with any sensitive strings unwrapped
+  def unwrap_string(value)
+    case value
+    when Puppet::Pops::Types::PSensitiveType::Sensitive
+      value.unwrap
+    when Hash
+      unwrapped = {}
+      value.each do |k, v|
+        unwrapped[k] = unwrap_string(v)
+      end
+      unwrapped
+    when Array
+      unwrapped = []
+      value.each do |v|
+        unwrapped << unwrap_string(v)
       end
       unwrapped
     else
