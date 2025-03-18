@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [v1.2.3](https://github.com/puppetlabs/ruby-pwsh/tree/v1.2.3) - 2025-03-18
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v1.2.2...v1.2.3)
+
+### Fixed
+
+- Handle string credentials [#369](https://github.com/puppetlabs/ruby-pwsh/pull/369) ([Clebam](https://github.com/Clebam))
+- (Bug): do not pass dsc_timeout as timeout parameter to DSC resource params [#366](https://github.com/puppetlabs/ruby-pwsh/pull/366) ([jordanbreen28](https://github.com/jordanbreen28))
+- Change [System.Environment]::SetEnvironmentVariable() to Set-ItemProperty [#365](https://github.com/puppetlabs/ruby-pwsh/pull/365) ([pkotov87](https://github.com/pkotov87))
+- double quote when passing env var values [#351](https://github.com/puppetlabs/ruby-pwsh/pull/351) ([garrettrowell](https://github.com/garrettrowell))
+
 ## [v1.2.2](https://github.com/puppetlabs/ruby-pwsh/tree/v1.2.2) - 2024-09-25
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v1.2.1...v1.2.2)
