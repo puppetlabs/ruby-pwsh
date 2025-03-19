@@ -26,7 +26,7 @@ group :development do
   gem "metadata-json-lint", '~> 4.0',            require: false
   gem "rspec-puppet-facts", '~> 3.0',            require: false
   gem "dependency_checker", '~> 1.0.0',          require: false
-  gem "parallel_tests", '3.13.0',              require: false
+  gem "parallel_tests", '5.1.0',              require: false
   gem "pry", '~> 0.10',                          require: false
   gem "simplecov-console", '~> 0.9',             require: false
   gem "puppet-debugger", '~> 1.0',               require: false
