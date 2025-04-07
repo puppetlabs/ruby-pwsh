@@ -80,7 +80,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
             downcased_result = recursively_downcase(canonicalized)
             downcased_resource = recursively_downcase(r)
             # Ensure that metaparameters are preserved when we canonicalize the resource.
-            metaparams = downcased_resource.select { |key, _value| Puppet::Type.metaparam?(key) }
+            metaparams = r.select { |key, _value| Puppet::Type.metaparam?(key) }
             canonicalized.merge!(metaparams) unless metaparams.nil?
             downcased_result.each do |key, value|
               # Canonicalize to the manifest value unless the downcased strings match and the attribute is not an enum:
