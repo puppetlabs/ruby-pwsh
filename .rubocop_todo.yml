@@ -6,13 +6,6 @@
 # Note that changes in the inspected code, or installation of new
 # versions of RuboCop, may require this file to be generated again.
 
-# Offense count: 1
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: Severity, Include.
-# Include: **/*.gemspec
-Gemspec/RequireMFA:
-  Exclude:
-    - 'ruby-pwsh.gemspec'
 
 # Offense count: 1
 # Configuration parameters: IgnoreLiteralBranches, IgnoreConstantBranches, IgnoreDuplicateElseBranch.
@@ -32,19 +25,6 @@ Lint/IncompatibleIoSelectWithFiberScheduler:
   Exclude:
     - 'lib/pwsh.rb'
 
-# Offense count: 2
-# This cop supports safe autocorrection (--autocorrect).
-Lint/RedundantCopDisableDirective:
-  Exclude:
-    - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
-
-# Offense count: 1
-# This cop supports safe autocorrection (--autocorrect).
-# Configuration parameters: EnforcedStyle.
-# SupportedStyles: strict, consistent
-Lint/SymbolConversion:
-  Exclude:
-    - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
 
 # Offense count: 16
 # Configuration parameters: AllowedMethods, AllowedPatterns, CountRepeatedAttributes.
@@ -191,11 +171,6 @@ RSpec/SubjectStub:
   Exclude:
     - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
 
-# Offense count: 1
-# This cop supports safe autocorrection (--autocorrect).
-Style/CombinableDefined:
-  Exclude:
-    - 'lib/pwsh.rb'
 
 # Offense count: 1
 # Configuration parameters: AllowedConstants.
@@ -226,11 +201,6 @@ Style/MapIntoArray:
   Exclude:
     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
 
-# Offense count: 1
-# This cop supports safe autocorrection (--autocorrect).
-Style/RedundantFreeze:
-  Exclude:
-    - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
 
 # Offense count: 1
 # This cop supports safe autocorrection (--autocorrect).
