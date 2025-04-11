@@ -384,8 +384,8 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     # Canonicalize the results to match the type definition representation;
     # failure to do so will prevent the resource_api from comparing the result
     # to the should hash retrieved from the resource definition in the manifest.
-    data.keys.each do |key| # rubocop:disable Style/HashEachMethods
-      type_key = "dsc_#{key.downcase}".to_sym
+    data.keys.each do |key|
+      type_key = :"dsc_#{key.downcase}"
       data[type_key] = data.delete(key)
 
       # Special handling for CIM Instances
@@ -598,7 +598,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @param enumerable [Enumerable] a string, array, hash, or other object to attempt to recursively downcase
   def downcase_hash_keys!(enumerable)
     if enumerable.is_a?(Hash)
-      enumerable.keys.each do |key| # rubocop:disable Style/HashEachMethods
+      enumerable.keys.each do |key|
         name = key.dup.downcase
         enumerable[name] = enumerable.delete(key)
         downcase_hash_keys!(enumerable[name]) if enumerable[name].is_a?(Enumerable)
@@ -1063,7 +1063,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # With multiple methods which need to discover secrets it is necessary to keep a single regex
   # which can discover them. This will lazily match everything in a single-quoted string which
   # ends with the secret postfix id and mark the actual contents of the string as the secret.
-  SECRET_DATA_REGEX = /'(?<secret>[^']+)+?#{Regexp.quote(SECRET_POSTFIX)}'/.freeze
+  SECRET_DATA_REGEX = /'(?<secret>[^']+)+?#{Regexp.quote(SECRET_POSTFIX)}'/
 
   # Strings containing sensitive data have a secrets postfix. These strings cannot be passed
   # directly either to debug streams or to PowerShell and must be handled; this method contains
