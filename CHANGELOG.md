@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [v2.0.0](https://github.com/puppetlabs/ruby-pwsh/tree/v2.0.0) - 2025-05-06
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v1.2.3...v2.0.0)
+
+### Changed
+
+- (CAT-2281) Remove puppet 7 infrastructure [#375](https://github.com/puppetlabs/ruby-pwsh/pull/375) ([LukasAud](https://github.com/LukasAud))
+
+### Fixed
+
+- Ensure metaparams casing is preserved [#374](https://github.com/puppetlabs/ruby-pwsh/pull/374) ([Clebam](https://github.com/Clebam))
+
 ## [v1.2.3](https://github.com/puppetlabs/ruby-pwsh/tree/v1.2.3) - 2025-03-18
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v1.2.2...v1.2.3)
