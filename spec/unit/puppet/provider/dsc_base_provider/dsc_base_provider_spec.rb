@@ -20,6 +20,9 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     provider.instance_variable_set(:@cached_query_results, [])
     provider.instance_variable_set(:@cached_test_results, [])
     provider.instance_variable_set(:@logon_failures, [])
+    provider.instance_variable_set(:@cached_canonicalize_results, [])
+    provider.instance_variable_set(:@cached_fresh_get_results, {})
+    provider.instance_variable_set(:@insync_property_cache, {})
   end
 
   describe '.initialize' do
@@ -42,6 +45,18 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     it 'initializes the logon_failures instance variable' do
       expect(provider.instance_variable_get(:@logon_failures)).to eq([])
+    end
+
+    it 'initializes the cached_canonicalize_results instance variable' do
+      expect(provider.instance_variable_get(:@cached_canonicalize_results)).to eq([])
+    end
+
+    it 'initializes the cached_fresh_get_results instance variable' do
+      expect(provider.instance_variable_get(:@cached_fresh_get_results)).to eq({})
+    end
+
+    it 'initializes the insync_property_cache instance variable' do
+      expect(provider.instance_variable_get(:@insync_property_cache)).to eq({})
     end
   end
 
@@ -391,33 +406,256 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.insync?' do
-    let(:name)               { { name: 'foo' } }
-    let(:attribute_name)     { :foo }
-    let(:is_hash)            { { name: 'foo', foo: 1 } }
-    let(:cached_test_result) { [{ name: 'foo', in_desired_state: true }] }
-    let(:should_hash_validate_by_property) { { name: 'foo', foo: 1, validation_mode: 'property' } }
-    let(:should_hash_validate_by_resource) { { name: 'foo', foo: 1, validation_mode: 'resource' } }
+    let(:name)           { { name: 'foo' } }
+    let(:property_name)  { :dsc_setting }
+    let(:is_hash)        { { name: 'foo', dsc_setting: 'Bar' } }
+    let(:should_hash)    { { name: 'foo', dsc_setting: 'Foo', validation_mode: 'property' } }
+    let(:fresh_state)    { { name: 'foo', dsc_setting: 'Bar' } }
+
+    before do
+      allow(context).to receive(:debug)
+    end
+
+    context 'when the corrective check is detected' do
+      it 'returns nil and deletes the cache entry on second call for the same property' do
+        provider.instance_variable_set(:@insync_property_cache, { 'foo_dsc_setting' => true })
+        result = provider.send(:insync?, context, name, property_name, is_hash, should_hash)
+        expect(result).to be_nil
+        expect(provider.instance_variable_get(:@insync_property_cache)).not_to have_key('foo_dsc_setting')
+      end
+    end
 
     context 'when the validation_mode is "resource"' do
-      it 'calls invoke_test_method if the result of a test is not already cached' do
-        expect(provider).to receive(:fetch_cached_hashes).and_return([])
-        expect(provider).to receive(:invoke_test_method).and_return(true)
-        expect(provider.send(:insync?, context, name, attribute_name, is_hash, should_hash_validate_by_resource)).to be true
+      let(:should_hash) { { name: 'foo', dsc_setting: 'Foo', validation_mode: 'resource' } }
+
+      context 'when DSC Test says in sync' do
+        it 'returns true for any property' do
+          allow(provider).to receive(:fetch_cached_hashes).and_return([])
+          allow(provider).to receive(:invoke_test_method).and_return(true)
+          expect(provider.send(:insync?, context, name, property_name, is_hash, should_hash)).to be true
+        end
+
+        it 'caches the Test result and reuses on subsequent calls' do
+          cached_test_result = [{ name: 'foo', in_desired_state: true }]
+          allow(provider).to receive(:fetch_cached_hashes).and_return(cached_test_result)
+          expect(provider).not_to receive(:invoke_test_method)
+          expect(provider.send(:insync?, context, name, property_name, is_hash, should_hash)).to be true
+        end
       end
 
-      it 'does not call invoke_test_method if the result of a test is already cached' do
-        expect(provider).to receive(:fetch_cached_hashes).and_return(cached_test_result)
-        expect(provider).not_to receive(:invoke_test_method)
-        expect(provider.send(:insync?, context, name, attribute_name, is_hash, should_hash_validate_by_resource)).to be true
+      context 'when DSC Test says out of sync' do
+        before do
+          allow(provider).to receive(:fetch_cached_hashes).and_return([])
+          allow(provider).to receive(:invoke_test_method).and_return([false, 'not in desired state'])
+        end
+
+        it 'returns fresh Get comparison result for dsc_ properties' do
+          allow(provider).to receive(:get_cached_fresh_state).and_return(fresh_state)
+          result = provider.send(:insync?, context, name, property_name, is_hash, should_hash)
+          # fresh_state has 'Bar', should_hash has 'Foo' — values differ
+          expect(result).to be_an(Array)
+          expect(result.first).to be false
+          expect(result.last).to match(/dsc_setting changed/)
+        end
+
+        it 'returns true for non-dsc_ properties (suppressed)' do
+          result = provider.send(:insync?, context, name, :name, is_hash, should_hash)
+          expect(result).to be true
+        end
+
+        it 'returns true when should_value is nil (suppressed)' do
+          should_hash_nil = should_hash.merge(dsc_setting: nil)
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_nil)
+          expect(result).to be true
+        end
       end
     end
 
     context 'when the validation_mode is "property"' do
-      it 'does not call invoke_test_method and returns nil' do
-        expect(provider).not_to receive(:fetch_cached_hashes)
-        expect(provider).not_to receive(:invoke_test_method)
-        expect(provider.send(:insync?, context, name, attribute_name, is_hash, should_hash_validate_by_property)).to be_nil
+      context 'when property_name does not start with dsc_' do
+        it 'returns nil for :name' do
+          result = provider.send(:insync?, context, name, :name, is_hash, should_hash)
+          expect(result).to be_nil
+        end
+
+        it 'returns nil for :ensure' do
+          result = provider.send(:insync?, context, name, :ensure, is_hash, should_hash)
+          expect(result).to be_nil
+        end
       end
+
+      context 'when should_value is nil' do
+        it 'returns nil' do
+          should_hash_nil = should_hash.merge(dsc_setting: nil)
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_nil)
+          expect(result).to be_nil
+        end
+      end
+
+      context 'when should_value is empty string' do
+        it 'returns nil' do
+          should_hash_empty = should_hash.merge(dsc_setting: '')
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
+          expect(result).to be_nil
+        end
+      end
+
+      context 'when fresh Get returns nil' do
+        it 'returns nil' do
+          allow(provider).to receive(:get_cached_fresh_state).and_return(nil)
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash)
+          expect(result).to be_nil
+        end
+      end
+
+      context 'when fresh Get returns nil in resource mode' do
+        let(:should_hash_resource) { { name: 'foo', dsc_setting: 'Foo', validation_mode: 'resource' } }
+
+        it 'returns [false, msg] and sets insync_property_cache' do
+          allow(provider).to receive(:fetch_cached_hashes).and_return([])
+          allow(provider).to receive(:invoke_test_method).and_return([false, 'not in desired state'])
+          allow(provider).to receive(:get_cached_fresh_state).and_return(nil)
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_resource)
+          expect(result).to be_an(Array)
+          expect(result.first).to be false
+          expect(provider.instance_variable_get(:@insync_property_cache)).to have_key('foo_dsc_setting')
+        end
+      end
+
+      context 'when values match' do
+        it 'returns true' do
+          matching_fresh = { name: 'foo', dsc_setting: 'Foo' }
+          allow(provider).to receive(:get_cached_fresh_state).and_return(matching_fresh)
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash)
+          expect(result).to be true
+        end
+      end
+
+      context 'when values differ' do
+        it 'returns [false, change_message] and sets insync_property_cache' do
+          differing_fresh = { name: 'foo', dsc_setting: 'Bar' }
+          allow(provider).to receive(:get_cached_fresh_state).and_return(differing_fresh)
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash)
+          expect(result).to be_an(Array)
+          expect(result.first).to be false
+          expect(result.last).to eq("dsc_setting changed 'Bar' to 'Foo'")
+          expect(provider.instance_variable_get(:@insync_property_cache)).to have_key('foo_dsc_setting')
+        end
+      end
+    end
+  end
+
+  describe '.values_equal?' do
+    it 'returns true for identical values' do
+      expect(provider.values_equal?('foo', 'foo')).to be true
+    end
+
+    it 'returns true for nil/nil' do
+      expect(provider.values_equal?(nil, nil)).to be true
+    end
+
+    it 'returns true for nil and empty string' do
+      expect(provider.values_equal?(nil, '')).to be true
+      expect(provider.values_equal?('', nil)).to be true
+    end
+
+    it 'returns true for case-insensitive string match' do
+      expect(provider.values_equal?('Foo', 'foo')).to be true
+    end
+
+    it 'returns false for integer vs string mismatch' do
+      expect(provider.values_equal?(30, '30')).to be false
+    end
+
+    it 'returns true for arrays in different order' do
+      expect(provider.values_equal?(%w[a b c], %w[c b a])).to be true
+    end
+
+    it 'returns true for hashes with case-different keys/values' do
+      expect(provider.values_equal?({ 'Foo' => 'Bar' }, { 'foo' => 'bar' })).to be true
+    end
+
+    it 'returns false for genuinely different values' do
+      expect(provider.values_equal?('foo', 'bar')).to be false
+    end
+
+    it 'returns false for different numbers' do
+      expect(provider.values_equal?(30, 42)).to be false
+    end
+  end
+
+  describe '.perform_fresh_get' do
+    let(:name) { { name: 'foo', dsc_name: 'foo' } }
+    let(:should_hash) { { name: 'foo', dsc_name: 'foo', dsc_setting: 'desired' } }
+    let(:attributes) { { name: { type: 'String' }, dsc_name: { type: 'String', mandatory_for_get: true }, dsc_setting: { type: 'String' } } }
+
+    before do
+      allow(context).to receive(:debug)
+      allow(context).to receive(:type).and_return(type)
+      allow(type).to receive(:attributes).and_return(attributes)
+      allow(provider).to receive(:mandatory_get_attributes).and_return([:dsc_name])
+    end
+
+    context 'when invoke_dsc_resource returns data' do
+      it 'returns a hash with dsc_ prefixed keys and :name' do
+        allow(provider).to receive(:invoke_dsc_resource).and_return({ 'Name' => 'foo', 'Setting' => 'current' })
+        result = provider.perform_fresh_get(context, name, should_hash)
+        expect(result[:dsc_setting]).to eq('current')
+        expect(result[:name]).to eq('foo')
+      end
+
+      it 'sanitizes System.Object[] artifacts to nil' do
+        allow(provider).to receive(:invoke_dsc_resource).and_return({ 'Name' => 'foo', 'Setting' => 'System.Object[]' })
+        result = provider.perform_fresh_get(context, name, should_hash)
+        expect(result[:dsc_setting]).to be_nil
+      end
+
+      it 'normalizes CIM instance hash keys and munges cim_instance_type' do
+        allow(provider).to receive(:invoke_dsc_resource).and_return({ 'Name' => 'foo', 'Setting' => { 'SomeKey' => 'val' } })
+        result = provider.perform_fresh_get(context, name, should_hash)
+        expect(result[:dsc_setting].keys.first).to eq('somekey')
+      end
+    end
+
+    context 'when invoke_dsc_resource returns nil' do
+      it 'returns nil' do
+        allow(provider).to receive(:invoke_dsc_resource).and_return(nil)
+        expect(provider.perform_fresh_get(context, name, should_hash)).to be_nil
+      end
+    end
+
+    context 'when invoke_dsc_resource raises an error' do
+      it 'returns nil and logs a debug message' do
+        allow(provider).to receive(:invoke_dsc_resource).and_raise(StandardError, 'boom')
+        expect(context).to receive(:debug).with(/perform_fresh_get failed/)
+        expect(provider.perform_fresh_get(context, name, should_hash)).to be_nil
+      end
+    end
+  end
+
+  describe '.get_cached_fresh_state' do
+    let(:name) { { name: 'foo' } }
+    let(:should_hash) { { name: 'foo', dsc_setting: 'desired' } }
+    let(:fresh_result) { { name: 'foo', dsc_setting: 'current' } }
+
+    before do
+      allow(context).to receive(:debug)
+    end
+
+    it 'calls perform_fresh_get on first call and caches the result' do
+      expect(provider).to receive(:perform_fresh_get).once.and_return(fresh_result)
+      result1 = provider.get_cached_fresh_state(context, name, should_hash)
+      result2 = provider.get_cached_fresh_state(context, name, should_hash)
+      expect(result1).to eq(fresh_result)
+      expect(result2).to eq(fresh_result)
+    end
+
+    it 'caches nil results to avoid repeated failed calls' do
+      expect(provider).to receive(:perform_fresh_get).once.and_return(nil)
+      result1 = provider.get_cached_fresh_state(context, name, should_hash)
+      result2 = provider.get_cached_fresh_state(context, name, should_hash)
+      expect(result1).to be_nil
+      expect(result2).to be_nil
     end
   end
 
@@ -656,6 +894,47 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
     end
 
+    context 'when DSC returns System.Object[] string values' do
+      let(:parsed_invocation_data) do
+        {
+          'Name' => 'foo',
+          'Ensure' => 'System.Object[]',
+          'Time' => nil
+        }
+      end
+
+      before do
+        allow(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: 'DSC Data' })
+        allow(JSON).to receive(:parse).with('DSC Data').and_return(parsed_invocation_data)
+        allow(provider).to receive(:fetch_cached_hashes).and_return([])
+      end
+
+      it 'sanitizes System.Object[] to nil' do
+        expect(result[:dsc_ensure]).to be_nil
+      end
+    end
+
+    context 'when DSC returns nil for a namevar' do
+      let(:parsed_invocation_data) do
+        {
+          'Name' => nil,
+          'Ensure' => 'Present'
+        }
+      end
+
+      before do
+        allow(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: 'DSC Data' })
+        allow(JSON).to receive(:parse).with('DSC Data').and_return(parsed_invocation_data)
+        allow(provider).to receive(:fetch_cached_hashes).and_return([])
+        allow(provider).to receive(:namevar_attributes).and_return(%i[name dsc_name])
+      end
+
+      it 'preserves the namevar value from the input name_hash' do
+        expect(result[:dsc_name]).to eq('foo')
+        expect(result[:name]).to eq('foo')
+      end
+    end
+
     context 'when the DSC invocation errors' do
       it 'writes an error and returns nil' do
         expect(provider).not_to receive(:logon_failed_already?)
@@ -861,6 +1140,44 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(context).not_to receive(:err)
         expect(result).to eq({ 'in_desired_state' => true, 'errormessage' => nil })
       end
+    end
+  end
+
+  describe '.invoke_get_method_for_canonicalize' do
+    before do
+      allow(context).to receive(:debug)
+      allow(provider).to receive(:namevar_attributes).and_return(%i[name dsc_name])
+    end
+
+    it 'calls invoke_get_method and caches to @cached_canonicalize_results' do
+      result = { name: 'foo', dsc_name: 'foo', dsc_setting: 'bar' }
+      allow(provider).to receive(:invoke_get_method).and_return(result)
+      allow(provider).to receive(:fetch_cached_hashes).and_return([])
+
+      provider.invoke_get_method_for_canonicalize(context, { name: 'foo', dsc_name: 'foo' })
+      expect(provider.instance_variable_get(:@cached_canonicalize_results)).to include(result)
+    end
+
+    it 'removes entries from @cached_query_results so get() does its own lookup' do
+      result = { name: 'foo', dsc_name: 'foo', dsc_setting: 'bar' }
+      cached_entry = result.dup
+      allow(provider).to receive(:invoke_get_method).and_return(result)
+      # First call checks @cached_canonicalize_results — return [] (cache miss)
+      # Subsequent calls within reject! should return a match so the entry gets removed
+      allow(provider).to receive(:fetch_cached_hashes).and_return([], [cached_entry], [])
+      provider.instance_variable_set(:@cached_query_results, [cached_entry])
+
+      provider.invoke_get_method_for_canonicalize(context, { name: 'foo', dsc_name: 'foo' })
+      expect(provider.instance_variable_get(:@cached_query_results)).to be_empty
+    end
+
+    it 'returns cached result on subsequent calls' do
+      result = { name: 'foo', dsc_name: 'foo', dsc_setting: 'bar' }
+      provider.instance_variable_set(:@cached_canonicalize_results, [result])
+      allow(provider).to receive(:fetch_cached_hashes).with([result], anything).and_return([result])
+
+      expect(provider).not_to receive(:invoke_get_method)
+      expect(provider.invoke_get_method_for_canonicalize(context, { name: 'foo', dsc_name: 'foo' })).to eq(result)
     end
   end
 
