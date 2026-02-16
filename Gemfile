@@ -36,7 +36,7 @@ group :development, :release_prep do
   gem "puppetlabs_spec_helper", '~> 8.0', require: false
 end
 group :system_tests do
-  gem "puppet_litmus", '~> 1.0',   require: false, platforms: [:ruby, :x64_mingw]
+  gem "puppet_litmus", '~> 2.0',   require: false, platforms: [:ruby, :x64_mingw]
   gem "CFPropertyList", '< 3.0.7', require: false, platforms: [:mswin, :mingw, :x64_mingw]
   gem "serverspec", '~> 2.41',     require: false
 end
