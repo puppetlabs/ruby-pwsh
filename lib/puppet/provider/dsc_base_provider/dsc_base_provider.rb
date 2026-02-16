@@ -12,8 +12,11 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # - logon failures
   def initialize
     @cached_canonicalized_resource = []
-    @cached_query_results = []
+    @cached_canonicalize_results = [] # Cache for invoke_get_method calls from canonicalize only
+    @cached_query_results = []        # Cache for invoke_get_method calls from get only
     @cached_test_results = []
+    @cached_fresh_get_results = {}
+    @insync_property_cache = {}
     @logon_failures = []
     @timeout = nil # default timeout, ps_manager.execute is expecting nil by default..
     super
@@ -61,7 +64,11 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
           canonicalized = r.dup
           @cached_canonicalized_resource << r.dup
         else
-          canonicalized = invoke_get_method(context, r)
+          # Use a separate cache for canonicalize's Get calls so we don't pollute
+          # @cached_query_results, which get() uses for the "is" state comparison.
+          # Sharing a cache between canonicalize and get caused the Resource API to
+          # see identical "should" and "is" values, killing per-property report detail.
+          canonicalized = invoke_get_method_for_canonicalize(context, r)
           # If the resource could not be found or was returned as absent, skip case munging and
           # treat the manifest values as canonical since the resource is being created.
           # rubocop:disable Metrics/BlockNesting
@@ -136,6 +143,21 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     cached_results = fetch_cached_hashes(@cached_query_results, names)
     return cached_results unless cached_results.empty?
 
+    # Use the raw system state from canonicalize's Get call if available.
+    # @cached_canonicalize_results has the unmodified DSC Get response (before
+    # canonicalize normalized casing). This gives the Resource API real "is" data
+    # with all property values, enabling per-property "Changed from" reporting.
+    unless @cached_canonicalize_results.empty?
+      canon_results = fetch_cached_hashes(@cached_canonicalize_results, names)
+      unless canon_results.empty?
+        # Cache these as query results too so subsequent get() calls find them
+        canon_results.each do |r|
+          @cached_query_results << r.dup if fetch_cached_hashes(@cached_query_results, [r]).empty?
+        end
+        return canon_results
+      end
+    end
+
     if @cached_canonicalized_resource.empty?
       mandatory_properties = {}
     else
@@ -165,6 +187,12 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
 
       # If should is an array instead of a hash and only has one entry, use that.
       should = should.first if should.is_a?(Array) && should.length == 1
+
+      # DSC_WORKAROUND logging disabled — the insync? tuple returns now provide
+      # accurate per-property change detail in PE Events, making this redundant.
+      # Retained commented out for future debugging if needed.
+      # fresh_is = get_fresh_state_for_logging(context, name, should)
+      # log_change_detail(context, name, fresh_is || is, should)
 
       # for compatibility sake, we use dsc_ensure instead of ensure, so context.type.ensurable? does not work
       if context.type.attributes.key?(:dsc_ensure)
@@ -199,6 +227,120 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
         end
       end
     end
+  end
+
+  # Compares the is and should hashes and logs per-property change detail.
+  # The Resource API does not generate per-property change events when custom_insync
+  # is declared as a feature, so we emit them ourselves to populate report detail.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param name [String] the name of the resource being changed
+  # @param is [Hash] the current state of the resource
+  # @param should [Hash] the desired state of the resource
+  def log_change_detail(context, name, is_value, should)
+    return if is_value.nil? || should.nil?
+
+    # Build context info for the log line
+    type_name = begin
+      context.type.definition[:name]
+    rescue StandardError
+      nil
+    end
+    dsc_module = begin
+      context.type.definition[:dscmeta_module_name]
+    rescue StandardError
+      nil
+    end
+    resource_title = name.is_a?(Hash) ? name[:name] : name
+    # Try to extract the declaring Puppet class from tags if available
+    tags = should[:tag] || should[:tags]
+    declaring_class = if tags.is_a?(Array)
+                        # Tags include type name, title, and all containing classes.
+                        # Class tags contain '::' — pick the most specific one.
+                        tags.reverse.find { |t| t.include?('::') }
+                      end
+
+    should.each do |property, desired_value|
+      next unless property.to_s.start_with?('dsc_')
+      next if property == :dsc_psdscrunascredential
+      # Skip namevars — they're identifiers, not managed properties
+      next if namevar_attributes(context).include?(property)
+
+      current_value = is_value[property]
+      # Skip if values are the same (case-insensitive for strings)
+      next if same?(recursively_downcase(current_value), recursively_downcase(desired_value))
+
+      mof_type = begin
+        context.type.definition[:attributes][property][:mof_type]
+      rescue StandardError
+        nil
+      end
+
+      detail = "DSC_WORKAROUND: #{property} '#{current_value}' -> '#{desired_value}'"
+      detail += " (#{mof_type})" if mof_type
+      detail += " | resource: #{type_name}[#{resource_title}]" if type_name
+      detail += " | dsc_module: #{dsc_module}" if dsc_module
+      detail += " | class: #{declaring_class}" if declaring_class
+      context.notice(detail)
+    end
+  end
+
+  # Performs a fresh DSC Get call completely bypassing all caches to retrieve the actual
+  # current system state. Used by both insync? (for accurate property comparison and
+  # change_message tuples) and set() (for DSC_WORKAROUND log entries).
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param name [Hash] the name hash for the resource
+  # @param should [Hash] the desired state hash (used to extract query properties)
+  # @return [Hash] returns a hash with dsc_ prefixed keys and current system values, or nil on failure
+  def perform_fresh_get(context, name, should)
+    query_props = should.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
+    data = invoke_dsc_resource(context, name, query_props, 'get')
+    return nil if data.nil?
+
+    # Minimal key processing to match the dsc_ prefix format used by Puppet types
+    valid_attributes = context.type.attributes.keys.collect(&:to_s)
+    result = {}
+    data.each do |key, value|
+      type_key = :"dsc_#{key.downcase}"
+      next unless valid_attributes.include?(type_key.to_s)
+
+      # Sanitize .NET serialization artifacts (e.g., "System.Object[]")
+      if value.is_a?(String) && value =~ /^System\.\w+\[\]$/
+        result[type_key] = nil
+      else
+        # Normalize CIM instances the same way invoke_get_method does,
+        # so fresh values are comparable to canonicalized should values.
+        if value.is_a?(Enumerable)
+          downcase_hash_keys!(value)
+          munge_cim_instances!(value)
+        end
+        result[type_key] = value
+      end
+    end
+    result[:name] = name.is_a?(Hash) ? name[:name] : name
+    result
+  rescue StandardError => e
+    context.debug("perform_fresh_get failed: #{e.message}")
+    nil
+  end
+
+  # Caching wrapper around perform_fresh_get — one fresh DSC Get per resource,
+  # reused across all properties during that resource's insync? calls.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param name [Hash] the name hash for the resource
+  # @param should [Hash] the desired state hash (used to extract query properties)
+  # @return [Hash] returns a hash with dsc_ prefixed keys and current system values, or nil on failure
+  def get_cached_fresh_state(context, name, should)
+    cache_key = name.is_a?(Hash) ? name[:name] : name
+    context.debug("INSYNC_DIAG: get_cached_fresh_state called, cache_key=#{cache_key.inspect}, name class=#{name.class}, cached=#{@cached_fresh_get_results.key?(cache_key)}")
+    unless @cached_fresh_get_results.key?(cache_key)
+      result = perform_fresh_get(context, name, should)
+      context.debug("INSYNC_DIAG: perform_fresh_get returned #{result.nil? ? 'nil' : result.keys.inspect}")
+      @cached_fresh_get_results[cache_key] = result
+    end
+    @cached_fresh_get_results[cache_key]
   end
 
   # Attempts to set an instance of the DSC resource, invoking the `Set` method and thinly wrapping
@@ -341,23 +483,114 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     data
   end
 
-  # Determine if the DSC Resource is in the desired state, invoking the `Test` method unless it's
-  #   already been run for the resource, in which case reuse the result instead of checking for each
-  #   property. This behavior is only triggered if the validation_mode is set to resource; by default
-  #   it is set to property and uses the default property comparison logic in Puppet::Property.
+  # Compare two values with type coercion. Handles the mismatches common in DSC:
+  # integers vs strings, case differences, array ordering, and nested CIM instances.
+  # Uses the same recursively_sort/recursively_downcase helpers the provider already
+  # relies on for canonicalize and log_change_detail comparisons.
+  #
+  # @param is_value [Object] the current value from a fresh DSC Get
+  # @param should_value [Object] the desired value from the Puppet manifest
+  # @return [Boolean] true if the values are equivalent
+  def values_equal?(is_value, should_value)
+    return true if is_value == should_value
+
+    # Handle nil/empty equivalence
+    is_empty = is_value.nil? || (is_value.respond_to?(:empty?) && is_value.empty?)
+    should_empty = should_value.nil? || (should_value.respond_to?(:empty?) && should_value.empty?)
+    return true if is_empty && should_empty
+
+    # Normalize and compare: sort for order-insensitive array/hash comparison,
+    # downcase for case-insensitive string comparison, handles nested structures.
+    same?(recursively_downcase(is_value), recursively_downcase(should_value))
+  end
+
+  # Determine if the DSC Resource is in the desired state, using fresh DSC Get
+  # results to provide accurate property comparison and real change messages.
+  #
+  # For validation_mode: resource, delegates entirely to DSC Test (unchanged).
+  #
+  # For validation_mode: property (default), performs a fresh DSC Get (one per
+  # resource, cached) that bypasses the get()/canonicalize pipeline, then compares
+  # each dsc_ property against the desired value. Returns:
+  # - true if the property matches (suppresses false positive events)
+  # - [false, "'current' -> 'desired'"] if the property genuinely differs
+  #   (the RSAPI uses the change_message as the Event text in PE)
+  # - nil to fall through to default RSAPI comparison (non-dsc_ properties,
+  #   or if the fresh Get failed)
   #
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @param name [String] the name of the resource being tested
-  # @param is_hash [Hash] the current state of the resource on the system
+  # @param property_name [Symbol] the name of the property being compared
+  # @param _is_hash [Hash] the current state of the resource on the system (unused, required by RSAPI signature)
   # @param should_hash [Hash] the desired state of the resource per the manifest
-  # @return [Boolean, Void] returns true/false if the resource is/isn't in the desired state and
-  #   the validation mode is set to resource, otherwise nil.
-  def insync?(context, name, _property_name, _is_hash, should_hash)
-    return nil if should_hash[:validation_mode] != 'resource'
+  # @return [Boolean, Array, Void] returns true/false/[false, message] if the resource
+  #   is/isn't in the desired state, or nil to fall through to default property comparison.
+  def insync?(context, name, property_name, _is_hash, should_hash)
+    # Detect corrective change check: after insync? returns [false, msg], Puppet calls
+    # insync? again for the same property. Return nil so default comparison handles it.
+    cache_key = name.is_a?(Hash) ? name[:name] : name
+    property_key = "#{cache_key}_#{property_name}"
+    return nil if @insync_property_cache.delete(property_key)
 
-    prior_result = fetch_cached_hashes(@cached_test_results, [name])
-    prior_result.empty? ? invoke_test_method(context, name, should_hash) : prior_result.first[:in_desired_state]
+    if should_hash[:validation_mode] == 'resource'
+      insync_resource_mode(context, name, property_name, should_hash)
+    else
+      insync_property_mode(context, name, property_name, should_hash)
+    end
   end
+
+  private
+
+  # Resource validation mode: DSC Test is the authority on overall sync state.
+  def insync_resource_mode(context, name, property_name, should_hash)
+    should_value = should_hash.is_a?(Hash) ? should_hash[property_name] : nil
+    prior_result = fetch_cached_hashes(@cached_test_results, [name])
+    test_result = prior_result.empty? ? invoke_test_method(context, name, should_hash) : prior_result.first[:in_desired_state]
+    in_sync = test_result.is_a?(Array) ? test_result.first : test_result
+
+    return true if in_sync
+
+    # DSC Test says out of sync. Suppress non-dsc_ and nil/empty properties.
+    return true unless property_name.to_s.start_with?('dsc_')
+    return true if should_value.nil? || (should_value.respond_to?(:empty?) && should_value.empty?)
+
+    # Fresh Get comparison for dsc_ properties with values
+    compare_fresh_value(context, name, property_name, should_hash, report_on_failure: true)
+  end
+
+  # Property validation mode: only intervene for dsc_ properties with a desired value.
+  def insync_property_mode(context, name, property_name, should_hash)
+    return nil unless property_name.to_s.start_with?('dsc_')
+
+    should_value = should_hash.is_a?(Hash) ? should_hash[property_name] : nil
+    return nil if should_value.nil? || (should_value.respond_to?(:empty?) && should_value.empty?)
+
+    compare_fresh_value(context, name, property_name, should_hash, report_on_failure: false)
+  end
+
+  # Shared fresh Get comparison for both validation modes.
+  def compare_fresh_value(context, name, property_name, should_hash, report_on_failure:)
+    should_value = should_hash.is_a?(Hash) ? should_hash[property_name] : nil
+    property_key = "#{name.is_a?(Hash) ? name[:name] : name}_#{property_name}"
+    fresh_state = get_cached_fresh_state(context, name, should_hash)
+
+    if fresh_state.nil?
+      if report_on_failure
+        @insync_property_cache[property_key] = true
+        return [false, "#{property_name} changed '' to '#{should_value}'"]
+      end
+
+      return nil
+    end
+
+    fresh_value = fresh_state[property_name]
+    return true if values_equal?(fresh_value, should_value)
+
+    @insync_property_cache[property_key] = true
+    [false, "#{property_name} changed '#{fresh_value}' to '#{should_value}'"]
+  end
+
+  public
 
   # Invokes the `Get` method, passing the name_hash as the properties to use with `Invoke-DscResource`
   # The PowerShell script returns a JSON representation of the DSC Resource's CIM Instance munged as
@@ -368,7 +601,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @param name_hash [Hash] the hash of namevars to be passed as properties to `Invoke-DscResource`
   # @return [Hash] returns a hash representing the DSC resource munged to the representation the Puppet Type expects
-  def invoke_get_method(context, name_hash) # rubocop:disable Metrics/AbcSize
+  def invoke_get_method(context, name_hash)
     context.debug("retrieving #{name_hash.inspect}")
 
     query_props = name_hash.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
@@ -387,29 +620,10 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     data.keys.each do |key|
       type_key = :"dsc_#{key.downcase}"
       data[type_key] = data.delete(key)
-
-      # Special handling for CIM Instances
-      if data[type_key].is_a?(Enumerable)
-        downcase_hash_keys!(data[type_key])
-        munge_cim_instances!(data[type_key])
-      end
-
-      # Convert DateTime back to appropriate type
-      if context.type.attributes[type_key][:mof_type] =~ /DateTime/i && !data[type_key].nil?
-        data[type_key] = begin
-          Puppet::Pops::Time::Timestamp.parse(data[type_key]) if context.type.attributes[type_key][:mof_type] =~ /DateTime/i && !data[type_key].nil?
-        rescue ArgumentError, TypeError => e
-          # Catch any failures in the parse, output them to the context and then return nil
-          context.err("Value returned for DateTime (#{data[type_key].inspect}) failed to parse: #{e}")
-          nil
-        end
-      end
-      # PowerShell does not distinguish between a return of empty array/string
-      #  and null but Puppet does; revert to those values if specified.
-      data[type_key] = [] if data[type_key].nil? && query_props.key?(type_key) && query_props[type_key].is_a?(Array)
+      canonicalize_get_value!(context, data, type_key, query_props)
     end
-    # If a resource is found, it's present, so refill this Puppet-only key
-    data[:name] = name_hash[:name]
+    sanitize_dotnet_artifacts!(context, data)
+    preserve_namevar_values!(context, data, name_hash)
 
     data = stringify_nil_attributes(context, data)
 
@@ -429,6 +643,78 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     @cached_query_results << data.dup if fetch_cached_hashes(@cached_query_results, [data]).empty?
     context.debug("Returned to Puppet as #{data}")
     data
+  end
+
+  # Invokes the `Get` method for canonicalize only, using a separate cache from get().
+  # This prevents canonicalize from polluting @cached_query_results, which get() relies on
+  # to return the "is" state for the Resource API's property-by-property comparison.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param name_hash [Hash] the hash of namevars to be passed as properties to `Invoke-DscResource`
+  # @return [Hash] returns a hash representing the DSC resource munged to the representation the Puppet Type expects
+  def invoke_get_method_for_canonicalize(context, name_hash)
+    # Check the canonicalize-specific cache first
+    cached = fetch_cached_hashes(@cached_canonicalize_results, [name_hash.select { |k, _v| namevar_attributes(context).include?(k) }])
+    return cached.first unless cached.empty?
+
+    # Call invoke_get_method which will do the actual DSC Get call.
+    # It will also cache to @cached_query_results as a side effect — remove that entry
+    # so get() is forced to do its own fresh lookup later.
+    result = invoke_get_method(context, name_hash)
+
+    # Remove the entry that invoke_get_method just added to @cached_query_results
+    # so that get() will do its own fresh DSC Get call and produce independent "is" data.
+    @cached_query_results.select! do |item|
+      matching = fetch_cached_hashes([item], [name_hash.select { |k, _v| namevar_attributes(context).include?(k) }])
+      matching.empty?
+    end
+
+    # Cache in our own separate cache
+    @cached_canonicalize_results << result.dup if result && fetch_cached_hashes(@cached_canonicalize_results, [result]).empty?
+
+    result
+  end
+
+  # Canonicalize a single value returned by DSC Get: handle CIM instances, DateTime, and empty arrays.
+  def canonicalize_get_value!(context, data, type_key, query_props)
+    # Special handling for CIM Instances
+    if data[type_key].is_a?(Enumerable)
+      downcase_hash_keys!(data[type_key])
+      munge_cim_instances!(data[type_key])
+    end
+
+    # Convert DateTime back to appropriate type
+    if context.type.attributes[type_key][:mof_type] =~ /DateTime/i && !data[type_key].nil?
+      data[type_key] = begin
+        Puppet::Pops::Time::Timestamp.parse(data[type_key])
+      rescue ArgumentError, TypeError => e
+        context.err("Value returned for DateTime (#{data[type_key].inspect}) failed to parse: #{e}")
+        nil
+      end
+    end
+    # PowerShell does not distinguish between a return of empty array/string
+    #  and null but Puppet does; revert to those values if specified.
+    data[type_key] = [] if data[type_key].nil? && query_props.key?(type_key) && query_props[type_key].is_a?(Array)
+  end
+
+  # Sanitize .NET serialization artifacts (e.g., "System.Object[]") to nil.
+  def sanitize_dotnet_artifacts!(context, data)
+    data.each do |key, value|
+      next unless value.is_a?(String) && value =~ /^System\.\w+\[\]$/
+
+      context.debug("Sanitizing .NET serialization artifact for #{key}: #{value} -> nil")
+      data[key] = nil
+    end
+  end
+
+  # Preserve namevar values from the input hash when DSC returns nil/empty.
+  def preserve_namevar_values!(context, data, name_hash)
+    data[:name] = name_hash[:name]
+    namevar_attributes(context).each do |namevar|
+      next unless name_hash.key?(namevar)
+
+      data[namevar] = name_hash[namevar] if data[namevar].nil? || (data[namevar].respond_to?(:empty?) && data[namevar].empty?)
+    end
   end
 
   # Invokes the `Set` method, passing the should hash as the properties to use with `Invoke-DscResource`

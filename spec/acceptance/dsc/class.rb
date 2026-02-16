@@ -47,7 +47,7 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
       first_run_result = powershell.execute(command)
       expect(first_run_result[:exitcode]).to be(2)
       expect(first_run_result[:native_stdout]).to match(//)
-      expect(first_run_result[:native_stdout]).to match(/dsc_description changed  to 'Example role capability file'/)
+      expect(first_run_result[:native_stdout]).to match(/dsc_description changed.*to 'Example role capability file'/)
       expect(first_run_result[:native_stdout]).to match(/Creating: Finished/)
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       second_run_result = powershell.execute(command)
