@@ -2,5 +2,5 @@
 
 module Pwsh
   # The version of the ruby-pwsh gem
-  VERSION = '2.0.0'
+  VERSION = '2.0.1'
 end

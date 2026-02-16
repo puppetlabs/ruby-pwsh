@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [v2.0.1](https://github.com/puppetlabs/ruby-pwsh/tree/v2.0.1) - 2026-02-16
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v2.0.0...v2.0.1)
+
+### Fixed
+
+- Fixes per-property change event reporting in PE when using DSC resources with custom_insync [#381](https://github.com/puppetlabs/ruby-pwsh/pull/381) ([albatrossflavour](https://github.com/albatrossflavour))
+
 ## [v2.0.0](https://github.com/puppetlabs/ruby-pwsh/tree/v2.0.0) - 2025-05-06
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v1.2.3...v2.0.0)
