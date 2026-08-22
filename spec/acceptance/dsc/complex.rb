@@ -123,11 +123,11 @@ RSpec.describe 'DSC Acceptance: Complex' do
       # Web content index created
       expect(first_run_result[:native_stdout]).to match(%r{File\[WebContentIndex\]/ensure: defined content as '.+'})
       # Web site created
-      expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[NewWebsite\]/dsc_siteid: dsc_siteid changed  to 7})
+      expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[NewWebsite\]/dsc_siteid: dsc_siteid changed.*to 7})
       expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[NewWebsite\]/dsc_ensure: dsc_ensure changed 'Absent' to 'Present'})
-      expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[NewWebsite\]/dsc_physicalpath: dsc_physicalpath changed  to '.+fixtures/website'})
-      expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[NewWebsite\]/dsc_state: dsc_state changed  to 'Started'})
-      expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[NewWebsite\]/dsc_serverautostart: dsc_serverautostart changed  to 'true'})
+      expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[NewWebsite\]/dsc_physicalpath: dsc_physicalpath changed.*to '.+fixtures/website'})
+      expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[NewWebsite\]/dsc_state: dsc_state changed.*to 'Started'})
+      expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[NewWebsite\]/dsc_serverautostart: dsc_serverautostart changed.*to 'true'})
       expect(first_run_result[:native_stdout]).to match(/dsc_xwebsite\[{:name=>"NewWebsite", :dsc_name=>"Puppet DSC Site"}\]: Creating: Finished/)
       # Run finished
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)

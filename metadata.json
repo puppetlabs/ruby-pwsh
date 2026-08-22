@@ -1,6 +1,6 @@
 {
   "name": "puppetlabs-pwshlib",
-  "version": "1.2.2",
+  "version": "2.0.1",
   "author": "puppetlabs",
   "summary": "Provide library code for interoperating with PowerShell.",
   "license": "MIT",
@@ -78,7 +78,7 @@
   "requirements": [
     {
       "name": "puppet",
-      "version_requirement": ">= 7.0.0 < 9.0.0"
+      "version_requirement": ">= 8.0.0 < 9.0.0"
     }
   ],
   "pdk-version": "3.0.1",

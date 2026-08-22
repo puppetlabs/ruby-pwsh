@@ -68,9 +68,9 @@ module Pwsh
     #
     # @return [Bool] true if enabled
     def self.win32console_enabled?
-      @win32console_enabled ||= defined?(Win32) &&
-                                defined?(Win32::Console) &&
-                                Win32::Console.instance_of?(Class)
+      @win32console_enabled ||=
+        defined?(Win32::Console) &&
+        Win32::Console.instance_of?(Class)
     end
 
     # TODO: This thing isn't called anywhere and the variable it sets is never referenced...
