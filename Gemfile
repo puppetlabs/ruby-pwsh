@@ -7,6 +7,8 @@ gemsource_puppetcore = if ENV['PUPPET_FORGE_TOKEN'] && !ENV['PUPPET_FORGE_TOKEN'
                        end
 source gemsource_default
 
+gem "rexml", require: false
+
 def location_for(place_or_version, fake_version = nil, opts = {})
   git_url_regex = %r{\A(?<url>(https?|git)[:@][^#]*)(#(?<branch>.*))?}
   file_url_regex = %r{\Afile:\/\/(?<path>.*)}
@@ -43,7 +45,6 @@ group :development, :release_prep do
   gem "puppetlabs_spec_helper", '~> 9.0', require: false
 end
 group :system_tests do
-  gem "puppet_litmus", '~> 1.0',   require: false, platforms: [:ruby, :x64_mingw]
   gem "CFPropertyList", '< 3.0.7', require: false, platforms: [:mswin, :mingw, :x64_mingw]
   gem "serverspec", '~> 2.41',     require: false
 end
