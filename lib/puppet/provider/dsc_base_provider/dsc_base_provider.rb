@@ -550,9 +550,14 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
 
     return true if in_sync
 
-    # DSC Test says out of sync. Suppress non-dsc_ and nil/empty properties.
+    # DSC Test says out of sync. Suppress non-DSC, nil and empty collection
+    # properties. An empty String is an explicit valid DSC value and must be
+    # compared.
     return true unless property_name.to_s.start_with?('dsc_')
-    return true if should_value.nil? || (should_value.respond_to?(:empty?) && should_value.empty?)
+    return true if should_value.nil?
+    return true if !should_value.is_a?(String) &&
+                   should_value.respond_to?(:empty?) &&
+                   should_value.empty?
 
     # Fresh Get comparison for dsc_ properties with values
     compare_fresh_value(context, name, property_name, should_hash, report_on_failure: true)
@@ -563,7 +568,10 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     return nil unless property_name.to_s.start_with?('dsc_')
 
     should_value = should_hash.is_a?(Hash) ? should_hash[property_name] : nil
-    return nil if should_value.nil? || (should_value.respond_to?(:empty?) && should_value.empty?)
+    return nil if should_value.nil?
+    return nil if !should_value.is_a?(String) &&
+                  should_value.respond_to?(:empty?) &&
+                  should_value.empty?
 
     compare_fresh_value(context, name, property_name, should_hash, report_on_failure: false)
   end

@@ -493,8 +493,25 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       context 'when should_value is empty string' do
-        it 'returns nil' do
+        it 'compares the value' do
           should_hash_empty = should_hash.merge(dsc_setting: '')
+          allow(provider).to receive(:compare_fresh_value).and_return(true)
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
+          expect(result).to be(true)
+        end
+      end
+
+      context 'when should_value is empty array' do
+        it 'returns nil' do
+          should_hash_empty = should_hash.merge(dsc_setting: [])
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
+          expect(result).to be_nil
+        end
+      end
+
+      context 'when should_value is empty hash' do
+        it 'returns nil' do
+          should_hash_empty = should_hash.merge(dsc_setting: {})
           result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
           expect(result).to be_nil
         end
