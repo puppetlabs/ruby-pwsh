@@ -1,6 +1,13 @@
-source ENV['GEM_SOURCE'] || 'https://rubygems.org'
+# For puppetcore, set GEM_SOURCE_PUPPETCORE = 'https://rubygems-puppetcore.puppet.com'
+gemsource_default = ENV['GEM_SOURCE'] || 'https://rubygems.org'
+gemsource_puppetcore = if ENV['PUPPET_FORGE_TOKEN'] && !ENV['PUPPET_FORGE_TOKEN'].empty?
+                         'https://rubygems-puppetcore.puppet.com'
+                       else
+                         ENV['GEM_SOURCE_PUPPETCORE'] || gemsource_default
+                       end
+source gemsource_default
 
-def location_for(place_or_version, fake_version = nil)
+def location_for(place_or_version, fake_version = nil, opts = {})
   git_url_regex = %r{\A(?<url>(https?|git)[:@][^#]*)(#(?<branch>.*))?}
   file_url_regex = %r{\Afile:\/\/(?<path>.*)}
 
@@ -9,7 +16,7 @@ def location_for(place_or_version, fake_version = nil)
   elsif place_or_version && (file_url = place_or_version.match(file_url_regex))
     ['>= 0', { path: File.expand_path(file_url[:path]), require: false }]
   else
-    [place_or_version, { require: false }]
+    [place_or_version, { require: false }.merge(opts)]
   end
 end
 
@@ -47,7 +54,7 @@ hiera_version = ENV['HIERA_GEM_VERSION']
 
 gems = {}
 
-gems['puppet'] = location_for(puppet_version)
+gems['puppet'] = location_for(puppet_version, nil, { source: gemsource_puppetcore })
 
 # If facter or hiera versions have been specified via the environment
 # variables
