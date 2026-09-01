@@ -46,6 +46,7 @@ group :development, :release_prep do
 end
 group :system_tests do
   gem "CFPropertyList", '< 3.0.7', require: false, platforms: [:mswin, :mingw, :x64_mingw]
+  gem "ffi",                       require: false, platforms: [:mswin, :mingw, :x64_mingw]
   gem "serverspec", '~> 2.41',     require: false
 end
 
@@ -55,12 +56,17 @@ hiera_version = ENV['HIERA_GEM_VERSION']
 
 gems = {}
 
+gemsource_facter = if Gem.ruby_version >= Gem::Version.new('4.0')
+                     gemsource_puppetcore
+                   else
+                     gemsource_default
+                   end
+
 gems['puppet'] = location_for(puppet_version, nil, { source: gemsource_puppetcore })
+gems['facter'] = location_for(facter_version, nil, { source: gemsource_facter })
 
-# If facter or hiera versions have been specified via the environment
-# variables
+# If a hiera version has been specified via the environment variable
 
-gems['facter'] = location_for(facter_version) if facter_version
 gems['hiera'] = location_for(hiera_version) if hiera_version
 
 gems.each do |gem_name, gem_params|
