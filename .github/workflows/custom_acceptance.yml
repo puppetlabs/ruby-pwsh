@@ -31,6 +31,10 @@ on:
         default: "ubuntu-latest"
         type: "string"
 
+env:
+  PUPPET_FORGE_TOKEN: ${{ secrets.PUPPET_FORGE_TOKEN || secrets.PUPPET_FORGE_TOKEN_PUBLIC }}
+  BUNDLE_RUBYGEMS___PUPPETCORE__PUPPET__COM: "forge-key:${{ secrets.PUPPET_FORGE_TOKEN || secrets.PUPPET_FORGE_TOKEN_PUBLIC }}"
+
 jobs:
   acceptance:
     name: "acceptance"
@@ -42,8 +46,9 @@ jobs:
         uses: "actions/checkout@v4"
 
       - name: "export environment"
+        shell: pwsh
         run: |
-          echo "PUPPET_GEM_VERSION=${{ inputs.puppet_version }} >> $GITHUB_ENV"
+          echo "PUPPET_GEM_VERSION=${{ inputs.puppet_version }}" >> $env:GITHUB_ENV
 
       - name: "setup ruby"
         uses: "ruby/setup-ruby@v1"
