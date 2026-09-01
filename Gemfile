@@ -1,6 +1,15 @@
-source ENV['GEM_SOURCE'] || 'https://rubygems.org'
+# For puppetcore, set GEM_SOURCE_PUPPETCORE = 'https://rubygems-puppetcore.puppet.com'
+gemsource_default = ENV['GEM_SOURCE'] || 'https://rubygems.org'
+gemsource_puppetcore = if ENV['PUPPET_FORGE_TOKEN'] && !ENV['PUPPET_FORGE_TOKEN'].empty?
+                         'https://rubygems-puppetcore.puppet.com'
+                       else
+                         ENV['GEM_SOURCE_PUPPETCORE'] || gemsource_default
+                       end
+source gemsource_default
 
-def location_for(place_or_version, fake_version = nil)
+gem "rexml", require: false
+
+def location_for(place_or_version, fake_version = nil, opts = {})
   git_url_regex = %r{\A(?<url>(https?|git)[:@][^#]*)(#(?<branch>.*))?}
   file_url_regex = %r{\Afile:\/\/(?<path>.*)}
 
@@ -9,7 +18,7 @@ def location_for(place_or_version, fake_version = nil)
   elsif place_or_version && (file_url = place_or_version.match(file_url_regex))
     ['>= 0', { path: File.expand_path(file_url[:path]), require: false }]
   else
-    [place_or_version, { require: false }]
+    [place_or_version, { require: false }.merge(opts)]
   end
 end
 
@@ -17,10 +26,10 @@ group :development do
   gem "json", '= 2.6.1',                         require: false if Gem::Requirement.create(['>= 3.1.0', '< 3.1.3']).satisfied_by?(Gem::Version.new(RUBY_VERSION.dup))
   gem "json", '= 2.6.3',                         require: false if Gem::Requirement.create(['>= 3.2.0', '< 4.0.0']).satisfied_by?(Gem::Version.new(RUBY_VERSION.dup))
   gem "deep_merge", '~> 1.0',                    require: false
-  gem "voxpupuli-puppet-lint-plugins", '~> 5.0', require: false
-  gem "facterdb", '~> 1.18',                     require: false
+  gem "voxpupuli-puppet-lint-plugins", '~> 7.0', require: false
+  gem "facterdb", '~> 4.0',                      require: false
   gem "metadata-json-lint", '~> 4.0',            require: false
-  gem "rspec-puppet-facts", '~> 3.0',            require: false
+  gem "rspec-puppet-facts", '~> 6.0',            require: false
   gem "dependency_checker", '~> 1.0.0',          require: false
   gem "parallel_tests", '3.13.0',              require: false
   gem "pry", '~> 0.10',                          require: false
@@ -33,11 +42,11 @@ group :development do
 end
 group :development, :release_prep do
   gem "puppet-strings", '~> 4.0',         require: false
-  gem "puppetlabs_spec_helper", '~> 8.0', require: false
+  gem "puppetlabs_spec_helper", '~> 9.0', require: false
 end
 group :system_tests do
-  gem "puppet_litmus", '~> 1.0',   require: false, platforms: [:ruby, :x64_mingw]
   gem "CFPropertyList", '< 3.0.7', require: false, platforms: [:mswin, :mingw, :x64_mingw]
+  gem "ffi",                       require: false, platforms: [:mswin, :mingw, :x64_mingw]
   gem "serverspec", '~> 2.41',     require: false
 end
 
@@ -47,12 +56,17 @@ hiera_version = ENV['HIERA_GEM_VERSION']
 
 gems = {}
 
-gems['puppet'] = location_for(puppet_version)
+gemsource_facter = if Gem.ruby_version >= Gem::Version.new('4.0')
+                     gemsource_puppetcore
+                   else
+                     gemsource_default
+                   end
 
-# If facter or hiera versions have been specified via the environment
-# variables
+gems['puppet'] = location_for(puppet_version, nil, { source: gemsource_puppetcore })
+gems['facter'] = location_for(facter_version, nil, { source: gemsource_facter })
 
-gems['facter'] = location_for(facter_version) if facter_version
+# If a hiera version has been specified via the environment variable
+
 gems['hiera'] = location_for(hiera_version) if hiera_version
 
 gems.each do |gem_name, gem_params|

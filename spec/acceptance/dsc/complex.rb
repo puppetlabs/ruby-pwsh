@@ -114,10 +114,10 @@ RSpec.describe 'DSC Acceptance: Complex' do
       expect(first_run_result[:exitcode]).to be(2)
       # The Default Site is stopped
       expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[DefaultSite\]/dsc_state: dsc_state changed 'Started' to 'Stopped'})
-      expect(first_run_result[:native_stdout]).to match(/dsc_xwebsite\[{:name=>"DefaultSite", :dsc_name=>"Default Web Site"}\]: Updating: Finished/)
+      expect(first_run_result[:native_stdout]).to match(/dsc_xwebsite\[\{:?name(?:=>|: )"DefaultSite", :?dsc_name(?:=>|: )"Default Web Site"\}\]: Updating: Finished/)
       # AspNet45 is installed
       expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwindowsfeature\[AspNet45\]/dsc_ensure: dsc_ensure changed 'Absent' to 'Present'})
-      expect(first_run_result[:native_stdout]).to match(/dsc_xwindowsfeature\[{:name=>"AspNet45", :dsc_name=>"Web-Asp-Net45"}\]: Creating: Finished/)
+      expect(first_run_result[:native_stdout]).to match(/dsc_xwindowsfeature\[\{:?name(?:=>|: )"AspNet45", :?dsc_name(?:=>|: )"Web-Asp-Net45"\}\]: Creating: Finished/)
       # Web content folder created
       expect(first_run_result[:native_stdout]).to match(%r{File\[WebContentFolder\]/ensure: created})
       # Web content index created
@@ -128,7 +128,7 @@ RSpec.describe 'DSC Acceptance: Complex' do
       expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[NewWebsite\]/dsc_physicalpath: dsc_physicalpath changed.*to '.+fixtures/website'})
       expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[NewWebsite\]/dsc_state: dsc_state changed.*to 'Started'})
       expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[NewWebsite\]/dsc_serverautostart: dsc_serverautostart changed.*to 'true'})
-      expect(first_run_result[:native_stdout]).to match(/dsc_xwebsite\[{:name=>"NewWebsite", :dsc_name=>"Puppet DSC Site"}\]: Creating: Finished/)
+      expect(first_run_result[:native_stdout]).to match(/dsc_xwebsite\[\{:?name(?:=>|: )"NewWebsite", :?dsc_name(?:=>|: )"Puppet DSC Site"\}\]: Creating: Finished/)
       # Run finished
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       # Second run is idempotent
