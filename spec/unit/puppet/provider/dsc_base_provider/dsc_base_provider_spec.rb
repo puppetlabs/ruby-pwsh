@@ -278,6 +278,39 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider).to receive(:invoke_get_method).with(context, { name: 'foo', dsc_some_parameter: 'baz' }).and_return({ name: 'foo', property: 'bar' })
       expect(provider.get(context, [{ name: 'foo' }])).to eq([{ name: 'foo', property: 'bar' }])
     end
+
+    context 'when @cached_canonicalize_results contains a matching resource' do
+      before do
+        allow(context).to receive(:debug)
+        allow(provider).to receive(:namevar_attributes).and_return([:name])
+        provider.instance_variable_set(:@cached_canonicalize_results, [{ name: 'foo', property: 'bar' }])
+      end
+
+      it 'returns results from the canonicalize cache without calling invoke_get_method' do
+        expect(provider).not_to receive(:invoke_get_method)
+        result = provider.get(context, [{ name: 'foo' }])
+        expect(result).to eq([{ name: 'foo', property: 'bar' }])
+      end
+
+      it 'also populates @cached_query_results' do
+        provider.get(context, [{ name: 'foo' }])
+        expect(provider.instance_variable_get(:@cached_query_results)).not_to be_empty
+      end
+    end
+
+    context 'when @cached_canonicalized_resource is empty' do
+      before do
+        allow(context).to receive(:debug)
+        allow(provider).to receive(:namevar_attributes).and_return([:name])
+        allow(provider).to receive(:invoke_get_method).and_return({ name: 'foo', property: 'bar' })
+        provider.instance_variable_set(:@cached_canonicalized_resource, [])
+      end
+
+      it 'uses empty mandatory_properties when no canonicalized resource cached' do
+        expect(provider).to receive(:invoke_get_method).with(context, { name: 'foo' })
+        provider.get(context, [{ name: 'foo' }])
+      end
+    end
   end
 
   describe '.set' do
@@ -362,6 +395,17 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           expect(context).to receive(:creating).with(name_hash).and_yield
           expect(provider).to receive(:create).with(context, name_hash, should_state)
           expect { result }.not_to raise_error
+        end
+      end
+
+      context 'when neither create, update, nor delete conditions match' do
+        let(:actual_state)  { { name: 'foo', dsc_ensure: 'Absent' } }
+        let(:should_state) { { name: 'foo', dsc_ensure: 'Latest' } }
+
+        it 'falls back to context.updating and provider.update' do
+          expect(context).to receive(:updating).with(name_hash).and_yield
+          expect(provider).to receive(:update).with(context, name_hash, should_state)
+          provider.set(context, change_set)
         end
       end
     end
@@ -659,6 +703,55 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
+  describe '.log_change_detail' do
+    let(:name_hash)    { { name: 'foo' } }
+    let(:is_hash)      { { name: 'foo', dsc_setting: 'old_value' } }
+    let(:should_hash)  { { name: 'foo', dsc_setting: 'new_value' } }
+    let(:type_def) do
+      {
+        name: 'dsc_foo',
+        dscmeta_module_name: 'FooModule',
+        attributes: { dsc_setting: { mof_type: 'String' } }
+      }
+    end
+
+    before do
+      allow(context).to receive(:type).and_return(type)
+      allow(type).to receive(:definition).and_return(type_def)
+      allow(provider).to receive(:namevar_attributes).and_return([:name])
+      allow(provider).to receive(:enum_attributes).and_return([])
+      allow(provider).to receive(:recursively_downcase) { |v| v }
+      allow(provider).to receive(:same?).and_return(false)
+    end
+
+    it 'emits a notice for each changed dsc_ property' do
+      expect(context).to receive(:notice).with(/dsc_setting/)
+      provider.log_change_detail(context, name_hash, is_hash, should_hash)
+    end
+
+    it 'includes type name and module name in the notice' do
+      expect(context).to receive(:notice).with(/dsc_foo.*FooModule/)
+      provider.log_change_detail(context, name_hash, is_hash, should_hash)
+    end
+
+    it 'returns immediately when is_value is nil' do
+      expect(context).not_to receive(:notice)
+      provider.log_change_detail(context, name_hash, nil, should_hash)
+    end
+
+    it 'includes the declaring class when tags contain a namespaced class' do
+      should_with_tags = should_hash.merge(tags: ['dsc_foo', 'my_module::my_class'])
+      expect(context).to receive(:notice).with(/my_module::my_class/)
+      provider.log_change_detail(context, name_hash, is_hash, should_with_tags)
+    end
+
+    it 'handles type definition errors gracefully' do
+      allow(type).to receive(:definition).and_raise(StandardError)
+      allow(context).to receive(:notice)
+      expect { provider.log_change_detail(context, name_hash, is_hash, should_hash) }.not_to raise_error
+    end
+  end
+
   describe '.invoke_get_method' do
     subject(:result) { provider.invoke_get_method(context, name_hash) }
 
@@ -940,6 +1033,18 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(provider).not_to receive(:logon_failed_already?)
         expect(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: nil })
         expect(context).to receive(:err).with('Nothing returned.')
+        expect(result).to be_nil
+      end
+    end
+
+    context 'when JSON.parse raises a StandardError on the invocation output' do
+      before do
+        allow(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: 'invalid json!' })
+        allow(JSON).to receive(:parse).and_raise(JSON::ParserError, 'unexpected token')
+      end
+
+      it 'writes the error to context and returns nil' do
+        expect(context).to receive(:err).with(instance_of(JSON::ParserError))
         expect(result).to be_nil
       end
     end
@@ -2114,6 +2219,25 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         it 'includes the ModuleName in the output hash as a hashtable of name and version' do
           expect(result).to match(/#{expected_module_name}/)
         end
+
+        context "when dscmeta_resource_implementation is 'Class'" do
+          let(:test_resource) do
+            {
+              parameters: test_parameter,
+              dscmeta_resource_friendly_name: 'Foo',
+              dscmeta_module_name: 'PuppetDsc',
+              dscmeta_module_version: '1.2.3.4',
+              dscmeta_resource_implementation: 'Class',
+              dsc_invoke_method: 'Get',
+              vendored_modules_path: 'C:/path/to/resources'
+            }
+          end
+
+          it 'uses the bare module name for Class resources instead of a psd1 path' do
+            expect(result).to match(/ModuleName = 'PuppetDsc'/)
+            expect(result).not_to match(/\.psd1/)
+          end
+        end
       end
     end
 
@@ -2450,6 +2574,29 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     it 'removes the secret identifier from any unwrapped secrets in a multiline string' do
       expect(provider.remove_secret_identifiers(multiline_sensitive_string)).to eq(multiline_redacted_string)
       expect(provider.remove_secret_identifiers(multiline_sensitive_complex)).to eq(multiline_redacted_complex)
+    end
+  end
+
+  describe '.unwrap_string' do
+    let(:sensitive_string) { Puppet::Pops::Types::PSensitiveType::Sensitive.new('secret') }
+
+    it 'unwraps a Sensitive value directly' do
+      expect(provider.unwrap_string(sensitive_string)).to eq('secret')
+    end
+
+    it 'recursively unwraps Sensitive values inside a Hash' do
+      result = provider.unwrap_string({ key: sensitive_string, other: 'plain' })
+      expect(result[:key]).to eq('secret')
+      expect(result[:other]).to eq('plain')
+    end
+
+    it 'recursively unwraps Sensitive values inside an Array' do
+      expect(provider.unwrap_string(['plain', sensitive_string])).to eq(['plain', 'secret'])
+    end
+
+    it 'returns non-sensitive values unchanged' do
+      expect(provider.unwrap_string('just a string')).to eq('just a string')
+      expect(provider.unwrap_string(42)).to eq(42)
     end
   end
 
