@@ -69,8 +69,45 @@ RSpec.describe Pwsh::WindowsPowerShell do
 
   describe '.compatible_version?' do
     context 'on non-Windows platforms', unless: Pwsh::Util.on_windows? do
-      it 'returns false' do
+      it 'returns false when version is not defined' do
         expect(described_class.compatible_version?).to be(false)
+      end
+
+      context 'when version method is stubbed' do
+        context 'when version returns nil' do
+          before { allow(described_class).to receive(:version).and_return(nil) }
+
+          it 'returns false' do
+            expect(described_class.compatible_version?).to be(false)
+          end
+        end
+
+        context 'when version is less than 2' do
+          before { allow(described_class).to receive(:version).and_return('1.0') }
+
+          it 'returns false' do
+            expect(described_class.compatible_version?).to be(false)
+          end
+        end
+
+        context 'when version is 3 or greater' do
+          before { allow(described_class).to receive(:version).and_return('3.0') }
+
+          it 'returns true' do
+            expect(described_class.compatible_version?).to be(true)
+          end
+        end
+
+        context 'when version is 2 and not on windows' do
+          before do
+            allow(described_class).to receive(:version).and_return('2.0')
+            allow(Pwsh::Util).to receive(:on_windows?).and_return(false)
+          end
+
+          it 'returns false' do
+            expect(described_class.compatible_version?).to be(false)
+          end
+        end
       end
     end
 
