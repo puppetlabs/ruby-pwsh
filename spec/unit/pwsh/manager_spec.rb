@@ -10,7 +10,7 @@ RSpec.describe Pwsh::Manager do
   let(:mock_stderr) { instance_double(IO) }
   let(:mock_process) { instance_double(Thread) }
   let(:mock_stdin) { instance_double(IO) }
-  let(:mock_manager) { instance_double(Pwsh::Manager) }
+  let(:mock_manager) { instance_double(described_class) }
 
   # Allocate-based manager (no initialize called)
   let(:manager) do
@@ -268,11 +268,11 @@ RSpec.describe Pwsh::Manager do
     end
 
     it 'replaces a dead manager with a new one' do
-      dead_manager = instance_double(Pwsh::Manager)
+      dead_manager = instance_double(described_class)
       allow(dead_manager).to receive(:alive?).and_return(false)
       allow(dead_manager).to receive(:exit)
 
-      new_manager = instance_double(Pwsh::Manager)
+      new_manager = instance_double(described_class)
       allow(new_manager).to receive(:alive?).and_return(true)
 
       allow(described_class).to receive(:new).and_return(dead_manager, new_manager)
@@ -287,11 +287,11 @@ RSpec.describe Pwsh::Manager do
     end
 
     it 'swallows errors when tearing down a dead manager' do
-      dead_manager = instance_double(Pwsh::Manager)
+      dead_manager = instance_double(described_class)
       allow(dead_manager).to receive(:alive?).and_return(false)
       allow(dead_manager).to receive(:exit).and_raise(StandardError, 'teardown failed')
 
-      new_manager = instance_double(Pwsh::Manager)
+      new_manager = instance_double(described_class)
       allow(new_manager).to receive(:alive?).and_return(true)
       allow(described_class).to receive(:new).and_return(new_manager)
 
