@@ -106,8 +106,11 @@ RSpec.describe Pwsh::Manager do
 
   describe '.instance_key' do
     it 'combines cmd, args and options into a string' do
-      key = described_class.instance_key('/usr/bin/pwsh', ['-NoProfile'], { debug: false })
-      expect(key).to eq('/usr/bin/pwsh-NoProfile{:debug=>false}')
+      cmd = '/usr/bin/pwsh'
+      args = ['-NoProfile']
+      options = { debug: false }
+      key = described_class.instance_key(cmd, args, options)
+      expect(key).to eq("#{cmd}#{args.join(' ')}#{options}")
     end
   end
 
