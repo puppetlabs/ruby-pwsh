@@ -3,6 +3,8 @@
 .metadata
 .yardoc
 .yardwarns
+.rspec
+.rspec_status
 *.iml
 /.bundle/
 /.idea/

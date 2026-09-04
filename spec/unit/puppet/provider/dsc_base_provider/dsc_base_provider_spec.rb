@@ -2591,7 +2591,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     it 'recursively unwraps Sensitive values inside an Array' do
-      expect(provider.unwrap_string(['plain', sensitive_string])).to eq(['plain', 'secret'])
+      expect(provider.unwrap_string(['plain', sensitive_string])).to eq(%w[plain secret])
     end
 
     it 'returns non-sensitive values unchanged' do

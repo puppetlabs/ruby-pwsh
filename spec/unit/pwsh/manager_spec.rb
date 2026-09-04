@@ -5,16 +5,12 @@ require 'ruby-pwsh'
 
 RSpec.describe Pwsh::Manager do
   # Shared doubles
-  let(:mock_pipe) { double('pipe') }
-  let(:mock_stdout) { double('stdout') }
-  let(:mock_stderr) { double('stderr') }
-  let(:mock_process) { double('process') }
-  let(:mock_stdin) { double('stdin') }
-  let(:mock_manager) { double('manager') }
-
-  after do
-    described_class.instances.clear
-  end
+  let(:mock_pipe) { instance_double(IO) }
+  let(:mock_stdout) { instance_double(IO) }
+  let(:mock_stderr) { instance_double(IO) }
+  let(:mock_process) { instance_double(Thread) }
+  let(:mock_stdin) { instance_double(IO) }
+  let(:mock_manager) { instance_double(Pwsh::Manager) }
 
   # Allocate-based manager (no initialize called)
   let(:manager) do
@@ -27,6 +23,10 @@ RSpec.describe Pwsh::Manager do
     mgr.instance_variable_set(:@powershell_command, '/usr/bin/pwsh')
     mgr.instance_variable_set(:@powershell_arguments, ['-NoProfile'])
     mgr
+  end
+
+  after do
+    described_class.instances.clear
   end
 
   # -------------------------------------------------------------------------
@@ -47,7 +47,7 @@ RSpec.describe Pwsh::Manager do
 
   describe '.win32console_enabled?' do
     it 'returns false on macOS (Win32::Console not defined)' do
-      expect(described_class.win32console_enabled?).to be_falsey
+      expect(described_class).not_to be_win32console_enabled
     end
   end
 
@@ -139,7 +139,7 @@ RSpec.describe Pwsh::Manager do
   end
 
   describe '.pwsh_path' do
-    context 'on non-Windows' do
+    context 'when on non-Windows' do
       before { allow(Pwsh::Util).to receive(:on_windows?).and_return(false) }
 
       it 'returns the first found pwsh path' do
@@ -176,7 +176,7 @@ RSpec.describe Pwsh::Manager do
       it 'returns falsey' do
         allow(described_class).to receive(:stream_valid?).and_return(true)
         allow(IO).to receive(:select).and_return(nil)
-        expect(described_class.readable?(mock_pipe)).to be_falsey
+        expect(described_class).not_to be_readable(mock_pipe)
       end
     end
 
@@ -185,8 +185,7 @@ RSpec.describe Pwsh::Manager do
         allow(described_class).to receive(:stream_valid?).and_return(true)
         allow(IO).to receive(:select).and_return([[mock_pipe], [], []])
         allow(mock_pipe).to receive(:eof?).and_return(false)
-        result = described_class.readable?(mock_pipe)
-        expect(result).to be_truthy
+        expect(described_class).to be_readable(mock_pipe)
       end
     end
   end
@@ -204,7 +203,7 @@ RSpec.describe Pwsh::Manager do
     end
 
     it 'returns true when stream is open and stat succeeds' do
-      stat_double = double('stat')
+      stat_double = instance_double(File::Stat)
       allow(mock_pipe).to receive(:closed?).and_return(false)
       allow(mock_pipe).to receive(:stat).and_return(stat_double)
       expect(described_class.stream_valid?(mock_pipe)).to be true
@@ -251,7 +250,6 @@ RSpec.describe Pwsh::Manager do
   # -------------------------------------------------------------------------
 
   describe '.instance' do
-
     it 'creates a new manager when none exists for the key' do
       allow(mock_manager).to receive(:alive?).and_return(true)
       allow(described_class).to receive(:new).and_return(mock_manager)
@@ -264,22 +262,22 @@ RSpec.describe Pwsh::Manager do
       allow(mock_manager).to receive(:alive?).and_return(true)
       allow(described_class).to receive(:new).and_return(mock_manager).once
 
-      first  = described_class.instance('/usr/bin/pwsh', [])
+      first = described_class.instance('/usr/bin/pwsh', [])
       second = described_class.instance('/usr/bin/pwsh', [])
       expect(first).to eq(second)
     end
 
     it 'replaces a dead manager with a new one' do
-      dead_manager = double('dead_manager')
+      dead_manager = instance_double(Pwsh::Manager)
       allow(dead_manager).to receive(:alive?).and_return(false)
       allow(dead_manager).to receive(:exit)
 
-      new_manager = double('new_manager')
+      new_manager = instance_double(Pwsh::Manager)
       allow(new_manager).to receive(:alive?).and_return(true)
 
       allow(described_class).to receive(:new).and_return(dead_manager, new_manager)
 
-      first  = described_class.instance('/usr/bin/pwsh', [])
+      described_class.instance('/usr/bin/pwsh', [])
       # Simulate the stored manager being dead now
       key = described_class.instance_key('/usr/bin/pwsh', [], described_class.default_options)
       described_class.instances[key] = dead_manager
@@ -289,11 +287,11 @@ RSpec.describe Pwsh::Manager do
     end
 
     it 'swallows errors when tearing down a dead manager' do
-      dead_manager = double('dead_manager')
+      dead_manager = instance_double(Pwsh::Manager)
       allow(dead_manager).to receive(:alive?).and_return(false)
       allow(dead_manager).to receive(:exit).and_raise(StandardError, 'teardown failed')
 
-      new_manager = double('new_manager')
+      new_manager = instance_double(Pwsh::Manager)
       allow(new_manager).to receive(:alive?).and_return(true)
       allow(described_class).to receive(:new).and_return(new_manager)
 
@@ -551,7 +549,7 @@ RSpec.describe Pwsh::Manager do
       allow(mock_stdin).to receive(:close)
       allow(Open3).to receive(:popen3).and_return([mock_stdin, mock_stdout, mock_stderr, mock_process])
       allow(UNIXSocket).to receive(:new).and_return(mock_pipe)
-      allow_any_instance_of(described_class).to receive(:at_exit)
+      allow_any_instance_of(described_class).to receive(:at_exit) # rubocop:disable RSpec/AnyInstance
     end
 
     it 'creates a usable manager' do
@@ -565,12 +563,12 @@ RSpec.describe Pwsh::Manager do
     end
 
     it 'passes the command to Open3' do
-      expect(Open3).to receive(:popen3).with(a_string_including('/usr/bin/pwsh')).and_return([mock_stdin, mock_stdout, mock_stderr, mock_process])
+      expect(Open3).to receive(:popen3).with(a_string_including('/usr/bin/pwsh')).and_return([mock_stdin, mock_stdout, mock_stderr, mock_process]) # rubocop:disable RSpec/StubbedMock
       described_class.new('/usr/bin/pwsh', [], pipe_timeout: 1)
     end
 
     it 'appends EmitDebugOutput when debug: true' do
-      expect(Open3).to receive(:popen3).with(a_string_including('EmitDebugOutput')).and_return([mock_stdin, mock_stdout, mock_stderr, mock_process])
+      expect(Open3).to receive(:popen3).with(a_string_including('EmitDebugOutput')).and_return([mock_stdin, mock_stdout, mock_stderr, mock_process]) # rubocop:disable RSpec/StubbedMock
       described_class.new('/usr/bin/pwsh', [], pipe_timeout: 1, debug: true)
     end
 
