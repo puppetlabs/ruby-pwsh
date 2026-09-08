@@ -1,5 +1,7 @@
 .git/
 .*.sw[op]
+*.tar.gz
+docs/
 .metadata
 .yardoc
 .yardwarns
