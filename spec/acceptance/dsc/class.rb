@@ -45,13 +45,13 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource', if: Pwsh::Util.on_windows
 
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
-      expect(first_run_result[:exitcode]).to be(2)
+      expect(first_run_result[:exitcode]).to eq(2)
       expect(first_run_result[:native_stdout]).to match(//)
       expect(first_run_result[:native_stdout]).to match(/dsc_description changed.*to 'Example role capability file'/)
       expect(first_run_result[:native_stdout]).to match(/Creating: Finished/)
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       second_run_result = powershell.execute(command)
-      expect(second_run_result[:exitcode]).to be(0)
+      expect(second_run_result[:exitcode]).to eq(0)
     end
   end
 
@@ -83,12 +83,12 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource', if: Pwsh::Util.on_windows
 
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
-      expect(first_run_result[:exitcode]).to be(2)
+      expect(first_run_result[:exitcode]).to eq(2)
       expect(first_run_result[:native_stdout]).to match(/dsc_description changed 'Example role capability file' to 'Updated role capability file'/)
       expect(first_run_result[:native_stdout]).to match(/Updating: Finished/)
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       second_run_result = powershell.execute(command)
-      expect(second_run_result[:exitcode]).to be(0)
+      expect(second_run_result[:exitcode]).to eq(0)
     end
   end
 
@@ -118,12 +118,12 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource', if: Pwsh::Util.on_windows
 
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
-      expect(first_run_result[:exitcode]).to be(2)
+      expect(first_run_result[:exitcode]).to eq(2)
       expect(first_run_result[:native_stdout]).to match(/dsc_ensure changed 'Present' to 'Absent'/)
       expect(first_run_result[:native_stdout]).to match(/Deleting: Finished/)
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       second_run_result = powershell.execute(command)
-      expect(second_run_result[:exitcode]).to be(0)
+      expect(second_run_result[:exitcode]).to eq(0)
     end
   end
 end

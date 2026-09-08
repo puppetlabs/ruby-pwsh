@@ -111,7 +111,7 @@ RSpec.describe 'DSC Acceptance: Complex' do
       File.write(test_manifest, content)
       # Puppet apply the test manifest
       first_run_result = powershell.execute(puppet_apply)
-      expect(first_run_result[:exitcode]).to be(2)
+      expect(first_run_result[:exitcode]).to eq(2)
       # The Default Site is stopped
       expect(first_run_result[:native_stdout]).to match(%r{Dsc_xwebsite\[DefaultSite\]/dsc_state: dsc_state changed 'Started' to 'Stopped'})
       expect(first_run_result[:native_stdout]).to match(/dsc_xwebsite\[{:name=>"DefaultSite", :dsc_name=>"Default Web Site"}\]: Updating: Finished/)
@@ -133,7 +133,7 @@ RSpec.describe 'DSC Acceptance: Complex' do
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       # Second run is idempotent
       second_run_result = powershell.execute(puppet_apply)
-      expect(second_run_result[:exitcode]).to be(0)
+      expect(second_run_result[:exitcode]).to eq(0)
     end
   end
 end

@@ -56,12 +56,12 @@ RSpec.describe 'DSC Acceptance: Basic', if: Pwsh::Util.on_windows? do
 
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
-      expect(first_run_result[:exitcode]).to be(2)
+      expect(first_run_result[:exitcode]).to eq(2)
       expect(first_run_result[:native_stdout]).to match(/dsc_installationpolicy changed 'Untrusted' to 'Trusted'/)
       expect(first_run_result[:native_stdout]).to match(/Updating: Finished/)
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       second_run_result = powershell.execute(command)
-      expect(second_run_result[:exitcode]).to be(0)
+      expect(second_run_result[:exitcode]).to eq(0)
     end
   end
 
@@ -87,12 +87,12 @@ RSpec.describe 'DSC Acceptance: Basic', if: Pwsh::Util.on_windows? do
 
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
-      expect(first_run_result[:exitcode]).to be(2)
+      expect(first_run_result[:exitcode]).to eq(2)
       expect(first_run_result[:native_stdout]).to match(/dsc_ensure changed 'Absent' to 'Present'/)
       expect(first_run_result[:native_stdout]).to match(/Creating: Finished/)
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       second_run_result = powershell.execute(command)
-      expect(second_run_result[:exitcode]).to be(0)
+      expect(second_run_result[:exitcode]).to eq(0)
     end
   end
 
@@ -120,12 +120,12 @@ RSpec.describe 'DSC Acceptance: Basic', if: Pwsh::Util.on_windows? do
 
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
-      expect(first_run_result[:exitcode]).to be(2)
+      expect(first_run_result[:exitcode]).to eq(2)
       expect(first_run_result[:native_stdout]).to match(/dsc_ensure changed 'Present' to 'Absent'/)
       expect(first_run_result[:native_stdout]).to match(/Deleting: Finished/)
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       second_run_result = powershell.execute(command)
-      expect(second_run_result[:exitcode]).to be(0)
+      expect(second_run_result[:exitcode]).to eq(0)
     end
   end
 
@@ -171,14 +171,14 @@ RSpec.describe 'DSC Acceptance: Basic', if: Pwsh::Util.on_windows? do
 
       it 'applies idempotently without leaking secrets' do
         first_run_result = powershell.execute(command)
-        expect(first_run_result[:exitcode]).to be(2)
+        expect(first_run_result[:exitcode]).to eq(2)
         expect(first_run_result[:native_stdout]).to match(/dsc_installationpolicy changed 'Untrusted' to 'Trusted'/)
         expect(first_run_result[:native_stdout]).to match(/Updating: Finished/)
         expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
         expect(first_run_result[:native_stdout]).to match(/'#<Sensitive \[value redacted\]>'/)
         expect(first_run_result[:native_stdout]).not_to match(local_pw)
         second_run_result = powershell.execute(command)
-        expect(second_run_result[:exitcode]).to be(0)
+        expect(second_run_result[:exitcode]).to eq(0)
       end
     end
 
