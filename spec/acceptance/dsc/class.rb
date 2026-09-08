@@ -3,7 +3,7 @@
 require 'spec_helper'
 require 'ruby-pwsh'
 
-powershell = Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args)
+powershell = Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args) if Pwsh::Util.on_windows?
 module_path = File.expand_path('../../fixtures/modules', File.dirname(__FILE__))
 psrc_path = File.expand_path('../../fixtures/example.psrc', File.dirname(__FILE__))
 
@@ -13,7 +13,7 @@ def execute_reset_command(reset_command)
   raise result[:errormessage] unless result[:errormessage].nil?
 end
 
-RSpec.describe 'DSC Acceptance: Class-Based Resource' do
+RSpec.describe 'DSC Acceptance: Class-Based Resource', if: Pwsh::Util.on_windows? do
   let(:puppet_apply) do
     "bundle exec puppet apply --modulepath #{module_path} --detailed-exitcodes --debug --trace"
   end
@@ -45,13 +45,13 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
 
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
-      expect(first_run_result[:exitcode]).to be(2)
+      expect(first_run_result[:exitcode]).to eq(2)
       expect(first_run_result[:native_stdout]).to match(//)
       expect(first_run_result[:native_stdout]).to match(/dsc_description changed.*to 'Example role capability file'/)
       expect(first_run_result[:native_stdout]).to match(/Creating: Finished/)
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       second_run_result = powershell.execute(command)
-      expect(second_run_result[:exitcode]).to be(0)
+      expect(second_run_result[:exitcode]).to eq(0)
     end
   end
 
@@ -83,12 +83,12 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
 
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
-      expect(first_run_result[:exitcode]).to be(2)
+      expect(first_run_result[:exitcode]).to eq(2)
       expect(first_run_result[:native_stdout]).to match(/dsc_description changed 'Example role capability file' to 'Updated role capability file'/)
       expect(first_run_result[:native_stdout]).to match(/Updating: Finished/)
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       second_run_result = powershell.execute(command)
-      expect(second_run_result[:exitcode]).to be(0)
+      expect(second_run_result[:exitcode]).to eq(0)
     end
   end
 
@@ -118,12 +118,12 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
 
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
-      expect(first_run_result[:exitcode]).to be(2)
+      expect(first_run_result[:exitcode]).to eq(2)
       expect(first_run_result[:native_stdout]).to match(/dsc_ensure changed 'Present' to 'Absent'/)
       expect(first_run_result[:native_stdout]).to match(/Deleting: Finished/)
       expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
       second_run_result = powershell.execute(command)
-      expect(second_run_result[:exitcode]).to be(0)
+      expect(second_run_result[:exitcode]).to eq(0)
     end
   end
 end
