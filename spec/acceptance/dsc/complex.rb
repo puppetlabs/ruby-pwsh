@@ -9,7 +9,7 @@ fixtures_path = File.expand_path('../../fixtures', File.dirname(__FILE__))
 
 def execute_reset_command(reset_command)
   manager = Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args)
-  result = manager.execute(reset_command)
+  result = manager.execute(reset_command, 600_000)
   raise result[:errormessage] unless result[:errormessage].nil?
 end
 
@@ -26,7 +26,7 @@ RSpec.describe 'DSC Acceptance: Complex' do
         # Ensure IIS is not installed
         $Feature = Get-WindowsFeature -Name 'Web-Asp-Net45'
         If ($Feature.Installed) {
-          Remove-WindowsFeature -Name $Feature.Name -ErrorAction Stop
+          Remove-WindowsFeature -Name $Feature.Name -NoRestart -ErrorAction Stop
         }
         $DefaultSite = Get-Website 'Default Web Site' -ErrorAction Continue
         $ExampleSite = Get-Website 'Puppet DSC Site' -ErrorAction Continue

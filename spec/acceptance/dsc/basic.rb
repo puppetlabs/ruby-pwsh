@@ -4,7 +4,7 @@ require 'spec_helper'
 require 'ruby-pwsh'
 require 'securerandom'
 
-powershell = Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args)
+powershell = Pwsh::Manager.instance(Pwsh::Manager.powershell_path, Pwsh::Manager.powershell_args) if Pwsh::Util.on_windows?
 module_path = File.expand_path('../../fixtures/modules', File.dirname(__FILE__))
 powershellget_path = File.expand_path('powershellget/lib/puppet_x/powershellget/dsc_resources/PowerShellGet', module_path)
 local_user = ['dsc', SecureRandom.uuid.slice(0, 7)].join('_')
@@ -16,7 +16,7 @@ def execute_reset_command(reset_command)
   raise result[:errormessage] unless result[:errormessage].nil?
 end
 
-RSpec.describe 'DSC Acceptance: Basic' do
+RSpec.describe 'DSC Acceptance: Basic', if: Pwsh::Util.on_windows? do
   let(:puppet_apply) do
     "bundle exec puppet apply --modulepath #{module_path} --detailed-exitcodes --debug --trace"
   end
