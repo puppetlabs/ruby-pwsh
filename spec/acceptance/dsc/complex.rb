@@ -26,7 +26,7 @@ RSpec.describe 'DSC Acceptance: Complex' do
         # Ensure IIS is not installed
         $Feature = Get-WindowsFeature -Name 'Web-Asp-Net45'
         If ($Feature.Installed) {
-          Remove-WindowsFeature -Name $Feature.Name -NoRestart -ErrorAction Stop
+          Remove-WindowsFeature -Name $Feature.Name -ErrorAction Stop
         }
         $DefaultSite = Get-Website 'Default Web Site' -ErrorAction Continue
         $ExampleSite = Get-Website 'Puppet DSC Site' -ErrorAction Continue
