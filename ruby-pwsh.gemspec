@@ -28,6 +28,8 @@ Gem::Specification.new do |spec|
     'spec/**/*',
   ]
 
+  spec.add_dependency 'rexml'
+
   spec.bindir        = 'exe'
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ['lib']

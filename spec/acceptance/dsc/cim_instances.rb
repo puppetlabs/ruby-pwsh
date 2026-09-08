@@ -67,7 +67,7 @@ RSpec.describe 'DSC Acceptance: Complex' do
       expect(first_run_result[:exitcode]).to be(2)
       # Access Control Set
       expect(first_run_result[:native_stdout]).to match(/dsc_accesscontrollist: dsc_accesscontrollist changed/)
-      expect(first_run_result[:native_stdout]).to match(%r{dsc_ntfsaccessentry\[{:name=>"Test", :dsc_path=>".+/spec/fixtures/access_control"}\]: Updating: Finished})
+      expect(first_run_result[:native_stdout]).to match(%r{dsc_ntfsaccessentry\[\{:?name(?:=>|: )"Test", :?dsc_path(?:=>|: )".+/spec/fixtures/access_control"\}\]: Updating: Finished})
       expect(first_run_result[:stderr]).not_to match(/Error/)
       expect(first_run_result[:stderr]).not_to match(/Warning: Provider returned data that does not match the Type Schema/)
       expect(first_run_result[:stderr]).not_to match(/Value type mismatch/)

@@ -12,9 +12,12 @@ jobs:
       matrix:
         ruby_version:
           - '3.2'
+          - '4.0'
         include:
           - ruby_version: '3.2'
             puppet_version: '~> 8.0'
+          - ruby_version: '4.0'
+            puppet_version: '~> 9.0'
     name: "spec (ruby ${{ matrix.ruby_version }} | puppet ${{ matrix.puppet_version }})"
     uses: "puppetlabs/cat-github-actions/.github/workflows/gem_ci.yml@main"
     secrets: "inherit"
@@ -25,12 +28,16 @@ jobs:
   acceptance:
     needs: "spec"
     strategy:
+      fail-fast: false
       matrix:
         ruby_version:
           - "3.2"
+          - "4.0"
         include:
           - ruby_version: '3.2'
             puppet_version: '~> 8.0'
+          - ruby_version: '4.0'
+            puppet_version: '~> 9.0'
         runs_on:
           - "windows-latest"
     name: "acceptance (${{ matrix.runs_on}} ruby ${{ matrix.ruby_version }} | puppet ${{ matrix.puppet_version }})"
