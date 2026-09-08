@@ -51,6 +51,19 @@ function Reset-ProcessEnvironmentVariables {
   # Re-add the cached environment variables
   $CachedEnvironmentVariables |
     ForEach-Object -Process { Set-Item -Path "Env:\$($_.Name)" -Value $_.Value }
+
+  # Rebuild PSModulePath from the machine and user environment stores so that
+  # modules installed during a run remain discoverable in subsequent executions.
+  # Without this, Install-Module additions to PSModulePath are lost when env vars
+  # are restored from the startup snapshot, causing DSC resources like PSModule
+  # to re-install already-present modules on every run.
+  $machinePSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath', 'Machine')
+  $userPSModulePath    = [System.Environment]::GetEnvironmentVariable('PSModulePath', 'User')
+  $freshPSModulePath   = @($machinePSModulePath, $userPSModulePath) |
+    Where-Object { -not [string]::IsNullOrEmpty($_) }
+  if ($freshPSModulePath) {
+    $env:PSModulePath = $freshPSModulePath -join ';'
+  }
 }
 
 function Reset-ProcessPowerShellVariables {
