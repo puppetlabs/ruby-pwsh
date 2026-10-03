@@ -60,7 +60,10 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
         # If the resource is meant to be absent, skip canonicalization and rely on the manifest
         # value; there's no reason to compare system state to desired state for casing if the
         # resource is being removed.
-        if r[:dsc_ensure] == 'absent'
+        # In resource validation mode, DSC Test decides whether the resource is in the desired state,
+        # so the casing from the system is not needed either: get() runs Test first and only calls
+        # the Get method when Test fails.
+        if r[:dsc_ensure] == 'absent' || r[:validation_mode] == 'resource'
           canonicalized = r.dup
           @cached_canonicalized_resource << r.dup
         else
@@ -139,38 +142,15 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     # passed to the invocable_resource method.
     context.debug('Collecting data from the DSC Resource')
 
-    # If the resource has already been queried, do not bother querying for it again
-    cached_results = fetch_cached_hashes(@cached_query_results, names)
-    return cached_results unless cached_results.empty?
-
-    # Use the raw system state from canonicalize's Get call if available.
-    # @cached_canonicalize_results has the unmodified DSC Get response (before
-    # canonicalize normalized casing). This gives the Resource API real "is" data
-    # with all property values, enabling per-property "Changed from" reporting.
-    unless @cached_canonicalize_results.empty?
-      canon_results = fetch_cached_hashes(@cached_canonicalize_results, names)
-      unless canon_results.empty?
-        # Cache these as query results too so subsequent get() calls find them
-        canon_results.each do |r|
-          @cached_query_results << r.dup if fetch_cached_hashes(@cached_query_results, [r]).empty?
-        end
-        return canon_results
-      end
-    end
-
-    if @cached_canonicalized_resource.empty?
-      mandatory_properties = {}
-    else
-      canonicalized_resource = @cached_canonicalized_resource[0].dup
-      mandatory_properties = canonicalized_resource.select do |attribute, _value|
-        (mandatory_get_attributes(context) - namevar_attributes(context)).include?(attribute)
-      end
-      # If dsc_psdscrunascredential was specified, re-add it here.
-      mandatory_properties[:dsc_psdscrunascredential] = canonicalized_resource[:dsc_psdscrunascredential] if canonicalized_resource.key?(:dsc_psdscrunascredential)
-    end
-    names.collect do |name|
+    names.flat_map do |name|
       name = { name: name } if name.is_a? String
-      invoke_get_method(context, name.merge(mandatory_properties))
+      cached_results = cached_get_results(name)
+      next cached_results unless cached_results.empty?
+
+      state_from_test = resource_mode_state_from_test(context, name)
+      next [state_from_test] unless state_from_test.nil?
+
+      [invoke_get_method(context, name.merge(mandatory_get_properties(context, name)))]
     end
   end
 
@@ -613,6 +593,63 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
 
   private
 
+  # Returns the properties that Get needs besides the namevars (and the credential, if any), taken
+  # from the canonicalized resource matching the name hash, so that each resource gets its own
+  # values. Falls back on the first canonicalized resource, as before, when none matches.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param name [Hash] the name hash for the resource
+  # @return [Hash] the mandatory Get properties to merge into the name hash
+  def mandatory_get_properties(context, name)
+    return {} if @cached_canonicalized_resource.empty?
+
+    canonicalized_resource = @cached_canonicalized_resource.find { |resource| (name.to_a - resource.to_a).empty? } ||
+                             @cached_canonicalized_resource[0]
+    mandatory_properties = canonicalized_resource.select do |attribute, _value|
+      (mandatory_get_attributes(context) - namevar_attributes(context)).include?(attribute)
+    end
+    # If dsc_psdscrunascredential was specified, re-add it here.
+    mandatory_properties[:dsc_psdscrunascredential] = canonicalized_resource[:dsc_psdscrunascredential] if canonicalized_resource.key?(:dsc_psdscrunascredential)
+    mandatory_properties
+  end
+
+  # Returns the cached state of one resource, if any: the result of an earlier query, else the raw
+  # system state from canonicalize's Get call (the unmodified DSC Get response, before canonicalize
+  # normalized casing), which gives the Resource API real "is" data for per-property change reports.
+  #
+  # @param name [Hash] the name hash for the resource
+  # @return [Array] the cached hashes matching the name hash, empty if none
+  def cached_get_results(name)
+    cached_results = fetch_cached_hashes(@cached_query_results, [name])
+    return cached_results unless cached_results.empty? && !@cached_canonicalize_results.empty?
+
+    canon_results = fetch_cached_hashes(@cached_canonicalize_results, [name])
+    canon_results.each do |r|
+      @cached_query_results << r.dup if fetch_cached_hashes(@cached_query_results, [r]).empty?
+    end
+    canon_results
+  end
+
+  # Resource validation mode: DSC Test decides whether the resource is in the desired state, so when it
+  # passes, the desired values are the current state and no Get call is needed (one DSC call instead of
+  # two for an in-sync resource). When Test fails, the caller falls back on the Get method, to report
+  # the differences and to choose between create, update and delete.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param name [Hash] the name hash for the resource
+  # @return [Hash, nil] the desired state when DSC Test passes, nil otherwise
+  def resource_mode_state_from_test(context, name)
+    should = @cached_canonicalized_resource.find do |resource|
+      resource[:validation_mode] == 'resource' && resource[:dsc_ensure] != 'absent' && (name.to_a - resource.to_a).empty?
+    end
+    return nil if should.nil?
+    return nil unless invoke_test_method(context, name, should) == true
+
+    current = should.reject { |key, _value| Puppet::Type.metaparam?(key) }
+    @cached_query_results << current.dup
+    current
+  end
+
   # Resource validation mode: DSC Test is the authority on overall sync state.
   def insync_resource_mode(context, name, property_name, should_hash)
     should_value = should_hash.is_a?(Hash) ? should_hash[property_name] : nil
@@ -847,7 +884,9 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     context.debug("Invoking Test Method for '#{name}' with #{should.inspect}")
 
     test_props = should.select { |k, _v| k.to_s =~ /^dsc_/ }
-    data = invoke_dsc_resource(context, name, test_props, 'test')
+    # invoke_dsc_resource reads the timeout and the credential from the name hash
+    name_hash = name.merge(should.slice(:dsc_timeout, :dsc_psdscrunascredential).compact)
+    data = invoke_dsc_resource(context, name_hash, test_props, 'test')
     # Something went wrong with Invoke-DscResource; fall back on property state comparisons
     return nil if data.nil?
 
