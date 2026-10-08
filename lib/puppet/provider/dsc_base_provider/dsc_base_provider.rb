@@ -290,7 +290,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @param should [Hash] the desired state hash (used to extract query properties)
   # @return [Hash] returns a hash with dsc_ prefixed keys and current system values, or nil on failure
   def perform_fresh_get(context, name, should)
-    query_props = should.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
+    query_props = get_query_properties(context, should)
     data = invoke_dsc_resource(context, name, query_props, 'get')
     return nil if data.nil?
 
@@ -614,6 +614,8 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # Returns the properties that Get needs besides the namevars (and the credential, if any), taken
   # from the canonicalized resource matching the name hash, so that each resource gets its own
   # values. Falls back on the first canonicalized resource, as before, when none matches.
+  # In resource validation mode, the matching resource's other DSC properties and its validation mode
+  # are added as well, for get_query_properties; never those of the fallback resource.
   #
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @param name [Hash] the name hash for the resource
@@ -621,14 +623,40 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   def mandatory_get_properties(context, name)
     return {} if @cached_canonicalized_resource.empty?
 
-    canonicalized_resource = @cached_canonicalized_resource.find { |resource| (name.to_a - resource.to_a).empty? } ||
-                             @cached_canonicalized_resource[0]
+    matching_resource = @cached_canonicalized_resource.find { |resource| (name.to_a - resource.to_a).empty? }
+    canonicalized_resource = matching_resource || @cached_canonicalized_resource[0]
     mandatory_properties = canonicalized_resource.select do |attribute, _value|
       (mandatory_get_attributes(context) - namevar_attributes(context)).include?(attribute)
     end
     # If dsc_psdscrunascredential was specified, re-add it here.
     mandatory_properties[:dsc_psdscrunascredential] = canonicalized_resource[:dsc_psdscrunascredential] if canonicalized_resource.key?(:dsc_psdscrunascredential)
+    if matching_resource && matching_resource[:validation_mode] == 'resource'
+      mandatory_properties.merge!(matching_resource.select { |attribute, value| attribute == :validation_mode || (attribute.to_s.start_with?('dsc_') && !value.nil?) })
+    end
     mandatory_properties
+  end
+
+  # Returns the properties passed to the DSC Get method: the mandatory Get properties and the
+  # credential, if any. In resource validation mode, every other DSC property set in the manifest is
+  # passed too, as the LCM does: some resources need them in Get (SqlServerDsc SqlScript connects with
+  # its Encrypt property, the class-based SqlPermission asserts that a permission property is set).
+  # DSC Test decides the sync state in that mode, so a Get that echoes a desired value cannot hide a drift.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param hash [Hash] the name hash or should hash of the resource
+  # @return [Hash] the properties to pass to Invoke-DscResource
+  def get_query_properties(context, hash)
+    query_props = hash.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
+    return query_props unless hash[:validation_mode] == 'resource'
+
+    attributes = context.type.attributes
+    hash.each do |attribute, value|
+      next if value.nil? || query_props.key?(attribute) || !attribute.to_s.start_with?('dsc_')
+      next unless attributes.key?(attribute) && attributes[attribute][:behaviour].nil?
+
+      query_props[attribute] = value
+    end
+    query_props
   end
 
   # Resource validation mode: DSC Test decides whether the resource is in the desired state, so when it
@@ -767,7 +795,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   def invoke_get_method(context, name_hash)
     context.debug("retrieving #{name_hash.inspect}")
 
-    query_props = name_hash.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
+    query_props = get_query_properties(context, name_hash)
     data = invoke_dsc_resource(context, name_hash, query_props, 'get')
     return nil if data.nil?
 
@@ -855,9 +883,21 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
         nil
       end
     end
+    # PowerShell serializes a whole Real32/Real64 value without its decimal part (0, not 0.0), and the
+    # Float type of the attribute rejects an Integer.
+    data[type_key] = whole_to_float(data[type_key]) if /\AReal(32|64)/i.match?(context.type.attributes[type_key][:mof_type])
     # PowerShell does not distinguish between a return of empty array/string
     #  and null but Puppet does; revert to those values if specified.
     data[type_key] = [] if data[type_key].nil? && query_props.key?(type_key) && query_props[type_key].is_a?(Array)
+  end
+
+  # Converts an Integer, or the Integers of an array, to Float.
+  def whole_to_float(value)
+    case value
+    when Integer then value.to_f
+    when Array then value.map { |item| whole_to_float(item) }
+    else value
+    end
   end
 
   # Sanitize .NET serialization artifacts (e.g., "System.Object[]") to nil.

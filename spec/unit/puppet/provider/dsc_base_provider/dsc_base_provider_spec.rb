@@ -307,6 +307,69 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider).to receive(:invoke_get_method).with(context, { name: 'bar', dsc_path: 'C:\\bar' }).and_return({ name: 'bar' })
       provider.get(context, [{ name: 'bar' }])
     end
+
+    it 'adds the other DSC properties of the matching resource in the resource validation mode' do
+      provider.instance_variable_set(:@cached_canonicalized_resource, [{ name: 'foo', validation_mode: 'resource', dsc_path: 'C:\\foo', dsc_encrypt: 'Optional', dsc_unset: nil, noop: true }])
+      allow(context).to receive(:debug)
+      allow(provider).to receive_messages(fetch_cached_hashes: [], namevar_attributes: [:name], mandatory_get_attributes: [:dsc_path], resource_mode_state_from_test: nil)
+      expect(provider).to receive(:invoke_get_method)
+        .with(context, { name: 'foo', validation_mode: 'resource', dsc_path: 'C:\\foo', dsc_encrypt: 'Optional' }).and_return({ name: 'foo' })
+      provider.get(context, [{ name: 'foo' }])
+    end
+
+    it 'does not add the properties of the fallback resource in the resource validation mode' do
+      provider.instance_variable_set(:@cached_canonicalized_resource, [{ name: 'foo', validation_mode: 'resource', dsc_path: 'C:\\foo', dsc_encrypt: 'Optional' }])
+      allow(context).to receive(:debug)
+      allow(provider).to receive_messages(fetch_cached_hashes: [], namevar_attributes: [:name], mandatory_get_attributes: [:dsc_path], resource_mode_state_from_test: nil)
+      expect(provider).to receive(:invoke_get_method).with(context, { name: 'bar', dsc_path: 'C:\\foo' }).and_return({ name: 'bar' })
+      provider.get(context, [{ name: 'bar' }])
+    end
+  end
+
+  describe '.get_query_properties' do
+    let(:attributes) do
+      {
+        name: { type: 'String', behaviour: :namevar },
+        dsc_name: { type: 'String', behaviour: :namevar, mandatory_for_get: true },
+        dsc_encrypt: { type: 'Optional[String]' },
+        dsc_unset: { type: 'Optional[String]' },
+        dsc_timeout: { type: 'Optional[Integer]', behaviour: :parameter },
+        dsc_psdscrunascredential: { type: 'Optional[Hash]', behaviour: :parameter }
+      }
+    end
+    let(:hash) { { name: 'foo', dsc_name: 'foo', dsc_encrypt: 'Optional', dsc_unset: nil, dsc_timeout: 600, dsc_psdscrunascredential: nil } }
+
+    before do
+      allow(context).to receive(:type).and_return(type)
+      allow(type).to receive(:attributes).and_return(attributes)
+      allow(provider).to receive(:mandatory_get_attributes).and_return([:dsc_name])
+    end
+
+    it 'returns only the mandatory Get properties in the property validation mode' do
+      expect(provider.send(:get_query_properties, context, hash)).to eq({ dsc_name: 'foo' })
+    end
+
+    it 'adds the other DSC properties set in the manifest in the resource validation mode' do
+      expect(provider.send(:get_query_properties, context, hash.merge(validation_mode: 'resource'))).to eq({ dsc_name: 'foo', dsc_encrypt: 'Optional' })
+    end
+  end
+
+  describe '.whole_to_float' do
+    it 'converts integers, also inside arrays, and leaves other values alone' do
+      expect(provider.whole_to_float(0)).to be_a(Float).and(eq(0.0))
+      expect(provider.whole_to_float([1, 2.5])).to eql([1.0, 2.5])
+      expect(provider.whole_to_float(nil)).to be_nil
+    end
+  end
+
+  describe '.canonicalize_get_value!' do
+    it 'returns a whole Real64 value as a Float, as the type expects' do
+      allow(context).to receive(:type).and_return(type)
+      allow(type).to receive(:attributes).and_return({ dsc_maxsizeinbytes: { type: 'Optional[Float]', mof_type: 'Real64' } })
+      data = { dsc_maxsizeinbytes: 0 }
+      provider.canonicalize_get_value!(context, data, :dsc_maxsizeinbytes, {})
+      expect(data[:dsc_maxsizeinbytes]).to be_a(Float).and(eq(0.0))
+    end
   end
 
   describe '.get in the resource validation mode' do
@@ -332,7 +395,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     it 'calls the Get method when DSC Test fails' do
       expect(provider).to receive(:invoke_test_method).and_return([false, 'not in the desired state'])
-      expect(provider).to receive(:invoke_get_method).with(context, { name: 'foo' }).and_return({ name: 'foo', dsc_setting: 'Bar' })
+      expect(provider).to receive(:invoke_get_method)
+        .with(context, { name: 'foo', dsc_name: 'foo', dsc_setting: 'Foo', validation_mode: 'resource' }).and_return({ name: 'foo', dsc_setting: 'Bar' })
       expect(provider.get(context, [{ name: 'foo' }])).to eq([{ name: 'foo', dsc_setting: 'Bar' }])
     end
 
