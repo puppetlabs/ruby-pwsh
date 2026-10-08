@@ -552,6 +552,72 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
           expect(result).to eq([false, "dsc_setting changed 'v4.0' to ''"])
         end
+
+        # The fresh Get comparison ignores array order and string case, so it can find no
+        # difference although Test failed. One property must still be reported, or Set never runs.
+        context 'when the fresh Get shows no difference on any managed property' do
+          let(:should_hash) do
+            { name: 'foo', dsc_interfacealias: 'Ethernet', dsc_address: ['10.0.0.1', '10.0.0.2'], dsc_validate: false,
+              dsc_psdscrunascredential: nil, validation_mode: 'resource' }
+          end
+          let(:fresh_state) { { name: 'foo', dsc_interfacealias: 'Ethernet', dsc_address: ['10.0.0.2', '10.0.0.1'], dsc_validate: false } }
+          let(:message) do
+            'DSC Test reported the resource out of sync; the difference may be in array order, string case or a property Get does not return'
+          end
+
+          before do
+            allow(type).to receive(:attributes).and_return(
+              dsc_interfacealias: { behaviour: :namevar },
+              dsc_address: {},
+              dsc_validate: {},
+              dsc_psdscrunascredential: { behaviour: :parameter }
+            )
+            allow(provider).to receive(:get_cached_fresh_state).and_return(fresh_state)
+          end
+
+          it 'reports the first managed property as changed' do
+            expect(provider.send(:insync?, context, name, :dsc_address, is_hash, should_hash)).to eq([false, message])
+            expect(provider.instance_variable_get(:@insync_property_cache)).to have_key('foo_dsc_address')
+          end
+
+          it 'returns true for the other managed properties' do
+            expect(provider.send(:insync?, context, name, :dsc_validate, is_hash, should_hash)).to be true
+          end
+
+          it 'returns nil on the corrective change check that follows' do
+            provider.send(:insync?, context, name, :dsc_address, is_hash, should_hash)
+            expect(provider.send(:insync?, context, name, :dsc_address, is_hash, should_hash)).to be_nil
+          end
+
+          it 'never reports a namevar or a parameter' do
+            expect(provider.send(:insync?, context, name, :dsc_interfacealias, is_hash, should_hash)).to be true
+            expect(provider.send(:carries_failed_test?, context, name, :dsc_psdscrunascredential, should_hash)).to be false
+          end
+        end
+
+        context 'when the fresh Get shows a difference on another managed property' do
+          let(:should_hash) { { name: 'foo', dsc_address: ['10.0.0.1', '10.0.0.2'], dsc_validate: true, validation_mode: 'resource' } }
+
+          before do
+            allow(type).to receive(:attributes).and_return(dsc_address: {}, dsc_validate: {})
+            allow(provider).to receive(:get_cached_fresh_state)
+              .and_return(name: 'foo', dsc_address: ['10.0.0.2', '10.0.0.1'], dsc_validate: false)
+          end
+
+          it 'reports only the property that differs' do
+            expect(provider.send(:insync?, context, name, :dsc_address, is_hash, should_hash)).to be true
+            expect(provider.send(:insync?, context, name, :dsc_validate, is_hash, should_hash)).to eq([false, "dsc_validate changed 'false' to 'true'"])
+          end
+        end
+      end
+
+      context 'when DSC Test returns an error' do
+        it 'keeps the fresh Get comparison without forcing a change' do
+          allow(provider).to receive(:fetch_cached_hashes).and_return([])
+          allow(provider).to receive(:invoke_test_method).and_return(nil)
+          allow(provider).to receive(:get_cached_fresh_state).and_return(name: 'foo', dsc_setting: 'foo')
+          expect(provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash)).to be true
+        end
       end
     end
 
@@ -909,8 +975,10 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
               allow(provider).to receive(:invoke_test_method).and_return([false, 'not in desired state'])
             end
 
-            it 'ignores optional CIM fields omitted from the manifest' do
-              expect(insync_with([http_binding.merge('sslflags' => '0')])).to be true
+            it 'ignores optional CIM fields omitted from the manifest, and still reports the failed Test' do
+              result = insync_with([http_binding.merge('sslflags' => '0')])
+              expect(result[0]).to be false
+              expect(result[1]).to start_with('DSC Test reported the resource out of sync')
             end
 
             it 'reports a change when a managed field differs' do

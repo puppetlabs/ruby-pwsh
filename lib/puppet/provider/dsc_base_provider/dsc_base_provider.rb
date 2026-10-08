@@ -559,7 +559,9 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # Determine if the DSC Resource is in the desired state, using fresh DSC Get
   # results to provide accurate property comparison and real change messages.
   #
-  # For validation_mode: resource, delegates entirely to DSC Test (unchanged).
+  # For validation_mode: resource, DSC Test decides. When Test fails, the fresh
+  # Get comparison below reports which properties differ; if it shows none, one
+  # managed property is still reported as changed so that Set runs.
   #
   # For validation_mode: property (default), performs a fresh DSC Get (one per
   # resource, cached) that bypasses the get()/canonicalize pipeline, then compares
@@ -664,7 +666,27 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     return true if skip_empty_should_value?(should_value)
 
     # Fresh Get comparison for dsc_ properties with values
-    compare_fresh_value(context, name, property_name, should_hash, report_on_failure: true)
+    result = compare_fresh_value(context, name, property_name, should_hash, report_on_failure: true)
+    return result unless result == true && in_sync == false && carries_failed_test?(context, name, property_name, should_hash)
+
+    @insync_property_cache["#{name.is_a?(Hash) ? name[:name] : name}_#{property_name}"] = true
+    [false, 'DSC Test reported the resource out of sync; the difference may be in array order, string case or a property Get does not return']
+  end
+
+  # DSC Test failed, but the fresh Get comparison can show no difference: it ignores array
+  # order and string case, and Get may not return every property that Test checks. Puppet
+  # only calls Set when a property is out of sync, so when no managed property differs,
+  # the first one is reported as changed.
+  def carries_failed_test?(context, name, property_name, should_hash)
+    fresh_state = get_cached_fresh_state(context, name, should_hash)
+    attributes = context.type.attributes
+    managed = should_hash.select do |key, value|
+      key.to_s.start_with?('dsc_') && !skip_empty_should_value?(value) &&
+        attributes.key?(key) && attributes[key][:behaviour].nil?
+    end
+    return false if managed.any? { |key, value| !fresh_value_equal?(context, key, fresh_state[key], value) }
+
+    managed.keys.first == property_name
   end
 
   # Property validation mode: only intervene for dsc_ properties with a desired value.
@@ -719,13 +741,17 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     end
 
     fresh_value = fresh_state[property_name]
-    attribute = context.type.attributes[property_name] || {}
-    embedded = attribute[:mof_is_embedded] == true
-
-    return true if values_equal?(fresh_value, should_value, embedded: embedded)
+    return true if fresh_value_equal?(context, property_name, fresh_value, should_value)
 
     @insync_property_cache[property_key] = true
     [false, "#{property_name} changed '#{fresh_value}' to '#{should_value}'"]
+  end
+
+  # Compare a value from the fresh Get with the desired value, as a partial hash
+  # for embedded CIM instances.
+  def fresh_value_equal?(context, property_name, fresh_value, should_value)
+    attribute = context.type.attributes[property_name] || {}
+    values_equal?(fresh_value, should_value, embedded: attribute[:mof_is_embedded] == true)
   end
 
   public
