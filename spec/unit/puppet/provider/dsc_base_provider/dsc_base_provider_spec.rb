@@ -362,10 +362,29 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
   end
 
+  describe '.fill_required_arrays' do
+    let(:type) do
+      Puppet::Pops::Types::TypeParser.singleton.parse(
+        'Optional[Array[Struct[{ permission => Array[String], state => String, Optional[note] => Optional[Array[String]] }]]]'
+      )
+    end
+
+    it 'returns a nil required array field as an empty array and leaves optional fields alone' do
+      value = [{ 'permission' => ['ConnectSql'], 'state' => 'Grant' }, { 'permission' => nil, 'state' => 'Deny', 'note' => nil }]
+      expect(provider.fill_required_arrays(value, type)).to eq(
+        [{ 'permission' => ['ConnectSql'], 'state' => 'Grant' }, { 'permission' => [], 'state' => 'Deny', 'note' => nil }]
+      )
+    end
+
+    it 'leaves a nil value alone' do
+      expect(provider.fill_required_arrays(nil, type)).to be_nil
+    end
+  end
+
   describe '.canonicalize_get_value!' do
     it 'returns a whole Real64 value as a Float, as the type expects' do
       allow(context).to receive(:type).and_return(type)
-      allow(type).to receive(:attributes).and_return({ dsc_maxsizeinbytes: { type: 'Optional[Float]', mof_type: 'Real64' } })
+      allow(type).to receive(:attributes).and_return({ dsc_maxsizeinbytes: { type: 'Optional[Float]', mof_type: 'Real64', mof_is_embedded: false } })
       data = { dsc_maxsizeinbytes: 0 }
       provider.canonicalize_get_value!(context, data, :dsc_maxsizeinbytes, {})
       expect(data[:dsc_maxsizeinbytes]).to be_a(Float).and(eq(0.0))

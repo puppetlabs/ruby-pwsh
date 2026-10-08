@@ -872,6 +872,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     if data[type_key].is_a?(Enumerable)
       downcase_hash_keys!(data[type_key])
       munge_cim_instances!(data[type_key])
+      data[type_key] = fill_required_arrays(data[type_key], attribute_type(context, type_key)) if context.type.attributes[type_key][:mof_is_embedded]
     end
 
     # Convert DateTime back to appropriate type
@@ -889,6 +890,49 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     # PowerShell does not distinguish between a return of empty array/string
     #  and null but Puppet does; revert to those values if specified.
     data[type_key] = [] if data[type_key].nil? && query_props.key?(type_key) && query_props[type_key].is_a?(Array)
+  end
+
+  # Returns the parsed Puppet type of an attribute, cached per attribute, or nil when it cannot be parsed
+  # (the value is then returned unchanged).
+  def attribute_type(context, attribute)
+    @attribute_types ||= {}
+    return @attribute_types[attribute] if @attribute_types.key?(attribute)
+
+    @attribute_types[attribute] = begin
+      Puppet::Pops::Types::TypeParser.singleton.parse(context.type.attributes[attribute][:type])
+    rescue StandardError => e
+      context.debug("Could not parse the type of #{attribute}: #{e.message}")
+      nil
+    end
+  end
+
+  # PowerShell returns $null for an empty array, so a CIM instance field typed as a required Array
+  # comes back nil (SqlServerDsc SqlPermission returns `Permission = $null` for the states without
+  # permissions), which the type rejects. Returns the value with those fields set to an empty array,
+  # at any nesting level; optional fields are left alone.
+  #
+  # @param value [Object] the value returned by DSC Get, keys already downcased
+  # @param type [Puppet::Pops::Types::PAnyType] the Puppet type of the value
+  # @return [Object] the value with the required array fields filled
+  def fill_required_arrays(value, type)
+    type = type.optional_type while type.is_a?(Puppet::Pops::Types::POptionalType) && !type.optional_type.nil?
+    case type
+    when Puppet::Pops::Types::PArrayType
+      value.is_a?(Array) ? value.map { |item| fill_required_arrays(item, type.element_type) } : value
+    when Puppet::Pops::Types::PStructType
+      return value unless value.is_a?(Hash)
+
+      type.elements.each_with_object(value.dup) do |element, result|
+        key = result.keys.find { |k| k.to_s.casecmp?(element.name) }
+        if key.nil? || result[key].nil?
+          result[key || element.name.downcase] = [] if element.value_type.is_a?(Puppet::Pops::Types::PArrayType)
+        else
+          result[key] = fill_required_arrays(result[key], element.value_type)
+        end
+      end
+    else
+      value
+    end
   end
 
   # Converts an Integer, or the Integers of an array, to Float.
