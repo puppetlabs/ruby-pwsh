@@ -324,6 +324,13 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider).to receive(:invoke_get_method).with(context, { name: 'bar', dsc_path: 'C:\\foo' }).and_return({ name: 'bar' })
       provider.get(context, [{ name: 'bar' }])
     end
+
+    it 'fails the resource with a readable error when the DSC Get call fails' do
+      provider.instance_variable_set(:@cached_canonicalized_resource, [])
+      allow(context).to receive(:debug)
+      allow(provider).to receive_messages(fetch_cached_hashes: [], namevar_attributes: [:name], mandatory_get_attributes: [], invoke_get_method: nil)
+      expect { provider.get(context, [{ name: 'foo' }]) }.to raise_error(Puppet::ResourceError, /DSC Get failed for foo/)
+    end
   end
 
   describe '.get_query_properties' do

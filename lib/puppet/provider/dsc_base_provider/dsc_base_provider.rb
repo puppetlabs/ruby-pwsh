@@ -166,7 +166,12 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       state_from_test = resource_mode_state_from_test(context, name)
       next state_from_test unless state_from_test.nil?
 
-      invoke_get_method(context, name.merge(mandatory_get_properties(context, name)))
+      current = invoke_get_method(context, name.merge(mandatory_get_properties(context, name)))
+      # invoke_dsc_resource already logged the DSC error; returning nil makes the Resource API fail on
+      # "undefined method `[]' for nil" instead, so fail this resource with a readable message.
+      raise Puppet::ResourceError, "DSC Get failed for #{name[:name]}, see the error above" if current.nil?
+
+      current
     end
   end
 
