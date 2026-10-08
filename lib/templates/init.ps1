@@ -41,15 +41,18 @@ function Reset-ProcessEnvironmentVariables {
   # remote PowerShell session.
   # The least descructive way to avoid this is to filter out SystemRoot when pulling our current list
   # of environment variables. Then we can continue safely with the removal.
-  $CurrentEnvironmentVariables = Get-ChildItem -Path Env:\* |
-    Where-Object {$_.Name -ne "SystemRoot"}
+  # Only touch the variables that differ from the cache: same final state as deleting every variable
+  # and re-adding the cached ones, without hundreds of Remove-Item / Set-Item calls on each invocation.
+  # Environment variable names are case-insensitive, like the keys of this hashtable.
+  $Cached = @{}
+  $CachedEnvironmentVariables | ForEach-Object -Process { $Cached[$_.Name] = $_.Value }
 
-  # Delete existing environment variables
-  $CurrentEnvironmentVariables |
+  @(Get-ChildItem -Path Env:\*) |
+    Where-Object { $_.Name -ne "SystemRoot" -and -not $Cached.ContainsKey($_.Name) } |
     ForEach-Object -Process { Remove-Item -Path "ENV:\$($_.Name)" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -Recurse }
 
-  # Re-add the cached environment variables
   $CachedEnvironmentVariables |
+    Where-Object { [Environment]::GetEnvironmentVariable($_.Name, 'Process') -cne $_.Value } |
     ForEach-Object -Process { Set-Item -Path "Env:\$($_.Name)" -Value $_.Value }
 }
 

@@ -116,6 +116,16 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
     end
 
+    context 'when a manifest resource uses the resource validation mode' do
+      let(:manifest_resource) { base_resource.merge({ dsc_property: 'FooBar', validation_mode: 'resource' }) }
+      let(:cached_canonicalized_resource) { [] }
+
+      it 'keeps the manifest values without calling the Get method' do
+        expect(provider).not_to receive(:invoke_get_method_for_canonicalize)
+        expect(canonicalized_resource).to eq([manifest_resource])
+      end
+    end
+
     context 'when a manifest resource is in the canonicalized resource cache' do
       let(:manifest_resource) { base_resource.merge({ dsc_property: 'FooBar' }) }
       let(:expected_resource) { base_resource.merge({ dsc_property: 'foobar' }) }
@@ -146,6 +156,17 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         before do
           allow(provider).to receive(:parameter_attributes).and_return(parameter_keys)
           allow(provider).to receive(:enum_attributes).and_return([])
+        end
+
+        context 'when the manifest resource has meta parameters with mixed casing' do
+          let(:manifest_resource) do
+            base_resource.merge({ dsc_property: 'bar', require: 'Service[MyService]', tag: ['MyTag'], alias: 'MyAlias' })
+          end
+          let(:actual_resource) { base_resource.merge({ dsc_property: 'Bar' }) }
+
+          it 'preserves the casing of the meta parameters' do
+            expect(canonicalized_resource.first).to include(require: 'Service[MyService]', tag: ['MyTag'], alias: 'MyAlias')
+          end
         end
 
         context 'when canonicalizing property values' do
@@ -277,6 +298,49 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider).to receive(:mandatory_get_attributes).and_return([:dsc_some_parameter]).exactly(3).times
       expect(provider).to receive(:invoke_get_method).with(context, { name: 'foo', dsc_some_parameter: 'baz' }).and_return({ name: 'foo', property: 'bar' })
       expect(provider.get(context, [{ name: 'foo' }])).to eq([{ name: 'foo', property: 'bar' }])
+    end
+
+    it 'takes the mandatory properties from the canonicalized resource with the same name' do
+      provider.instance_variable_set(:@cached_canonicalized_resource, [{ name: 'foo', dsc_path: 'C:\\foo' }, { name: 'bar', dsc_path: 'C:\\bar' }])
+      allow(context).to receive(:debug)
+      allow(provider).to receive_messages(fetch_cached_hashes: [], namevar_attributes: [:name], mandatory_get_attributes: [:dsc_path])
+      expect(provider).to receive(:invoke_get_method).with(context, { name: 'bar', dsc_path: 'C:\\bar' }).and_return({ name: 'bar' })
+      provider.get(context, [{ name: 'bar' }])
+    end
+  end
+
+  describe '.get in the resource validation mode' do
+    let(:should_hash) { { name: 'foo', dsc_name: 'foo', dsc_setting: 'Foo', validation_mode: 'resource', noop: true } }
+
+    before do
+      allow(context).to receive(:debug)
+      allow(provider).to receive(:mandatory_get_attributes).and_return([])
+      allow(provider).to receive(:namevar_attributes).and_return(%i[name dsc_name])
+      provider.instance_variable_set(:@cached_canonicalized_resource, [should_hash])
+    end
+
+    after do
+      provider.instance_variable_set(:@cached_canonicalized_resource, [])
+      provider.instance_variable_set(:@cached_query_results, [])
+    end
+
+    it 'returns the desired state without calling the Get method when DSC Test passes' do
+      expect(provider).to receive(:invoke_test_method).with(context, { name: 'foo' }, should_hash).and_return(true)
+      expect(provider).not_to receive(:invoke_get_method)
+      expect(provider.get(context, [{ name: 'foo' }])).to eq([should_hash.reject { |key, _value| key == :noop }])
+    end
+
+    it 'calls the Get method when DSC Test fails' do
+      expect(provider).to receive(:invoke_test_method).and_return([false, 'not in the desired state'])
+      expect(provider).to receive(:invoke_get_method).with(context, { name: 'foo' }).and_return({ name: 'foo', dsc_setting: 'Bar' })
+      expect(provider.get(context, [{ name: 'foo' }])).to eq([{ name: 'foo', dsc_setting: 'Bar' }])
+    end
+
+    it 'calls the Get method when the resource is meant to be absent' do
+      provider.instance_variable_set(:@cached_canonicalized_resource, [should_hash.merge(dsc_ensure: 'absent')])
+      expect(provider).not_to receive(:invoke_test_method)
+      expect(provider).to receive(:invoke_get_method).and_return({ name: 'foo', dsc_ensure: 'absent' })
+      provider.get(context, [{ name: 'foo' }])
     end
   end
 
@@ -414,6 +478,10 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     before do
       allow(context).to receive(:debug)
+      allow(context).to receive(:type).and_return(type)
+      allow(type).to receive(:attributes).and_return(
+        dsc_setting: { mof_is_embedded: false }
+      )
     end
 
     context 'when the corrective check is detected' do
@@ -468,6 +536,81 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_nil)
           expect(result).to be true
         end
+
+        # '' is a valid DSC value (e.g. dsc_managedruntimeversion => '' for
+        # "No Managed Code"), so it must be compared instead of suppressed.
+        it 'reports a change when should_value is an empty string and the system has a value' do
+          should_hash_empty = should_hash.merge(dsc_setting: '')
+          allow(provider).to receive(:get_cached_fresh_state).and_return(name: 'foo', dsc_setting: 'v4.0')
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
+          expect(result).to eq([false, "dsc_setting changed 'v4.0' to ''"])
+        end
+
+        # The fresh Get comparison ignores array order and string case, so it can find no
+        # difference although Test failed. One property must still be reported, or Set never runs.
+        context 'when the fresh Get shows no difference on any managed property' do
+          let(:should_hash) do
+            { name: 'foo', dsc_interfacealias: 'Ethernet', dsc_address: ['10.0.0.1', '10.0.0.2'], dsc_validate: false,
+              dsc_psdscrunascredential: nil, validation_mode: 'resource' }
+          end
+          let(:fresh_state) { { name: 'foo', dsc_interfacealias: 'Ethernet', dsc_address: ['10.0.0.2', '10.0.0.1'], dsc_validate: false } }
+          let(:message) do
+            'DSC Test reported the resource out of sync; the difference may be in array order, string case or a property Get does not return'
+          end
+
+          before do
+            allow(type).to receive(:attributes).and_return(
+              dsc_interfacealias: { behaviour: :namevar },
+              dsc_address: {},
+              dsc_validate: {},
+              dsc_psdscrunascredential: { behaviour: :parameter }
+            )
+            allow(provider).to receive(:get_cached_fresh_state).and_return(fresh_state)
+          end
+
+          it 'reports the first managed property as changed' do
+            expect(provider.send(:insync?, context, name, :dsc_address, is_hash, should_hash)).to eq([false, message])
+            expect(provider.instance_variable_get(:@insync_property_cache)).to have_key('foo_dsc_address')
+          end
+
+          it 'returns true for the other managed properties' do
+            expect(provider.send(:insync?, context, name, :dsc_validate, is_hash, should_hash)).to be true
+          end
+
+          it 'returns nil on the corrective change check that follows' do
+            provider.send(:insync?, context, name, :dsc_address, is_hash, should_hash)
+            expect(provider.send(:insync?, context, name, :dsc_address, is_hash, should_hash)).to be_nil
+          end
+
+          it 'never reports a namevar or a parameter' do
+            expect(provider.send(:insync?, context, name, :dsc_interfacealias, is_hash, should_hash)).to be true
+            expect(provider.send(:carries_failed_test?, context, name, :dsc_psdscrunascredential, should_hash)).to be false
+          end
+        end
+
+        context 'when the fresh Get shows a difference on another managed property' do
+          let(:should_hash) { { name: 'foo', dsc_address: ['10.0.0.1', '10.0.0.2'], dsc_validate: true, validation_mode: 'resource' } }
+
+          before do
+            allow(type).to receive(:attributes).and_return(dsc_address: {}, dsc_validate: {})
+            allow(provider).to receive(:get_cached_fresh_state)
+              .and_return(name: 'foo', dsc_address: ['10.0.0.2', '10.0.0.1'], dsc_validate: false)
+          end
+
+          it 'reports only the property that differs' do
+            expect(provider.send(:insync?, context, name, :dsc_address, is_hash, should_hash)).to be true
+            expect(provider.send(:insync?, context, name, :dsc_validate, is_hash, should_hash)).to eq([false, "dsc_validate changed 'false' to 'true'"])
+          end
+        end
+      end
+
+      context 'when DSC Test returns an error' do
+        it 'keeps the fresh Get comparison without forcing a change' do
+          allow(provider).to receive(:fetch_cached_hashes).and_return([])
+          allow(provider).to receive(:invoke_test_method).and_return(nil)
+          allow(provider).to receive(:get_cached_fresh_state).and_return(name: 'foo', dsc_setting: 'foo')
+          expect(provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash)).to be true
+        end
       end
     end
 
@@ -492,9 +635,36 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
       end
 
+      # '' is a valid DSC value (e.g. dsc_managedruntimeversion => '' for
+      # "No Managed Code"), so it must be compared instead of skipped.
       context 'when should_value is empty string' do
+        let(:should_hash_empty) { should_hash.merge(dsc_setting: '') }
+
+        it 'returns true when the system value is also empty' do
+          # PowerShell returns $null for an empty string, so the fresh Get gives nil.
+          allow(provider).to receive(:get_cached_fresh_state).and_return(name: 'foo', dsc_setting: nil)
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
+          expect(result).to be(true)
+        end
+
+        it 'reports a change when the system has a value' do
+          allow(provider).to receive(:get_cached_fresh_state).and_return(name: 'foo', dsc_setting: 'v4.0')
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
+          expect(result).to eq([false, "dsc_setting changed 'v4.0' to ''"])
+        end
+      end
+
+      context 'when should_value is empty array' do
         it 'returns nil' do
-          should_hash_empty = should_hash.merge(dsc_setting: '')
+          should_hash_empty = should_hash.merge(dsc_setting: [])
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
+          expect(result).to be_nil
+        end
+      end
+
+      context 'when should_value is empty hash' do
+        it 'returns nil' do
+          should_hash_empty = should_hash.merge(dsc_setting: {})
           result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
           expect(result).to be_nil
         end
@@ -531,6 +701,334 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
       end
 
+      context 'when the property is an embedded CIM instance array' do
+        let(:property_name) { :dsc_bindinginfo }
+        let(:should_hash) do
+          {
+            name: 'foo',
+            validation_mode: 'property',
+            dsc_bindinginfo: [
+              {
+                'hostname' => 'contoso.com',
+                'protocol' => 'http',
+                'port' => 80
+              }
+            ]
+          }
+        end
+
+        before do
+          allow(type).to receive(:attributes).and_return(
+            dsc_bindinginfo: {
+              mof_type: 'DSC_WebBindingInformation[]',
+              mof_is_embedded: true
+            }
+          )
+        end
+
+        it 'ignores optional CIM fields omitted from the manifest' do
+          actual = should_hash[:dsc_bindinginfo].first.merge(
+            'bindinginformation' => '*:80:contoso.com',
+            'certificatestorename' => nil,
+            'sslflags' => '0'
+          )
+          allow(provider).to receive(:get_cached_fresh_state)
+            .and_return(name: 'foo', dsc_bindinginfo: [actual])
+
+          result = provider.send(:insync?, context, name, property_name, {}, should_hash)
+          expect(result).to be true
+        end
+
+        it 'returns true when DSC adds optional fields to an embedded hash' do
+          actual_binding = {
+            'bindinginformation' => '*:80:contoso.com',
+            'certificatestorename' => nil,
+            'certificatesubject' => nil,
+            'certificatethumbprint' => nil,
+            'hostname' => 'contoso.com',
+            'ipaddress' => '*',
+            'port' => 80,
+            'protocol' => 'http',
+            'sslflags' => '0'
+          }
+
+          allow(provider).to receive(:get_cached_fresh_state).and_return(
+            name: 'foo',
+            dsc_bindinginfo: [actual_binding]
+          )
+
+          result = provider.send(
+            :insync?, context, name, property_name, {}, should_hash
+          )
+
+          expect(result).to be true
+        end
+
+        context 'when comparing against the fresh DSC state' do
+          let(:http_binding) { { 'hostname' => 'contoso.com', 'protocol' => 'http', 'port' => 80 } }
+          let(:https_binding) { { 'hostname' => 'contoso.com', 'protocol' => 'https', 'port' => 443 } }
+
+          def insync_with(actual_bindings, desired_bindings = should_hash[:dsc_bindinginfo])
+            allow(provider).to receive(:get_cached_fresh_state)
+              .and_return(name: 'foo', dsc_bindinginfo: actual_bindings)
+            provider.send(
+              :insync?, context, name, property_name, {},
+              should_hash.merge(dsc_bindinginfo: desired_bindings)
+            )
+          end
+
+          it 'returns [false, change_message] when a managed field differs' do
+            result = insync_with([http_binding.merge('port' => 8080, 'sslflags' => '0')])
+            expect(result).to be_an(Array)
+            expect(result[0]).to be false
+            expect(result[1]).to include('dsc_bindinginfo changed')
+          end
+
+          it 'returns false when a managed field is missing from the fresh state' do
+            result = insync_with([{ 'hostname' => 'contoso.com', 'protocol' => 'http' }])
+            expect(result[0]).to be false
+          end
+
+          it 'returns false when the fresh state has more entries than desired' do
+            result = insync_with([http_binding, https_binding])
+            expect(result[0]).to be false
+          end
+
+          it 'returns false when the fresh state has fewer entries than desired' do
+            result = insync_with([http_binding], [http_binding, https_binding])
+            expect(result[0]).to be false
+          end
+
+          it 'returns false when the fresh state is not an array' do
+            result = insync_with(http_binding)
+            expect(result[0]).to be false
+          end
+
+          it 'returns true regardless of entry order' do
+            actual = [https_binding.merge('sslflags' => '1'), http_binding.merge('sslflags' => '0')]
+            expect(insync_with(actual, [http_binding, https_binding])).to be true
+          end
+
+          it 'matches keys and string values case-insensitively' do
+            actual = [{ 'HostName' => 'CONTOSO.com', 'Protocol' => 'HTTP', 'Port' => 80 }]
+            expect(insync_with(actual)).to be true
+          end
+
+          it 'matches duplicate desired entries one-to-one' do
+            actual = [http_binding, https_binding]
+            result = insync_with(actual, [http_binding, http_binding])
+            expect(result[0]).to be false
+          end
+
+          it 'returns true when duplicate desired entries each have a match' do
+            actual = [http_binding.merge('sslflags' => '0'), http_binding.merge('sslflags' => '1')]
+            expect(insync_with(actual, [http_binding, http_binding])).to be true
+          end
+
+          it 'compares nested embedded hashes partially' do
+            desired = [{ 'name' => 'a', 'options' => { 'mode' => 'x' } }]
+            actual = [{ 'name' => 'a', 'extra' => 1, 'options' => { 'mode' => 'X', 'level' => 2 } }]
+            expect(insync_with(actual, desired)).to be true
+          end
+
+          it 'detects differences in nested embedded hashes' do
+            desired = [{ 'name' => 'a', 'options' => { 'mode' => 'x' } }]
+            actual = [{ 'name' => 'a', 'options' => { 'mode' => 'y' } }]
+            expect(insync_with(actual, desired)[0]).to be false
+          end
+
+          it 'moves an earlier match when a later entry has only one possible match' do
+            # The first desired entry matches both actual entries, the second only
+            # the first one, so the first desired entry must move to the second.
+            desired = [{ 'protocol' => 'http' }, { 'protocol' => 'http', 'port' => 80 }]
+            actual = [http_binding, http_binding.merge('port' => 8080)]
+            expect(insync_with(actual, desired)).to be true
+          end
+
+          it 'does not try every ordering when many entries look alike' do
+            desired = Array.new(10) { { 'protocol' => 'http' } }
+            actual = Array.new(9) { |i| { 'protocol' => 'http', 'port' => 80 + i } } + [https_binding]
+            started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+            expect(insync_with(actual, desired)[0]).to be false
+            expect(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).to be < 1
+          end
+
+          # PowerShell returns $null for empty strings, also inside CIM instances.
+          context 'when a managed field is an empty string' do
+            let(:desired) { [http_binding.merge('certificatestorename' => '')] }
+
+            it 'returns true when DSC returns nil' do
+              expect(insync_with([http_binding.merge('certificatestorename' => nil)], desired)).to be true
+            end
+
+            it 'returns true when DSC omits the key' do
+              expect(insync_with([http_binding], desired)).to be true
+            end
+
+            it 'reports a change when DSC returns a value' do
+              result = insync_with([http_binding.merge('certificatestorename' => 'My')], desired)
+              expect(result[0]).to be false
+            end
+
+            it 'returns true when the empty string is in a nested hash and DSC returns nil' do
+              nested_desired = [{ 'name' => 'a', 'options' => { 'mode' => '' } }]
+              nested_actual = [{ 'name' => 'a', 'options' => { 'mode' => nil } }]
+              expect(insync_with(nested_actual, nested_desired)).to be true
+            end
+          end
+
+          # DSC defaults a nested Ensure to Present (e.g. SqlDatabaseObjectPermission,
+          # LogCustomFields), and Get may report the real state through it.
+          context 'when entries have an Ensure field' do
+            let(:grant) { { 'state' => 'Grant', 'permission' => 'Select' } }
+
+            it 'reports a change when the manifest omits Ensure and DSC returns Absent' do
+              expect(insync_with([grant.merge('ensure' => 'Absent')], [grant])[0]).to be false
+            end
+
+            it 'returns true when the manifest omits Ensure and DSC returns Present' do
+              expect(insync_with([grant.merge('ensure' => 'Present')], [grant])).to be true
+            end
+
+            it 'returns true when the manifest sets Present and DSC does not return Ensure' do
+              expect(insync_with([grant], [grant.merge('Ensure' => 'Present')])).to be true
+            end
+
+            it 'returns true when the manifest sets Present and DSC returns a nil Ensure' do
+              expect(insync_with([grant.merge('ensure' => nil)], [grant.merge('ensure' => 'present')])).to be true
+            end
+
+            it 'reports a change when the manifest sets Absent and DSC returns Present' do
+              expect(insync_with([grant.merge('ensure' => 'Present')], [grant.merge('ensure' => 'Absent')])[0]).to be false
+            end
+          end
+
+          # undef in the manifest (e.g. an optional class parameter) is not managed.
+          context 'when a managed field is nil in the manifest' do
+            let(:desired) { [http_binding.merge('sslflags' => nil)] }
+
+            it 'returns true when DSC returns a value' do
+              expect(insync_with([http_binding.merge('sslflags' => '1')], desired)).to be true
+            end
+
+            it 'returns true when DSC omits the key' do
+              expect(insync_with([http_binding], desired)).to be true
+            end
+
+            it 'returns true when the nil field is in a nested hash' do
+              nested_desired = [{ 'name' => 'a', 'options' => { 'mode' => nil } }]
+              nested_actual = [{ 'name' => 'a', 'options' => { 'mode' => 'x' } }]
+              expect(insync_with(nested_actual, nested_desired)).to be true
+            end
+
+            it 'still compares Ensure as Present when it is nil in the manifest' do
+              grant = { 'state' => 'Grant', 'permission' => 'Select' }
+              result = insync_with([grant.merge('ensure' => 'Absent')], [grant.merge('ensure' => nil)])
+              expect(result[0]).to be false
+            end
+          end
+
+          context 'when a nested field is an empty array' do
+            let(:desired) { [{ 'name' => 'a', 'members' => [] }] }
+
+            it 'returns true when DSC returns nil' do
+              expect(insync_with([{ 'name' => 'a', 'members' => nil }], desired)).to be true
+            end
+
+            it 'reports a change when DSC returns entries' do
+              expect(insync_with([{ 'name' => 'a', 'members' => ['bob'] }], desired)[0]).to be false
+            end
+          end
+
+          it 'returns true when a nested array of values is in a different order' do
+            desired = [{ 'name' => 'a', 'members' => %w[alice bob] }]
+            actual = [{ 'name' => 'a', 'members' => %w[bob alice] }]
+            expect(insync_with(actual, desired)).to be true
+          end
+
+          it 'moves entries along a chain of matches' do
+            desired = [{ 'protocol' => 'http' }, { 'protocol' => 'http', 'port' => 80 },
+                       { 'protocol' => 'http', 'port' => 80, 'hostname' => 'contoso.com' }]
+            actual = [http_binding, http_binding.merge('hostname' => 'fabrikam.com'),
+                      http_binding.merge('port' => 8080, 'hostname' => 'fabrikam.com')]
+            expect(insync_with(actual, desired)).to be true
+          end
+
+          it 'returns false when two desired entries can only match the same actual entry' do
+            desired = [{ 'protocol' => 'http', 'port' => 80 }, { 'protocol' => 'http', 'hostname' => 'contoso.com' }]
+            actual = [http_binding, https_binding]
+            expect(insync_with(actual, desired)[0]).to be false
+          end
+
+          context 'when the validation_mode is "resource"' do
+            let(:should_hash) { super().merge(validation_mode: 'resource') }
+
+            before do
+              allow(provider).to receive(:fetch_cached_hashes).and_return([])
+              allow(provider).to receive(:invoke_test_method).and_return([false, 'not in desired state'])
+            end
+
+            it 'ignores optional CIM fields omitted from the manifest, and still reports the failed Test' do
+              result = insync_with([http_binding.merge('sslflags' => '0')])
+              expect(result[0]).to be false
+              expect(result[1]).to start_with('DSC Test reported the resource out of sync')
+            end
+
+            it 'reports a change when a managed field differs' do
+              result = insync_with([http_binding.merge('port' => 8080)])
+              expect(result[0]).to be false
+              expect(result[1]).to include('dsc_bindinginfo changed')
+            end
+          end
+        end
+      end
+
+      context 'when the property is a single embedded CIM instance' do
+        let(:property_name) { :dsc_authenticationinfo }
+        let(:should_hash) do
+          { name: 'foo', validation_mode: 'property', dsc_authenticationinfo: { 'anonymous' => true } }
+        end
+
+        before do
+          allow(type).to receive(:attributes).and_return(
+            dsc_authenticationinfo: { mof_type: 'DSC_WebAuthenticationInformation', mof_is_embedded: true }
+          )
+        end
+
+        def insync_with(actual)
+          allow(provider).to receive(:get_cached_fresh_state).and_return(name: 'foo', dsc_authenticationinfo: actual)
+          provider.send(:insync?, context, name, property_name, {}, should_hash)
+        end
+
+        it 'ignores optional CIM fields omitted from the manifest' do
+          expect(insync_with('anonymous' => true, 'basic' => false, 'windows' => true)).to be true
+        end
+
+        it 'reports a change when a managed field differs' do
+          expect(insync_with('anonymous' => false, 'basic' => false)[0]).to be false
+        end
+      end
+
+      context 'when a hash property is not an embedded CIM instance' do
+        let(:should_hash) { { name: 'foo', validation_mode: 'property', dsc_setting: { 'a' => 1 } } }
+
+        before do
+          allow(provider).to receive(:get_cached_fresh_state).and_return(name: 'foo', dsc_setting: { 'a' => 1, 'b' => 2 })
+        end
+
+        it 'reports a change when DSC returns extra fields' do
+          allow(type).to receive(:attributes).and_return(dsc_setting: { mof_is_embedded: false })
+          result = provider.send(:insync?, context, name, :dsc_setting, {}, should_hash)
+          expect(result[0]).to be false
+        end
+
+        it 'compares strictly when the property is missing from the type definition' do
+          allow(type).to receive(:attributes).and_return({})
+          result = provider.send(:insync?, context, name, :dsc_setting, {}, should_hash)
+          expect(result[0]).to be false
+        end
+      end
+
       context 'when values differ' do
         it 'returns [false, change_message] and sets insync_property_cache' do
           differing_fresh = { name: 'foo', dsc_setting: 'Bar' }
@@ -554,6 +1052,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider.values_equal?(nil, nil)).to be true
     end
 
+    # Required because PowerShell returns $null for empty strings.
     it 'returns true for nil and empty string' do
       expect(provider.values_equal?(nil, '')).to be true
       expect(provider.values_equal?('', nil)).to be true
@@ -1290,6 +1789,47 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         it 'is added to the parameters of the resource hash' do
           expect(result[:parameters][:dsc_psdscrunascredential][:value]).to eq({ 'user' => 'foo', 'password' => 'bar' })
         end
+      end
+    end
+
+    # undef in an embedded CIM instance is not managed, and nil cannot be formatted to PowerShell
+    context 'when an embedded CIM instance has nil fields' do
+      let(:definition) do
+        super().tap do |d|
+          d[:attributes][:dsc_bindinginfo] = { type: 'Optional[Array[Struct[{}]]]', mof_type: 'DSC_WebBindingInformation[]', mof_is_embedded: true }
+          d[:attributes][:dsc_setting] = { type: 'Optional[Hash]', mof_type: 'String', mof_is_embedded: false }
+        end
+      end
+
+      it 'removes nil fields and keeps the others' do
+        should_hash[:dsc_bindinginfo] = [{ 'protocol' => 'https', 'port' => 8443, 'sslflags' => nil }]
+        expect(result[:parameters][:dsc_bindinginfo][:value]).to eq([{ 'protocol' => 'https', 'port' => 8443 }])
+      end
+
+      it 'keeps empty strings' do
+        should_hash[:dsc_bindinginfo] = [{ 'protocol' => 'https', 'certificatethumbprint' => '' }]
+        expect(result[:parameters][:dsc_bindinginfo][:value]).to eq([{ 'protocol' => 'https', 'certificatethumbprint' => '' }])
+      end
+
+      it 'removes nil fields in nested hashes' do
+        should_hash[:dsc_bindinginfo] = [{ 'name' => 'a', 'options' => { 'mode' => nil, 'level' => 1 } }]
+        expect(result[:parameters][:dsc_bindinginfo][:value]).to eq([{ 'name' => 'a', 'options' => { 'level' => 1 } }])
+      end
+
+      it 'does not change properties that are not embedded CIM instances' do
+        should_hash[:dsc_setting] = { 'a' => nil }
+        expect(result[:parameters][:dsc_setting][:value]).to eq({ 'a' => nil })
+      end
+
+      it 'does not change the should hash' do
+        should_hash[:dsc_bindinginfo] = [{ 'protocol' => 'https', 'sslflags' => nil }]
+        result
+        expect(should_hash[:dsc_bindinginfo]).to eq([{ 'protocol' => 'https', 'sslflags' => nil }])
+      end
+
+      it 'can be formatted to PowerShell' do
+        should_hash[:dsc_bindinginfo] = [{ 'protocol' => 'https', 'sslflags' => nil }]
+        expect { provider.format(result[:parameters][:dsc_bindinginfo][:value]) }.not_to raise_error
       end
     end
   end

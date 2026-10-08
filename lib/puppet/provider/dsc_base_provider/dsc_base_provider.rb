@@ -60,7 +60,10 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
         # If the resource is meant to be absent, skip canonicalization and rely on the manifest
         # value; there's no reason to compare system state to desired state for casing if the
         # resource is being removed.
-        if r[:dsc_ensure] == 'absent'
+        # In resource validation mode, DSC Test decides whether the resource is in the desired state,
+        # so the casing from the system is not needed either: get() runs Test first and only calls
+        # the Get method when Test fails.
+        if r[:dsc_ensure] == 'absent' || r[:validation_mode] == 'resource'
           canonicalized = r.dup
           @cached_canonicalized_resource << r.dup
         else
@@ -158,19 +161,12 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       end
     end
 
-    if @cached_canonicalized_resource.empty?
-      mandatory_properties = {}
-    else
-      canonicalized_resource = @cached_canonicalized_resource[0].dup
-      mandatory_properties = canonicalized_resource.select do |attribute, _value|
-        (mandatory_get_attributes(context) - namevar_attributes(context)).include?(attribute)
-      end
-      # If dsc_psdscrunascredential was specified, re-add it here.
-      mandatory_properties[:dsc_psdscrunascredential] = canonicalized_resource[:dsc_psdscrunascredential] if canonicalized_resource.key?(:dsc_psdscrunascredential)
-    end
     names.collect do |name|
       name = { name: name } if name.is_a? String
-      invoke_get_method(context, name.merge(mandatory_properties))
+      state_from_test = resource_mode_state_from_test(context, name)
+      next state_from_test unless state_from_test.nil?
+
+      invoke_get_method(context, name.merge(mandatory_get_properties(context, name)))
     end
   end
 
@@ -491,23 +487,97 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @param is_value [Object] the current value from a fresh DSC Get
   # @param should_value [Object] the desired value from the Puppet manifest
   # @return [Boolean] true if the values are equivalent
-  def values_equal?(is_value, should_value)
+  def values_equal?(is_value, should_value, embedded: false)
     return true if is_value == should_value
 
-    # Handle nil/empty equivalence
-    is_empty = is_value.nil? || (is_value.respond_to?(:empty?) && is_value.empty?)
-    should_empty = should_value.nil? || (should_value.respond_to?(:empty?) && should_value.empty?)
-    return true if is_empty && should_empty
+    # Handle nil/empty equivalence. Treating nil and '' as equal is intentional:
+    # PowerShell returns $null for empty strings (see invoke_dsc_resource_functions.ps1),
+    # so a fresh DSC Get cannot tell them apart. Without this, a manifest value of ''
+    # reports a corrective change on every run.
+    return true if blank_value?(is_value) && blank_value?(should_value)
+
+    # DSC Get returns optional fields omitted from the manifest for embedded
+    # CIM instances. Treat desired hashes as partial hashes in this case.
+    return embedded_value_equal?(is_value, should_value) if embedded
 
     # Normalize and compare: sort for order-insensitive array/hash comparison,
     # downcase for case-insensitive string comparison, handles nested structures.
     same?(recursively_downcase(is_value), recursively_downcase(should_value))
   end
 
+  # Recursively compare an embedded CIM value. Additional keys returned by DSC
+  # are ignored because they were not explicitly managed by the manifest.
+  # Empty values follow the same rule as top-level properties at every level:
+  # PowerShell also returns $null for empty strings inside CIM instances, and a
+  # missing key is treated as nil. A nil desired field is not managed, since DSC
+  # cannot tell it apart from an omitted field.
+  def embedded_value_equal?(actual, desired)
+    return true if blank_value?(actual) && blank_value?(desired)
+
+    case desired
+    when Hash
+      return false unless actual.is_a?(Hash)
+
+      actual = with_default_ensure(actual)
+      with_default_ensure(desired).all? do |desired_key, desired_value|
+        # A nil (undef) field is not managed, like a field omitted from the manifest.
+        next true if desired_value.nil?
+
+        actual_key = actual.keys.find do |key|
+          key.to_s.casecmp?(desired_key.to_s)
+        end
+
+        embedded_value_equal?(actual_key.nil? ? nil : actual[actual_key], desired_value)
+      end
+    when Array
+      return false unless actual.is_a?(Array)
+      return false unless actual.length == desired.length
+
+      embedded_arrays_equal?(actual, desired)
+    else
+      same?(
+        recursively_downcase(actual),
+        recursively_downcase(desired)
+      )
+    end
+  end
+
+  # Match each desired entry to its own actual entry, without depending on
+  # their order. Uses Kuhn's matching: an actual entry already taken can be
+  # freed if the desired entry holding it can move to another entry it also
+  # matches. This avoids trying every ordering of the entries.
+  def embedded_arrays_equal?(actual, desired)
+    candidates = desired.map do |desired_value|
+      actual.each_index.select { |index| embedded_value_equal?(actual[index], desired_value) }
+    end
+    owners = {}
+
+    desired.each_index.all? do |desired_index|
+      assign_embedded_entry(desired_index, candidates, owners, {})
+    end
+  end
+
+  # Try to give the desired entry an actual entry, moving other desired
+  # entries to another of their candidates when needed.
+  def assign_embedded_entry(desired_index, candidates, owners, visited)
+    candidates[desired_index].any? do |actual_index|
+      next false if visited[actual_index]
+
+      visited[actual_index] = true
+      next false unless owners[actual_index].nil? ||
+                        assign_embedded_entry(owners[actual_index], candidates, owners, visited)
+
+      owners[actual_index] = desired_index
+      true
+    end
+  end
+
   # Determine if the DSC Resource is in the desired state, using fresh DSC Get
   # results to provide accurate property comparison and real change messages.
   #
-  # For validation_mode: resource, delegates entirely to DSC Test (unchanged).
+  # For validation_mode: resource, DSC Test decides. When Test fails, the fresh
+  # Get comparison below reports which properties differ; if it shows none, one
+  # managed property is still reported as changed so that Set runs.
   #
   # For validation_mode: property (default), performs a fresh DSC Get (one per
   # resource, cached) that bypasses the get()/canonicalize pipeline, then compares
@@ -541,6 +611,46 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
 
   private
 
+  # Returns the properties that Get needs besides the namevars (and the credential, if any), taken
+  # from the canonicalized resource matching the name hash, so that each resource gets its own
+  # values. Falls back on the first canonicalized resource, as before, when none matches.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param name [Hash] the name hash for the resource
+  # @return [Hash] the mandatory Get properties to merge into the name hash
+  def mandatory_get_properties(context, name)
+    return {} if @cached_canonicalized_resource.empty?
+
+    canonicalized_resource = @cached_canonicalized_resource.find { |resource| (name.to_a - resource.to_a).empty? } ||
+                             @cached_canonicalized_resource[0]
+    mandatory_properties = canonicalized_resource.select do |attribute, _value|
+      (mandatory_get_attributes(context) - namevar_attributes(context)).include?(attribute)
+    end
+    # If dsc_psdscrunascredential was specified, re-add it here.
+    mandatory_properties[:dsc_psdscrunascredential] = canonicalized_resource[:dsc_psdscrunascredential] if canonicalized_resource.key?(:dsc_psdscrunascredential)
+    mandatory_properties
+  end
+
+  # Resource validation mode: DSC Test decides whether the resource is in the desired state, so when it
+  # passes, the desired values are the current state and no Get call is needed (one DSC call instead of
+  # two for an in-sync resource). When Test fails, the caller falls back on the Get method, to report
+  # the differences and to choose between create, update and delete.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param name [Hash] the name hash for the resource
+  # @return [Hash, nil] the desired state when DSC Test passes, nil otherwise
+  def resource_mode_state_from_test(context, name)
+    should = @cached_canonicalized_resource.find do |resource|
+      resource[:validation_mode] == 'resource' && resource[:dsc_ensure] != 'absent' && (name.to_a - resource.to_a).empty?
+    end
+    return nil if should.nil?
+    return nil unless invoke_test_method(context, name, should) == true
+
+    current = should.reject { |key, _value| Puppet::Type.metaparam?(key) }
+    @cached_query_results << current.dup
+    current
+  end
+
   # Resource validation mode: DSC Test is the authority on overall sync state.
   def insync_resource_mode(context, name, property_name, should_hash)
     should_value = should_hash.is_a?(Hash) ? should_hash[property_name] : nil
@@ -550,12 +660,32 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
 
     return true if in_sync
 
-    # DSC Test says out of sync. Suppress non-dsc_ and nil/empty properties.
+    # DSC Test says out of sync. Suppress non-dsc_ and unset properties.
     return true unless property_name.to_s.start_with?('dsc_')
-    return true if should_value.nil? || (should_value.respond_to?(:empty?) && should_value.empty?)
+    return true if skip_empty_should_value?(should_value)
 
     # Fresh Get comparison for dsc_ properties with values
-    compare_fresh_value(context, name, property_name, should_hash, report_on_failure: true)
+    result = compare_fresh_value(context, name, property_name, should_hash, report_on_failure: true)
+    return result unless result == true && in_sync == false && carries_failed_test?(context, name, property_name, should_hash)
+
+    @insync_property_cache["#{name.is_a?(Hash) ? name[:name] : name}_#{property_name}"] = true
+    [false, 'DSC Test reported the resource out of sync; the difference may be in array order, string case or a property Get does not return']
+  end
+
+  # DSC Test failed, but the fresh Get comparison can show no difference: it ignores array
+  # order and string case, and Get may not return every property that Test checks. Puppet
+  # only calls Set when a property is out of sync, so when no managed property differs,
+  # the first one is reported as changed.
+  def carries_failed_test?(context, name, property_name, should_hash)
+    fresh_state = get_cached_fresh_state(context, name, should_hash)
+    attributes = context.type.attributes
+    managed = should_hash.select do |key, value|
+      key.to_s.start_with?('dsc_') && !skip_empty_should_value?(value) &&
+        attributes.key?(key) && attributes[key][:behaviour].nil?
+    end
+    return false if managed.any? { |key, value| !fresh_value_equal?(context, key, fresh_state[key], value) }
+
+    managed.keys.first == property_name
   end
 
   # Property validation mode: only intervene for dsc_ properties with a desired value.
@@ -563,9 +693,35 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     return nil unless property_name.to_s.start_with?('dsc_')
 
     should_value = should_hash.is_a?(Hash) ? should_hash[property_name] : nil
-    return nil if should_value.nil? || (should_value.respond_to?(:empty?) && should_value.empty?)
+    return nil if skip_empty_should_value?(should_value)
 
     compare_fresh_value(context, name, property_name, should_hash, report_on_failure: false)
+  end
+
+  # Whether a desired value should be left out of the fresh Get comparison:
+  # nil and empty collections mean the property is not managed. An empty String
+  # is an explicit, valid DSC value (e.g. ManagedRuntimeVersion = '' for
+  # "No Managed Code") and must be compared.
+  def skip_empty_should_value?(value)
+    return true if value.nil?
+
+    !value.is_a?(String) && value.respond_to?(:empty?) && value.empty?
+  end
+
+  # Whether a value is nil or empty ('', [], {}).
+  def blank_value?(value)
+    value.nil? || (value.respond_to?(:empty?) && value.empty?)
+  end
+
+  # DSC defaults a nested Ensure to Present, and some resources don't return it
+  # (or return it as nil). Fill it in on both sides so an entry reported as
+  # Absent is not ignored when the manifest omits Ensure. Hashes without an
+  # Ensure field get the same value on both sides, so they are not affected.
+  def with_default_ensure(hash)
+    ensure_key = hash.keys.find { |key| key.to_s.casecmp?('ensure') } || 'ensure'
+    return hash unless blank_value?(hash[ensure_key])
+
+    hash.merge(ensure_key => 'Present')
   end
 
   # Shared fresh Get comparison for both validation modes.
@@ -584,10 +740,17 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     end
 
     fresh_value = fresh_state[property_name]
-    return true if values_equal?(fresh_value, should_value)
+    return true if fresh_value_equal?(context, property_name, fresh_value, should_value)
 
     @insync_property_cache[property_key] = true
     [false, "#{property_name} changed '#{fresh_value}' to '#{should_value}'"]
+  end
+
+  # Compare a value from the fresh Get with the desired value, as a partial hash
+  # for embedded CIM instances.
+  def fresh_value_equal?(context, property_name, fresh_value, should_value)
+    attribute = context.type.attributes[property_name] || {}
+    values_equal?(fresh_value, should_value, embedded: attribute[:mof_is_embedded] == true)
   end
 
   public
@@ -779,10 +942,11 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       next if k == :dsc_psdscrunascredential && v.nil?
 
       resource[:parameters][k] = {}
-      resource[:parameters][k][:value] = v
       %i[mof_type mof_is_embedded].each do |ky|
         resource[:parameters][k][ky] = context.type.definition[:attributes][k][ky]
       end
+      embedded_cim = resource[:parameters][k][:mof_is_embedded] && resource[:parameters][k][:mof_type] != 'PSCredential'
+      resource[:parameters][k][:value] = embedded_cim ? remove_nil_fields(v) : v
     end
     resource[:dsc_invoke_method] = dsc_invoke_method
 
@@ -950,6 +1114,22 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @return [bool] returns equality
   def same?(value1, value2)
     recursively_sort(value2) == recursively_sort(value1)
+  end
+
+  # Remove nil (undef) fields from an embedded CIM instance value. DSC treats them
+  # like omitted fields, and they cannot be formatted to PowerShell.
+  #
+  # @param value [Object] the embedded CIM instance value (hash, array of hashes, or scalar)
+  # @return [Object] the value without nil hash fields, at any nesting level
+  def remove_nil_fields(value)
+    case value
+    when Hash
+      value.compact.transform_values { |field| remove_nil_fields(field) }
+    when Array
+      value.map { |item| remove_nil_fields(item) }
+    else
+      value
+    end
   end
 
   # Parses the DSC resource type definition to retrieve the names of any attributes which are specified as mandatory for get operations
