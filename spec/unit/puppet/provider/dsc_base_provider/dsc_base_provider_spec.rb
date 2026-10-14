@@ -1641,26 +1641,27 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     context 'when the specified account has already failed to logon' do
       let(:should_hash) { name.merge(dsc_psdscrunascredential: 'bar') }
 
-      it 'returns immediately' do
+      it 'fails the resource without invoking DSC' do
         expect(provider).to receive(:logon_failed_already?).and_return(true)
         expect(context).to receive(:err).with('Logon credentials are invalid')
-        expect(result).to be_nil
+        expect(ps_manager).not_to receive(:execute)
+        expect { result }.to raise_error(Puppet::ResourceError, /DSC Set failed for foo/)
       end
     end
 
     context 'when the invocation script returns nil' do
-      it 'errors via context but does not raise' do
+      it 'errors via context and fails the resource' do
         expect(ps_manager).to receive(:execute).and_return({ stdout: nil })
         expect(context).to receive(:err).with('Nothing returned.')
-        expect { result }.not_to raise_error
+        expect { result }.to raise_error(Puppet::ResourceError, /DSC Set failed for foo/)
       end
     end
 
     context 'when the invocation script errors' do
-      it 'writes the error via context but does not raise and returns nil' do
+      it 'writes the error via context and fails the resource' do
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "DSC Error!"}' })
         expect(context).to receive(:err).with('DSC Error!')
-        expect(result).to be_nil
+        expect { result }.to raise_error(Puppet::ResourceError, /DSC Set failed for foo/)
       end
     end
 
@@ -1674,7 +1675,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(context).to receive(:notice).with('Attempt 1 of 5 failed.')
         allow(provider).to receive(:sleep)
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": null}' })
-        expect { result }.not_to raise_error
+        expect(result).to eq({ 'errormessage' => nil })
       end
 
       it 'writes a error via context and fails to apply when all retry attempts used' do
@@ -1687,7 +1688,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(context).to receive(:notice).with(/Attempt [1-5] of 5 failed/).exactly(5).times
         expect(context).to receive(:err).with(/The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked/)
         allow(provider).to receive(:sleep)
-        expect(result).to be_nil
+        expect { result }.to raise_error(Puppet::ResourceError, /DSC Set failed for foo/)
       end
 
       it 'writes an error via context and fails to apply when encountering an unexpected error' do
@@ -1699,7 +1700,18 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "Some unexpected error"}' }).once
         expect(context).to receive(:notice).with(/Attempt 1 of 5 failed/).once
         expect(context).to receive(:err).with(/Some unexpected error/)
-        expect(result).to be_nil
+        expect { result }.to raise_error(Puppet::ResourceError, /DSC Set failed for foo/)
+      end
+
+      it 'writes an error via context and fails to apply when a retry returns nothing' do
+        expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
+        expect(context).to receive(:notice).with(/Invoke-DscResource collision detected/).once
+        expect(context).to receive(:notice).with('Sleeping for 60 seconds.').once
+        expect(context).to receive(:notice).with(/Retrying: attempt 1 of 5/).once
+        allow(provider).to receive(:sleep)
+        expect(ps_manager).to receive(:execute).and_return({ stdout: nil }).once
+        expect(context).to receive(:err).with('Nothing returned.')
+        expect { result }.to raise_error(Puppet::ResourceError, /DSC Set failed for foo/)
       end
     end
 

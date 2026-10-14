@@ -431,9 +431,9 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
         @cached_query_results << name_hash # if fetch_cached_hashes(@cached_query_results, [data]).empty?
       elsif error.match?(collision_error_matcher)
         context.notice('Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour.')
-        retry_invoke_dsc_resource(context, 5, 60, collision_error_matcher) do
-          data = ps_manager.execute(remove_secret_identifiers(script_content))[:stdout]
-        end
+        retried = retry_invoke_dsc_resource(context, 5, 60, collision_error_matcher) { ps_manager.execute(remove_secret_identifiers(script_content), @timeout)[:stdout] }
+        # A retry that succeeded is a good result.
+        return retried if retried.is_a?(Hash) && retried['errormessage'].nil?
       else
         context.err(error)
       end
@@ -469,7 +469,11 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       sleep retry_wait_interval_secs
       # notify and retry
       context.notice("Retrying: attempt #{try} of #{max_retry_count}.")
-      data = JSON.parse(yield)
+      stdout = yield
+      # The retry itself can time out: nothing to parse then.
+      return context.err('Nothing returned.') if stdout.nil?
+
+      data = JSON.parse(stdout)
       # if no error, assume successful invocation and break
       break if data['errormessage'].nil?
 
@@ -980,7 +984,12 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     context.debug("Invoking Set Method for '#{name}' with #{should.inspect}")
 
     apply_props = should.select { |k, _v| k.to_s =~ /^dsc_/ }
-    invoke_dsc_resource(context, should, apply_props, 'set')
+    result = invoke_dsc_resource(context, should, apply_props, 'set')
+    # invoke_dsc_resource already logged the DSC error; without raising, the Resource API reports the resource
+    # as changed and its dependents run as if the Set had worked.
+    raise Puppet::ResourceError, "DSC Set failed for #{name[:name]}, see the error above" if result.nil?
+
+    result
 
     # TODO: Implement this functionality for notifying a DSC reboot?
     # notify_reboot_pending if data['rebootrequired'] == true
