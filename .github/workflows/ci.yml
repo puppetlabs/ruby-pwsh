@@ -65,7 +65,7 @@ jobs:
       ref: ${{ needs.resolve-ref.outputs.ref }}
 
   acceptance:
-    needs: "spec"
+    needs: ["resolve-ref", "spec"]
     strategy:
       fail-fast: false
       matrix:
@@ -86,3 +86,4 @@ jobs:
       ruby_version: ${{ matrix.ruby_version }}
       puppet_version: ${{ matrix.puppet_version }}
       runs_on: ${{ matrix.runs_on }}
+      ref: ${{ needs.resolve-ref.outputs.ref }}
