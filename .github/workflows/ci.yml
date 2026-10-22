@@ -8,12 +8,53 @@ on:
     branches:
       - "main"
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to test (e.g. a fork PR, which gets no secrets via the normal pull_request trigger)"
+        required: false
+        type: string
+      ref:
+        description: "Branch or SHA to test (ignored if pr_number is set)"
+        required: false
+        type: string
 
 env:
   CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
 jobs:
+  resolve-ref:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.resolve.outputs.ref }}
+    steps:
+      - id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          if [ -n "$PR_NUMBER" ]; then
+            IFS=$'\t' read -r mergeable sha <<< "$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}" --jq '[(.mergeable | tostring), (.merge_commit_sha // "")] | @tsv')"
+            if [ "$mergeable" != "true" ]; then
+              echo "::error::PR #${PR_NUMBER} is not mergeable right now (mergeable=${mergeable}). It may be closed, have conflicts with the base branch, or GitHub may not have finished computing mergeability yet — wait a few seconds and retry." >&2
+              exit 1
+            fi
+            if [ -z "$sha" ]; then
+              echo "::error::GitHub did not return a merge commit SHA for PR #${PR_NUMBER}." >&2
+              exit 1
+            fi
+          elif [ -n "$INPUT_REF" ]; then
+            sha="$(gh api "repos/${{ github.repository }}/commits/${INPUT_REF}" --jq '.sha')"
+          else
+            sha=""
+          fi
+          echo "ref=$sha" >> "$GITHUB_OUTPUT"
+          if [ -n "$sha" ]; then
+            echo "Testing commit: $sha" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   spec:
+    needs: resolve-ref
     strategy:
       fail-fast: false
       matrix:
@@ -32,9 +73,10 @@ jobs:
       rake_task: "spec:coverage"
       ruby_version: ${{ matrix.ruby_version }}
       puppet_gem_version: ${{ matrix.puppet_version }}
+      ref: ${{ needs.resolve-ref.outputs.ref }}
 
   acceptance:
-    needs: "spec"
+    needs: ["resolve-ref", "spec"]
     strategy:
       fail-fast: false
       matrix:
@@ -55,3 +97,4 @@ jobs:
       ruby_version: ${{ matrix.ruby_version }}
       puppet_version: ${{ matrix.puppet_version }}
       runs_on: ${{ matrix.runs_on }}
+      ref: ${{ needs.resolve-ref.outputs.ref }}
