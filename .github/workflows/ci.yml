@@ -29,17 +29,20 @@ jobs:
     steps:
       - id: resolve
         env:
+          GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ inputs.pr_number }}
           INPUT_REF: ${{ inputs.ref }}
         run: |
           if [ -n "$PR_NUMBER" ]; then
-            ref="refs/pull/${PR_NUMBER}/merge"
+            sha="$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          elif [ -n "$INPUT_REF" ]; then
+            sha="$(gh api "repos/${{ github.repository }}/commits/${INPUT_REF}" --jq '.sha')"
           else
-            ref="$INPUT_REF"
+            sha=""
           fi
-          echo "ref=$ref" >> "$GITHUB_OUTPUT"
-          if [ -n "$ref" ]; then
-            echo "Testing ref: $ref" >> "$GITHUB_STEP_SUMMARY"
+          echo "ref=$sha" >> "$GITHUB_OUTPUT"
+          if [ -n "$sha" ]; then
+            echo "Testing commit: $sha" >> "$GITHUB_STEP_SUMMARY"
           fi
 
   spec:
