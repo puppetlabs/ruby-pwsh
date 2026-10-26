@@ -489,7 +489,7 @@ module Pwsh
     def length_prefixed_string(data)
       msg = data.encode(Encoding::UTF_8)
       # https://ruby-doc.org/core-1.9.3/Array.html#method-i-pack
-      [msg.bytes.length].pack('V') + msg.force_encoding(Encoding::BINARY)
+      [msg.bytesize].pack('V') + msg.force_encoding(Encoding::BINARY)
     end
 
     # Writes binary-encoded data to the PowerShell manager process via the pipe.

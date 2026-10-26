@@ -113,7 +113,9 @@ module Pwsh
     #
     # @return [String] representation of the value for interpolation
     def format_powershell_value(object)
-      if [:true, :false].include?(object) || ['trueclass', 'falseclass'].include?(object.class.name.downcase)
+      # `:true`/`:false` are the boolean symbols Puppet can pass, so the symbol names are intended
+      if [:true, :false].include?(object) || # rubocop:disable Lint/BooleanSymbol
+         ['trueclass', 'falseclass'].include?(object.class.name.downcase)
         "$#{object}"
       elsif object.instance_of?(Symbol) || object.class.ancestors.include?(Numeric)
         object.to_s
