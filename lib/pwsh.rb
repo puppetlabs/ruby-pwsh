@@ -34,7 +34,7 @@ module Pwsh
     def self.default_options
       {
         debug: false,
-        pipe_timeout: 30
+        pipe_timeout: 30,
       }
     end
 
@@ -280,7 +280,7 @@ module Pwsh
       if (envlist = environment_variables)
         envlist = [envlist] unless envlist.is_a? Array
         envlist.each do |setting|
-          if setting =~ /^(\w+)=((.|\n)+)$/
+          if setting =~ %r{^(\w+)=((.|\n)+)$}
             env_name = Regexp.last_match(1)
             value    = Regexp.last_match(2)
             if environment.include?(env_name) || environment.include?(env_name.to_sym)
@@ -538,7 +538,7 @@ module Pwsh
       read_from_pipe(pipe, 0) { |s| output << s } while self.class.readable?(pipe)
 
       # String has been binary up to this point, so force UTF-8 now
-      output == [] ? [] : [output.join.force_encoding(Encoding::UTF_8)]
+      (output == []) ? [] : [output.join.force_encoding(Encoding::UTF_8)]
     end
 
     # Open threads and pipes to read stdout and stderr from the PowerShell manager,
@@ -589,8 +589,8 @@ module Pwsh
 
       [
         output,
-        stdout == [] ? nil : stdout.join, # native stdout
-        stderr_reader.value # native stderr
+        (stdout == []) ? nil : stdout.join, # native stdout
+        stderr_reader.value, # native stderr
       ]
     ensure
       # Failsafe if the prior unlock was never reached / Mutex wasn't unlocked

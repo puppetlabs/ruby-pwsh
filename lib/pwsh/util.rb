@@ -12,7 +12,7 @@ module Pwsh
     # @return [Bool] true if on windows
     def on_windows?
       host_os = RbConfig::CONFIG['host_os']
-      !!(host_os =~ /mswin|mingw/)
+      !!(host_os =~ %r{mswin|mingw})
     end
 
     # Verify paths specified are valid directories.
@@ -37,11 +37,11 @@ module Pwsh
       raise "snake_case method only handles strings and symbols, passed a #{object.class}: #{object}" unless should_symbolize || object.is_a?(String)
 
       text = object.to_s
-                   .gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
-                   .gsub(/([a-z\d])([A-Z])/, '\1_\2')
+                   .gsub(%r{([A-Z]+)([A-Z][a-z])}, '\1_\2')
+                   .gsub(%r{([a-z\d])([A-Z])}, '\1_\2')
                    .tr('-', '_')
-                   .gsub(/\s/, '_')
-                   .gsub(/__+/, '_')
+                   .gsub(%r{\s}, '_')
+                   .gsub(%r{__+}, '_')
                    .downcase
       should_symbolize ? text.to_sym : text
     end
@@ -113,7 +113,7 @@ module Pwsh
     #
     # @return [String] representation of the value for interpolation
     def format_powershell_value(object)
-      if %i[true false].include?(object) || %w[trueclass falseclass].include?(object.class.name.downcase)
+      if [:true, :false].include?(object) || ['trueclass', 'falseclass'].include?(object.class.name.downcase)
         "$#{object}"
       elsif object.instance_of?(Symbol) || object.class.ancestors.include?(Numeric)
         object.to_s
