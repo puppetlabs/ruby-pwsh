@@ -25,7 +25,7 @@ RSpec.describe 'DSC Acceptance: Complex' do
   end
 
   context 'Managing the access control list of a folder' do
-    before do
+    before(:each) do
       reset_command = <<~RESET_COMMAND
         $TestFolderPath = Join-Path -Path "#{fixtures_path}" -Childpath access_control
         # Delete the test folder if it exists (to clear access control modifications)
@@ -66,13 +66,13 @@ RSpec.describe 'DSC Acceptance: Complex' do
       first_run_result = powershell.execute(puppet_apply)
       expect(first_run_result[:exitcode]).to be(2)
       # Access Control Set
-      expect(first_run_result[:native_stdout]).to match(/dsc_accesscontrollist: dsc_accesscontrollist changed/)
+      expect(first_run_result[:native_stdout]).to match(%r{dsc_accesscontrollist: dsc_accesscontrollist changed})
       expect(first_run_result[:native_stdout]).to match(%r{dsc_ntfsaccessentry\[\{:?name(?:=>|: )"Test", :?dsc_path(?:=>|: )".+/spec/fixtures/access_control"\}\]: Updating: Finished})
-      expect(first_run_result[:stderr]).not_to match(/Error/)
-      expect(first_run_result[:stderr]).not_to match(/Warning: Provider returned data that does not match the Type Schema/)
-      expect(first_run_result[:stderr]).not_to match(/Value type mismatch/)
+      expect(first_run_result[:stderr]).not_to match(%r{Error})
+      expect(first_run_result[:stderr]).not_to match(%r{Warning: Provider returned data that does not match the Type Schema})
+      expect(first_run_result[:stderr]).not_to match(%r{Value type mismatch})
       # Run finished
-      expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
+      expect(first_run_result[:native_stdout]).to match(%r{Applied catalog})
       # Second run is idempotent
       second_run_result = powershell.execute(puppet_apply)
       expect(second_run_result[:exitcode]).to be(0)

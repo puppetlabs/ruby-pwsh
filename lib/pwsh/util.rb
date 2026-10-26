@@ -1,141 +1,139 @@
 # frozen_string_literal: true
 
 # Manage PowerShell and Windows PowerShell via ruby
-module Pwsh
-  # Various helper methods
-  module Util
-    module_function
+# Various helper methods
+module Pwsh::Util
+  module_function
 
-    # Verifies whether or not the current context is running on a Windows node.
-    # Implementation copied from `facets`: https://github.com/rubyworks/facets/blob/main/lib/standard/facets/rbconfig.rb
-    #
-    # @return [Bool] true if on windows
-    def on_windows?
-      host_os = RbConfig::CONFIG['host_os']
-      !!(host_os =~ /mswin|mingw/)
+  # Verifies whether or not the current context is running on a Windows node.
+  # Implementation copied from `facets`: https://github.com/rubyworks/facets/blob/main/lib/standard/facets/rbconfig.rb
+  #
+  # @return [Bool] true if on windows
+  def on_windows?
+    host_os = RbConfig::CONFIG['host_os']
+    !!(host_os =~ %r{mswin|mingw})
+  end
+
+  # Verify paths specified are valid directories.
+  # Skips paths which do not exist.
+  # @return [Bool] true if any paths specified are not valid directories
+  def invalid_directories?(path_collection)
+    return false if path_collection.nil? || path_collection.empty?
+
+    delimiter = on_windows? ? ';' : ':'
+    paths = path_collection.split(delimiter)
+
+    paths.any? { |path| !path.empty? && File.exist?(path) && !File.directory?(path) }
+  end
+
+  # Return a string or symbol converted to snake_case
+  #
+  # @return [String] snake_cased string
+  def snake_case(object)
+    # Implementation copied from: https://github.com/rubyworks/facets/blob/master/lib/core/facets/string/snakecase.rb
+    # gsub(/::/, '/').
+    should_symbolize = object.is_a?(Symbol)
+    raise "snake_case method only handles strings and symbols, passed a #{object.class}: #{object}" unless should_symbolize || object.is_a?(String)
+
+    text = object.to_s
+                 .gsub(%r{([A-Z]+)([A-Z][a-z])}, '\1_\2')
+                 .gsub(%r{([a-z\d])([A-Z])}, '\1_\2')
+                 .tr('-', '_')
+                 .gsub(%r{\s}, '_')
+                 .gsub(%r{__+}, '_')
+                 .downcase
+    should_symbolize ? text.to_sym : text
+  end
+
+  # Iterate through a hashes keys, snake_casing them
+  #
+  # @return [Hash] Hash with all keys snake_cased
+  def snake_case_hash_keys(object)
+    snake_case_proc = proc { |key| snake_case(key) }
+    apply_key_mutator(object, snake_case_proc)
+  end
+
+  # Return a string or symbol converted to PascalCase
+  #
+  # @return [String] PascalCased string
+  def pascal_case(object)
+    should_symbolize = object.is_a?(Symbol)
+    raise "snake_case method only handles strings and symbols, passed a #{object.class}: #{object}" unless should_symbolize || object.is_a?(String)
+
+    # Break word boundaries to snake case first
+    text = snake_case(object.to_s).split('_').collect(&:capitalize).join
+    should_symbolize ? text.to_sym : text
+  end
+
+  # Iterate through a hashes keys, PascalCasing them
+  #
+  # @return [Hash] Hash with all keys PascalCased
+  def pascal_case_hash_keys(object)
+    pascal_case_proc = proc { |key| pascal_case(key) }
+    apply_key_mutator(object, pascal_case_proc)
+  end
+
+  # Ensure that quotes inside a passed string will continue to be passed
+  #
+  # @return [String] the string with quotes escaped
+  def escape_quotes(text)
+    text.gsub("'", "''")
+  end
+
+  # Ensure that all keys in a hash are symbols, not strings.
+  #
+  # @return [Hash] a hash whose keys have been converted to symbols.
+  def symbolize_hash_keys(object)
+    symbolize_proc = proc(&:to_sym)
+    apply_key_mutator(object, symbolize_proc)
+  end
+
+  def apply_key_mutator(object, proc)
+    return object.map { |item| apply_key_mutator(item, proc) } if object.is_a?(Array)
+    return object unless object.is_a?(Hash)
+
+    modified_hash = {}
+    object.each do |key, value|
+      modified_hash[proc.call(key)] = apply_key_mutator(value, proc)
     end
+    modified_hash
+  end
 
-    # Verify paths specified are valid directories.
-    # Skips paths which do not exist.
-    # @return [Bool] true if any paths specified are not valid directories
-    def invalid_directories?(path_collection)
-      return false if path_collection.nil? || path_collection.empty?
+  private_class_method :apply_key_mutator
 
-      delimiter = on_windows? ? ';' : ':'
-      paths = path_collection.split(delimiter)
-
-      paths.any? { |path| !path.empty? && File.exist?(path) && !File.directory?(path) }
+  # Convert a ruby value into a string to be passed along to PowerShell for interpolation in a command
+  # Handles:
+  # - Strings
+  # - Numbers
+  # - Booleans
+  # - Symbols
+  # - Arrays
+  # - Hashes
+  #
+  # @return [String] representation of the value for interpolation
+  def format_powershell_value(object)
+    if [true, false].include?(object) || ['trueclass', 'falseclass'].include?(object.class.name.downcase)
+      "$#{object}"
+    elsif object.instance_of?(Symbol) || object.class.ancestors.include?(Numeric)
+      object.to_s
+    elsif object.instance_of?(String)
+      "'#{escape_quotes(object)}'"
+    elsif object.instance_of?(Array)
+      "@(#{object.collect { |item| format_powershell_value(item) }.join(', ')})"
+    elsif object.instance_of?(Hash)
+      "@{#{object.collect { |k, v| "#{format_powershell_value(k)} = #{format_powershell_value(v)}" }.join('; ')}}"
+    else
+      raise "unsupported type #{object.class} of value '#{object}'"
     end
+  end
 
-    # Return a string or symbol converted to snake_case
-    #
-    # @return [String] snake_cased string
-    def snake_case(object)
-      # Implementation copied from: https://github.com/rubyworks/facets/blob/master/lib/core/facets/string/snakecase.rb
-      # gsub(/::/, '/').
-      should_symbolize = object.is_a?(Symbol)
-      raise "snake_case method only handles strings and symbols, passed a #{object.class}: #{object}" unless should_symbolize || object.is_a?(String)
-
-      text = object.to_s
-                   .gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
-                   .gsub(/([a-z\d])([A-Z])/, '\1_\2')
-                   .tr('-', '_')
-                   .gsub(/\s/, '_')
-                   .gsub(/__+/, '_')
-                   .downcase
-      should_symbolize ? text.to_sym : text
-    end
-
-    # Iterate through a hashes keys, snake_casing them
-    #
-    # @return [Hash] Hash with all keys snake_cased
-    def snake_case_hash_keys(object)
-      snake_case_proc = proc { |key| snake_case(key) }
-      apply_key_mutator(object, snake_case_proc)
-    end
-
-    # Return a string or symbol converted to PascalCase
-    #
-    # @return [String] PascalCased string
-    def pascal_case(object)
-      should_symbolize = object.is_a?(Symbol)
-      raise "snake_case method only handles strings and symbols, passed a #{object.class}: #{object}" unless should_symbolize || object.is_a?(String)
-
-      # Break word boundaries to snake case first
-      text = snake_case(object.to_s).split('_').collect(&:capitalize).join
-      should_symbolize ? text.to_sym : text
-    end
-
-    # Iterate through a hashes keys, PascalCasing them
-    #
-    # @return [Hash] Hash with all keys PascalCased
-    def pascal_case_hash_keys(object)
-      pascal_case_proc = proc { |key| pascal_case(key) }
-      apply_key_mutator(object, pascal_case_proc)
-    end
-
-    # Ensure that quotes inside a passed string will continue to be passed
-    #
-    # @return [String] the string with quotes escaped
-    def escape_quotes(text)
-      text.gsub("'", "''")
-    end
-
-    # Ensure that all keys in a hash are symbols, not strings.
-    #
-    # @return [Hash] a hash whose keys have been converted to symbols.
-    def symbolize_hash_keys(object)
-      symbolize_proc = proc(&:to_sym)
-      apply_key_mutator(object, symbolize_proc)
-    end
-
-    def apply_key_mutator(object, proc)
-      return object.map { |item| apply_key_mutator(item, proc) } if object.is_a?(Array)
-      return object unless object.is_a?(Hash)
-
-      modified_hash = {}
-      object.each do |key, value|
-        modified_hash[proc.call(key)] = apply_key_mutator(value, proc)
-      end
-      modified_hash
-    end
-
-    private_class_method :apply_key_mutator
-
-    # Convert a ruby value into a string to be passed along to PowerShell for interpolation in a command
-    # Handles:
-    # - Strings
-    # - Numbers
-    # - Booleans
-    # - Symbols
-    # - Arrays
-    # - Hashes
-    #
-    # @return [String] representation of the value for interpolation
-    def format_powershell_value(object)
-      if %i[true false].include?(object) || %w[trueclass falseclass].include?(object.class.name.downcase)
-        "$#{object}"
-      elsif object.instance_of?(Symbol) || object.class.ancestors.include?(Numeric)
-        object.to_s
-      elsif object.instance_of?(String)
-        "'#{escape_quotes(object)}'"
-      elsif object.instance_of?(Array)
-        "@(#{object.collect { |item| format_powershell_value(item) }.join(', ')})"
-      elsif object.instance_of?(Hash)
-        "@{#{object.collect { |k, v| "#{format_powershell_value(k)} = #{format_powershell_value(v)}" }.join('; ')}}"
-      else
-        raise "unsupported type #{object.class} of value '#{object}'"
-      end
-    end
-
-    # Return the representative string of a PowerShell hash for a custom object property to be used in selecting or filtering.
-    # The script block for the expression must be passed as the string you want interpolated into the hash; this method does
-    # not do any of the additional work of interpolation for you as the type sits inside a code block inside a hash.
-    #
-    # @return [String] representation of a PowerShell hash with the keys 'Name' and 'Expression'
-    def custom_powershell_property(name, expression)
-      "@{Name = '#{name}'; Expression = {#{expression}}}"
-    end
+  # Return the representative string of a PowerShell hash for a custom object property to be used in selecting or filtering.
+  # The script block for the expression must be passed as the string you want interpolated into the hash; this method does
+  # not do any of the additional work of interpolation for you as the type sits inside a code block inside a hash.
+  #
+  # @return [String] representation of a PowerShell hash with the keys 'Name' and 'Expression'
+  def custom_powershell_property(name, expression)
+    "@{Name = '#{name}'; Expression = {#{expression}}}"
   end
 end
 

@@ -32,10 +32,10 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @param hashes [Array] the list of hashes to search the cache for
   # @return [Array] an array containing the matching hashes for the search condition, if any
   def fetch_cached_hashes(cache, hashes)
-    cache.reject do |item|
+    cache.reject { |item|
       matching_hash = hashes.select { |hash| (item.to_a - hash.to_a).empty? || (hash.to_a - item.to_a).empty? }
       matching_hash.empty?
-    end.flatten
+    }.flatten
   end
 
   # Implements the canonicalize feature of the Resource API; this method is called first against any resources
@@ -54,7 +54,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     resources.collect do |r|
       # During RSAPI refresh runs mandatory parameters are stripped and not available;
       # Instead of checking again and failing, search the cache for a namevar match.
-      namevarized_r = r.select { |k, _v| namevar_attributes(context).include?(k) }
+      namevarized_r = r.slice(*namevar_attributes(context))
       cached_result = fetch_cached_hashes(@cached_canonicalized_resource, [namevarized_r]).first
       if cached_result.nil?
         # If the resource is meant to be absent, skip canonicalization and rely on the manifest
@@ -76,7 +76,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
             canonicalized = r.dup
             @cached_canonicalized_resource << r.dup
           else
-            parameters = r.select { |name, _properties| parameter_attributes(context).include?(name) }
+            parameters = r.slice(*parameter_attributes(context))
             canonicalized.merge!(parameters)
             canonicalized[:name] = r[:name]
             if r[:dsc_psdscrunascredential].nil?
@@ -162,9 +162,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       mandatory_properties = {}
     else
       canonicalized_resource = @cached_canonicalized_resource[0].dup
-      mandatory_properties = canonicalized_resource.select do |attribute, _value|
-        (mandatory_get_attributes(context) - namevar_attributes(context)).include?(attribute)
-      end
+      mandatory_properties = canonicalized_resource.slice(*(mandatory_get_attributes(context) - namevar_attributes(context)))
       # If dsc_psdscrunascredential was specified, re-add it here.
       mandatory_properties[:dsc_psdscrunascredential] = canonicalized_resource[:dsc_psdscrunascredential] if canonicalized_resource.key?(:dsc_psdscrunascredential)
     end
@@ -306,7 +304,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       next unless valid_attributes.include?(type_key.to_s)
 
       # Sanitize .NET serialization artifacts (e.g., "System.Object[]")
-      if value.is_a?(String) && value =~ /^System\.\w+\[\]$/
+      if value.is_a?(String) && value =~ %r{^System\.\w+\[\]$}
         result[type_key] = nil
       else
         # Normalize CIM instances the same way invoke_get_method does,
@@ -403,7 +401,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
 
     if output[:stdout].nil?
       message = 'Nothing returned.'
-      message += " #{output[:errormessage]}" if output[:errormessage]&.match?(/PowerShell module timeout \(\d+ ms\) exceeded while executing/)
+      message += " #{output[:errormessage]}" if output[:errormessage]&.match?(%r{PowerShell module timeout \(\d+ ms\) exceeded while executing})
       context.err(message)
       return nil
     end
@@ -415,7 +413,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       return nil
     end
     context.debug("raw data received: #{data.inspect}")
-    collision_error_matcher = /The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked/
+    collision_error_matcher = %r{The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked}
 
     error = data['errormessage']
 
@@ -530,7 +528,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     # insync? again for the same property. Return nil so default comparison handles it.
     cache_key = name.is_a?(Hash) ? name[:name] : name
     property_key = "#{cache_key}_#{property_name}"
-    return nil if @insync_property_cache.delete(property_key)
+    return false if @insync_property_cache.delete(property_key)
 
     if should_hash[:validation_mode] == 'resource'
       insync_resource_mode(context, name, property_name, should_hash)
@@ -654,7 +652,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @return [Hash] returns a hash representing the DSC resource munged to the representation the Puppet Type expects
   def invoke_get_method_for_canonicalize(context, name_hash)
     # Check the canonicalize-specific cache first
-    cached = fetch_cached_hashes(@cached_canonicalize_results, [name_hash.select { |k, _v| namevar_attributes(context).include?(k) }])
+    cached = fetch_cached_hashes(@cached_canonicalize_results, [name_hash.slice(*namevar_attributes(context))])
     return cached.first unless cached.empty?
 
     # Call invoke_get_method which will do the actual DSC Get call.
@@ -665,7 +663,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     # Remove the entry that invoke_get_method just added to @cached_query_results
     # so that get() will do its own fresh DSC Get call and produce independent "is" data.
     @cached_query_results.select! do |item|
-      matching = fetch_cached_hashes([item], [name_hash.select { |k, _v| namevar_attributes(context).include?(k) }])
+      matching = fetch_cached_hashes([item], [name_hash.slice(*namevar_attributes(context))])
       matching.empty?
     end
 
@@ -684,7 +682,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     end
 
     # Convert DateTime back to appropriate type
-    if context.type.attributes[type_key][:mof_type] =~ /DateTime/i && !data[type_key].nil?
+    if context.type.attributes[type_key][:mof_type] =~ %r{DateTime}i && !data[type_key].nil?
       data[type_key] = begin
         Puppet::Pops::Time::Timestamp.parse(data[type_key])
       rescue ArgumentError, TypeError => e
@@ -700,7 +698,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # Sanitize .NET serialization artifacts (e.g., "System.Object[]") to nil.
   def sanitize_dotnet_artifacts!(context, data)
     data.each do |key, value|
-      next unless value.is_a?(String) && value =~ /^System\.\w+\[\]$/
+      next unless value.is_a?(String) && value =~ %r{^System\.\w+\[\]$}
 
       context.debug("Sanitizing .NET serialization artifact for #{key}: #{value} -> nil")
       data[key] = nil
@@ -727,7 +725,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   def invoke_set_method(context, name, should)
     context.debug("Invoking Set Method for '#{name}' with #{should.inspect}")
 
-    apply_props = should.select { |k, _v| k.to_s =~ /^dsc_/ }
+    apply_props = should.select { |k, _v| k.to_s =~ %r{^dsc_} }
     invoke_dsc_resource(context, should, apply_props, 'set')
 
     # TODO: Implement this functionality for notifying a DSC reboot?
@@ -745,7 +743,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     context.debug("Relying on DSC Test method for validating if '#{name}' is in the desired state")
     context.debug("Invoking Test Method for '#{name}' with #{should.inspect}")
 
-    test_props = should.select { |k, _v| k.to_s =~ /^dsc_/ }
+    test_props = should.select { |k, _v| k.to_s =~ %r{^dsc_} }
     data = invoke_dsc_resource(context, name, test_props, 'test')
     # Something went wrong with Invoke-DscResource; fall back on property state comparisons
     return nil if data.nil?
@@ -770,7 +768,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   def invocable_resource(should, context, dsc_invoke_method)
     resource = {}
     resource[:parameters] = {}
-    %i[name dscmeta_resource_friendly_name dscmeta_resource_name dscmeta_resource_implementation dscmeta_module_name dscmeta_module_version].each do |k|
+    [:name, :dscmeta_resource_friendly_name, :dscmeta_resource_name, :dscmeta_resource_implementation, :dscmeta_module_name, :dscmeta_module_version].each do |k|
       resource[k] = context.type.definition[k]
     end
     should.each do |k, v|
@@ -780,7 +778,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
 
       resource[:parameters][k] = {}
       resource[:parameters][k][:value] = v
-      %i[mof_type mof_is_embedded].each do |ky|
+      [:mof_type, :mof_is_embedded].each do |ky|
         resource[:parameters][k][ky] = context.type.definition[:attributes][k][ky]
       end
     end
@@ -841,9 +839,9 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     # Puppet module names must be lower case
     name = name.downcase
     # Puppet module names must only include lowercase letters, digits and underscores
-    name = name.gsub(/[^a-z0-9_]/, '_')
+    name = name.gsub(%r{[^a-z0-9_]}, '_')
     # Puppet module names must not start with a number so if it does, append the letter 'a' to the name. Eg: '7zip' becomes 'a7zip'
-    name = name.match?(/^\d/) ? "a#{name}" : name # rubocop:disable Lint/UselessAssignment
+    name = "a#{name}" if name.match?(%r{^\d}) # rubocop:disable Lint/UselessAssignment
   end
 
   # Return a UUID with the dashes turned into underscores to enable the specifying of guaranteed-unique
@@ -1021,7 +1019,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     return [] unless type_string&.include?('Enum[')
 
     # Extract the enum values from the type string
-    enum_content = type_string.match(/Enum\[(.*?)\]/)&.[](1)
+    enum_content = type_string.match(%r{Enum\[(.*?)\]})&.[](1)
 
     # Return an empty array if we couldn't find the enum values
     return [] if enum_content.nil?
@@ -1073,20 +1071,20 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @return [String] An array of lines of PowerShell to instantiate PSCredentialObjects and store them in variables
   def prepare_credentials(resource)
     credentials_block = []
-    resource[:parameters].each do |_property_name, property_hash|
+    resource[:parameters].each_value do |property_hash|
       next unless property_hash[:mof_type] == 'PSCredential'
       next if property_hash[:value].nil?
 
       variable_name = random_variable_name
       credential_hash = {
         'user' => property_hash[:value]['user'],
-        'password' => escape_quotes(unwrap_string(property_hash[:value]['password']))
+        'password' => escape_quotes(unwrap_string(property_hash[:value]['password'])),
       }
       credentials_block << format_pscredential(variable_name, credential_hash)
       instantiated_variables.merge!(variable_name => credential_hash)
     end
     credentials_block.join("\n")
-    credentials_block == [] ? '' : credentials_block
+    (credentials_block == []) ? '' : credentials_block
   end
 
   # Write a line of PowerShell which creates a PSCredential object and assigns it to a variable
@@ -1108,7 +1106,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @return [String] An array of lines of PowerShell to instantiate CIM Instances and store them in variables
   def prepare_cim_instances(resource)
     cim_instances_block = []
-    resource[:parameters].each do |_property_name, property_hash|
+    resource[:parameters].each_value do |property_hash|
       next unless property_hash[:mof_is_embedded]
       next if property_hash[:mof_type] == 'PSCredential' # Credentials are handled separately
 
@@ -1122,13 +1120,13 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
         cim_instance_hashes.each do |instance|
           variable_name = random_variable_name
           class_name = instance['cim_instance_type']
-          properties = instance.reject { |k, _v| k == 'cim_instance_type' }
+          properties = instance.except('cim_instance_type')
           cim_instances_block << format_ciminstance(variable_name, class_name, properties)
           instantiated_variables.merge!(variable_name => instance)
         end
       end
       # We have to handle arrays of CIM instances slightly differently
-      if /\[\]$/.match?(property_hash[:mof_type])
+      if %r{\[\]$}.match?(property_hash[:mof_type])
         class_name = property_hash[:mof_type].gsub('[]', '')
         property_hash[:value].each do |hash|
           variable_name = random_variable_name
@@ -1142,7 +1140,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
         instantiated_variables.merge!(variable_name => property_hash[:value])
       end
     end
-    cim_instances_block == [] ? '' : cim_instances_block.join("\n")
+    (cim_instances_block == []) ? '' : cim_instances_block.join("\n")
   end
 
   # Recursively search for and return CIM instances nested in an enumerable
@@ -1189,7 +1187,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     params = {
       Name: resource[:dscmeta_resource_friendly_name],
       Method: resource[:dsc_invoke_method],
-      Property: {}
+      Property: {},
     }
     if resource.key?(:dscmeta_module_version)
       params[:ModuleName] = {}
@@ -1208,14 +1206,14 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       next if property_name == :dsc_timeout
 
       # strip dsc_ from the beginning of the property name declaration
-      name = property_name.to_s.gsub(/^dsc_/, '').to_sym
+      name = property_name.to_s.gsub(%r{^dsc_}, '').to_sym
       params[:Property][name] = case property_hash[:mof_type]
                                 when 'PSCredential'
                                   # format can't unwrap Sensitive strings nested in arbitrary hashes/etc, so make
                                   # the Credential hash interpolable as it will be replaced by a variable reference.
                                   {
                                     'user' => property_hash[:value]['user'],
-                                    'password' => escape_quotes(unwrap_string(property_hash[:value]['password']))
+                                    'password' => escape_quotes(unwrap_string(property_hash[:value]['password'])),
                                   }
                                 when 'DateTime'
                                   # These have to be handled specifically because they rely on the *Puppet* DateTime,
@@ -1232,11 +1230,11 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     # CIM instances do not do a consistent job of casting an empty array properly.
     empty_array_parameters = resource[:parameters].select { |_k, v| v[:value].is_a?(Array) && v[:value].empty? }
     empty_array_parameters.each do |name, properties|
-      param_block_name = name.to_s.gsub(/^dsc_/, '')
+      param_block_name = name.to_s.gsub(%r{^dsc_}, '')
       params_block = params_block.gsub("#{param_block_name} = @()", "#{param_block_name} = [#{properties[:mof_type]}]@()")
     end
     # HACK: make CIM instances work:
-    resource[:parameters].select { |_key, hash| hash[:mof_is_embedded] && hash[:mof_type].include?('[]') }.each do |_property_name, property_hash|
+    resource[:parameters].select { |_key, hash| hash[:mof_is_embedded] && hash[:mof_type].include?('[]') }.each_value do |property_hash|
       formatted_property_hash = interpolate_variables(format(property_hash[:value]))
       params_block = params_block.gsub(formatted_property_hash, "[CimInstance[]]#{formatted_property_hash}")
     end
@@ -1298,11 +1296,9 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       end
       unwrapped
     when Array
-      unwrapped = []
-      value.each do |v|
-        unwrapped << unwrap(v)
+      unwrapped = value.map do |v|
+        unwrap(v)
       end
-      unwrapped
     else
       value
     end
@@ -1323,11 +1319,9 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       end
       unwrapped
     when Array
-      unwrapped = []
-      value.each do |v|
-        unwrapped << unwrap_string(v)
+      unwrapped = value.map do |v|
+        unwrap_string(v)
       end
-      unwrapped
     else
       value
     end
@@ -1349,7 +1343,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # With multiple methods which need to discover secrets it is necessary to keep a single regex
   # which can discover them. This will lazily match everything in a single-quoted string which
   # ends with the secret postfix id and mark the actual contents of the string as the secret.
-  SECRET_DATA_REGEX = /'(?<secret>[^']+)+?#{Regexp.quote(SECRET_POSTFIX)}'/
+  SECRET_DATA_REGEX = %r{'(?<secret>[^']+)+?#{Regexp.quote(SECRET_POSTFIX)}'}
 
   # Strings containing sensitive data have a secrets postfix. These strings cannot be passed
   # directly either to debug streams or to PowerShell and must be handled; this method contains
@@ -1362,12 +1356,12 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   def handle_secrets(text, replacement, error_message)
     # Every secret unwrapped in this module will unwrap as "'secret#{SECRET_POSTFIX}'"
     # Currently, no known resources specify a SecureString instead of a PSCredential object.
-    return text unless /#{Regexp.quote(SECRET_POSTFIX)}/.match?(text)
+    return text unless %r{#{Regexp.quote(SECRET_POSTFIX)}}.match?(text)
 
     # In order to reduce time-to-parse, look at each line individually and *only* attempt
     # to substitute if a naive match for the secret postfix is found on the line.
     modified_text = text.split("\n").map do |line|
-      if /#{Regexp.quote(SECRET_POSTFIX)}/.match?(line)
+      if %r{#{Regexp.quote(SECRET_POSTFIX)}}.match?(line)
         line.gsub(SECRET_DATA_REGEX, replacement)
       else
         line
@@ -1377,7 +1371,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     modified_text = modified_text.join("\n")
 
     # Something has gone wrong, error loudly
-    raise error_message if /#{Regexp.quote(SECRET_POSTFIX)}/.match?(modified_text)
+    raise error_message if %r{#{Regexp.quote(SECRET_POSTFIX)}}.match?(modified_text)
 
     modified_text
   end

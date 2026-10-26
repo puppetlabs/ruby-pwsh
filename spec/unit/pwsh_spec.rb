@@ -71,7 +71,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         it 'fails if the manger is created with a short timeout' do
           expect { described_class.new(ps_command, ps_args, debug: false, pipe_timeout: 0.01) }.to raise_error do |e|
             expect(e).to be_a(RuntimeError)
-            expected_error = /Failure waiting for PowerShell process (\d+) to start pipe server/
+            expected_error = %r{Failure waiting for PowerShell process (\d+) to start pipe server}
             expect(e.message).to match expected_error
             pid = expected_error.match(e.message)[1].to_i
 
@@ -229,7 +229,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
             # fails with vanilla EPIPE or various EBADF depening on timing / Ruby version
             msgs = [
               "^#{Regexp.escape(Errno::EPIPE.new.inspect)}",
-              bad_file_descriptor_regex
+              bad_file_descriptor_regex,
             ]
             expect_dead_manager(manager, msgs, :regex)
 
@@ -258,7 +258,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
             # fails with vanilla EPIPE or various EBADF depening on timing / Ruby version
             msgs = [
               "^#{Regexp.escape(Errno::EPIPE.new.inspect)}",
-              bad_file_descriptor_regex
+              bad_file_descriptor_regex,
             ]
             expect_dead_manager(manager, msgs, :regex)
 
@@ -333,8 +333,8 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         if Pwsh::Util.on_windows?
           expect(result[:stderr]).to eq(["'foo.exe' is not recognized as an internal or external command,\r\noperable program or batch file.\r\n"])
         else
-          expect(result[:stderr][0]).to match(/foo\.exe:(?:.*)not found/)
-          expect(result[:stderr][0]).to match(/bar/)
+          expect(result[:stderr][0]).to match(%r{foo\.exe:(?:.*)not found})
+          expect(result[:stderr][0]).to match(%r{bar})
         end
         expect(result[:exitcode]).not_to eq(0)
       end
@@ -436,7 +436,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'executes multi-line' do
-        result = manager.execute(<<-CODE
+        result = manager.execute(<<-CODE,
     $foo = ls
     $count = $foo.count
     $count
@@ -448,7 +448,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'executes code with a try/catch, receiving the output of Write-Error' do
-        result = manager.execute(<<-CODE
+        result = manager.execute(<<-CODE,
     try{
     $foo = ls
     $count = $foo.count
@@ -464,7 +464,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'is able to execute the code in a try block when using try/catch' do
-        result = manager.execute(<<-CODE
+        result = manager.execute(<<-CODE,
     try {
       $foo = @(1, 2, 3).count
       exit 400
@@ -480,7 +480,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       end
 
       it 'is able to execute the code in a catch block when using try/catch' do
-        result = manager.execute(<<-CODE
+        result = manager.execute(<<-CODE,
     try {
       throw "Error!"
       exit 0
@@ -561,14 +561,14 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         # behavior of Write-Output introduces newlines after every width number
         # of characters as specified in the BufferSize of the custom console UI
         # Write-Host should usually be avoided, but works for this test in old PS2
-        current_powershell_major_version(ps_command, ps_args) >= 3 ? 'Write-Output' : 'Write-Host'
+        (current_powershell_major_version(ps_command, ps_args) >= 3) ? 'Write-Output' : 'Write-Host'
       end
 
       it 'is be able to write more than the 64k default buffer size to the managers pipe without deadlocking the Ruby parent process or breaking the pipe' do
         # this was tested successfully up to 5MB of text
         # we add some additional bytes so it's not always on a 1KB boundary and forces pipe reading in different lengths, not always 1K chunks
         buffer_string_96k = 'a' * ((1024 * 96) + 11)
-        result = manager.execute(<<-CODE
+        result = manager.execute(<<-CODE,
           '#{buffer_string_96k}' | #{output_cmdlet(ps_command, ps_args)}
         CODE
                                 )
@@ -581,7 +581,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
       it 'is be able to write more than the 64k default buffer size to child process stdout without deadlocking the Ruby parent process' do
         # we add some additional bytes so it's not always on a 1KB boundary and forces pipe reading in different lengths, not always 1K chunks
-        result = manager.execute(<<-CODE
+        result = manager.execute(<<-CODE,
           $bytes_in_k = (1024 * 64) + 11
           [Text.Encoding]::UTF8.GetString((New-Object Byte[] ($bytes_in_k))) | #{output_cmdlet(ps_command, ps_args)}
         CODE
@@ -597,7 +597,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
       it 'returns a response with a timeout error if the execution timeout is exceeded' do
         timeout_ms = 100
         result = manager.execute('sleep 1', timeout_ms)
-        msg = /Catastrophic failure: PowerShell module timeout \(#{timeout_ms} ms\) exceeded while executing/
+        msg = %r{Catastrophic failure: PowerShell module timeout \(#{timeout_ms} ms\) exceeded while executing}
         expect(result[:errormessage]).to match(msg)
       end
 
@@ -607,19 +607,19 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         result = manager.execute(command, timeout_ms)
         expect(result[:exitcode]).to eq(1)
         # starts with Write-Output and Write-Debug messages
-        expect(result[:stdout]).to match(/200 OK Glenn/)
-        expect(result[:stdout]).to match(/DEBUG: 304 Not Modified James/)
+        expect(result[:stdout]).to match(%r{200 OK Glenn})
+        expect(result[:stdout]).to match(%r{DEBUG: 304 Not Modified James})
         # then command may have \r\n injected, so remove those for comparison
-        expect(result[:stdout].gsub(/\r\n/, '')).to include(command)
+        expect(result[:stdout].gsub("\r\n", '')).to include(command)
         # and it should end with the Write-Error content
-        expect(result[:stdout]).to match(/404 Craig Not Found/)
+        expect(result[:stdout]).to match(%r{404 Craig Not Found})
       end
 
       it 'uses a default timeout of 300 seconds if the user specified a timeout of 0' do
         timeout_ms = 0
         command = 'return $true'
         code = manager.make_ps_code(command, timeout_ms)
-        expect(code).to match(/TimeoutMilliseconds\s+=\s+300000/)
+        expect(code).to match(%r{TimeoutMilliseconds\s+=\s+300000})
       end
 
       it 'uses the correct correct timeout if a small value is specified' do
@@ -631,11 +631,11 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         timeout_ms = 20
         command = 'return $true'
         code = manager.make_ps_code(command, timeout_ms)
-        expect(code).to match(/TimeoutMilliseconds\s+=\s+50/)
+        expect(code).to match(%r{TimeoutMilliseconds\s+=\s+50})
       end
 
       it 'does not deadlock and returns a valid response given invalid unparseable PowerShell code' do
-        result = manager.execute(<<-CODE
+        result = manager.execute(<<-CODE,
           {
 
         CODE
@@ -650,7 +650,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         result = manager.execute('(Get-Location).Path', nil, work_dir)
 
         expect(result[:exitcode]).not_to eq(0)
-        expect(result[:errormessage]).to match(/Working directory .+ does not exist/)
+        expect(result[:errormessage]).to match(%r{Working directory .+ does not exist})
       end
 
       it 'allows forward slashes in working directory', if: Pwsh::Util.on_windows? do
@@ -660,7 +660,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
         result = manager.execute('(Get-Location).Path', nil, forward_work_dir)[:stdout]
 
-        expect(result).to match(/#{Regexp.escape(work_dir)}/i)
+        expect(result).to match(%r{#{Regexp.escape(work_dir)}}i)
       end
 
       it 'uses a specific working directory if set' do
@@ -668,7 +668,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
 
         result = manager.execute('(Get-Location).Path', nil, work_dir)[:stdout]
 
-        expect(result).to match(/#{Regexp.escape(work_dir)}/i)
+        expect(result).to match(%r{#{Regexp.escape(work_dir)}}i)
       end
 
       it 'does not reuse the same working directory between runs' do
@@ -688,15 +688,15 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
           result = manager.execute(powershell_runtime_error)
 
           expect(result[:exitcode]).to eq(1)
-          expect(result[:errormessage]).not_to match(/EndInvoke/)
-          expect(result[:errormessage]).not_to match(/throw/)
+          expect(result[:errormessage]).not_to match(%r{EndInvoke})
+          expect(result[:errormessage]).not_to match(%r{throw})
         end
 
         it 'displays line and char information for a runtime error' do
           result = manager.execute(powershell_runtime_error)
 
           expect(result[:exitcode]).to eq(1)
-          expect(result[:errormessage]).to match(/At line:\d+ char:\d+/)
+          expect(result[:errormessage]).to match(%r{At line:\d+ char:\d+})
         end
       end
 
@@ -705,15 +705,15 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
           result = manager.execute(powershell_parseexception_error)
 
           expect(result[:exitcode]).to eq(1)
-          expect(result[:errormessage]).not_to match(/EndInvoke/)
-          expect(result[:errormessage]).not_to match(/throw/)
+          expect(result[:errormessage]).not_to match(%r{EndInvoke})
+          expect(result[:errormessage]).not_to match(%r{throw})
         end
 
         it 'displays line and char information for a ParseException error' do
           result = manager.execute(powershell_parseexception_error)
 
           expect(result[:exitcode]).to eq(1)
-          expect(result[:errormessage]).to match(/At line:\d+ char:\d+/)
+          expect(result[:errormessage]).to match(%r{At line:\d+ char:\d+})
         end
       end
 
@@ -722,15 +722,15 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
           result = manager.execute(powershell_incompleteparseexception_error)
 
           expect(result[:exitcode]).to eq(1)
-          expect(result[:errormessage]).not_to match(/EndInvoke/)
-          expect(result[:errormessage]).not_to match(/throw/)
+          expect(result[:errormessage]).not_to match(%r{EndInvoke})
+          expect(result[:errormessage]).not_to match(%r{throw})
         end
 
         it 'does not display line and char information for an IncompleteParseException error' do
           result = manager.execute(powershell_incompleteparseexception_error)
 
           expect(result[:exitcode]).to eq(1)
-          expect(result[:errormessage]).not_to match(/At line:\d+ char:\d+/)
+          expect(result[:errormessage]).not_to match(%r{At line:\d+ char:\d+})
         end
       end
     end
@@ -740,7 +740,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         msg = SecureRandom.uuid.to_s.delete('-')
         result = manager.execute("$VerbosePreference = 'Continue';Write-Verbose '#{msg}'")
 
-        expect(result[:stdout]).to match(/^VERBOSE: #{msg}/)
+        expect(result[:stdout]).to match(%r{^VERBOSE: #{msg}})
         expect(result[:exitcode]).to eq(0)
       end
 
@@ -748,7 +748,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         msg = SecureRandom.uuid.to_s.delete('-')
         result = manager.execute("$debugPreference = 'Continue';Write-debug '#{msg}'")
 
-        expect(result[:stdout]).to match(/^DEBUG: #{msg}/)
+        expect(result[:stdout]).to match(%r{^DEBUG: #{msg}})
         expect(result[:exitcode]).to eq(0)
       end
 
@@ -756,7 +756,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         msg = SecureRandom.uuid.to_s.delete('-')
         result = manager.execute("Write-Warning '#{msg}'")
 
-        expect(result[:stdout]).to match(/^WARNING: #{msg}/)
+        expect(result[:stdout]).to match(%r{^WARNING: #{msg}})
         expect(result[:exitcode]).to eq(0)
       end
 
@@ -764,7 +764,7 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         msg = SecureRandom.uuid.to_s.delete('-')
         result = manager.execute("$ErrorView = 'NormalView' ; Write-Error '#{msg}'")
 
-        expect(result[:stdout]).to match(/Write-Error '#{msg}' : #{msg}/)
+        expect(result[:stdout]).to match(%r{Write-Error '#{msg}' : #{msg}})
         expect(result[:exitcode]).to eq(0)
       end
 

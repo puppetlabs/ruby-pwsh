@@ -11,7 +11,7 @@ RSpec.describe Pwsh::Util do
     [
       'just a string',
       {
-        some_key: 'a value'
+        some_key: 'a value',
       },
       1,
       {
@@ -20,27 +20,27 @@ RSpec.describe Pwsh::Util do
           nested_array: [
             1,
             'another string',
-            { super_nested_key: 'value' }
-          ]
-        }
-      }
+            { super_nested_key: 'value' },
+          ],
+        },
+      },
     ]
   end
   let(:snake_case_hash) do
     {
       a: 1,
-      apple_butter: %w[a b c],
+      apple_butter: ['a', 'b', 'c'],
       some_key_value: {
         nested_key: 1,
-        another_nested_key: 2
-      }
+        another_nested_key: 2,
+      },
     }
   end
   let(:pascal_case_hash_in_an_array) do
     [
       'just a string',
       {
-        SomeKey: 'a value'
+        SomeKey: 'a value',
       },
       1,
       {
@@ -49,40 +49,40 @@ RSpec.describe Pwsh::Util do
           NestedArray: [
             1,
             'another string',
-            { SuperNestedKey: 'value' }
-          ]
-        }
-      }
+            { SuperNestedKey: 'value' },
+          ],
+        },
+      },
     ]
   end
   let(:pascal_case_hash) do
     {
       A: 1,
-      AppleButter: %w[a b c],
+      AppleButter: ['a', 'b', 'c'],
       SomeKeyValue: {
         NestedKey: 1,
-        AnotherNestedKey: 2
-      }
+        AnotherNestedKey: 2,
+      },
     }
   end
   let(:kebab_case_hash) do
     {
       a: 1,
-      'apple-butter': %w[a b c],
+      'apple-butter': ['a', 'b', 'c'],
       'some-key-value': {
         'nested-key': 1,
-        'another-nested-key': 2
-      }
+        'another-nested-key': 2,
+      },
     }
   end
   let(:camel_case_hash) do
     {
       a: 1,
-      appleButter: %w[a b c],
+      appleButter: ['a', 'b', 'c'],
       someKeyValue: {
         nestedKey: 1,
-        anotherNestedKey: 2
-      }
+        anotherNestedKey: 2,
+      },
     }
   end
 
@@ -213,7 +213,7 @@ RSpec.describe Pwsh::Util do
       [
         'just a string',
         {
-          'some_key' => 'a value'
+          'some_key' => 'a value',
         },
         1,
         {
@@ -222,17 +222,17 @@ RSpec.describe Pwsh::Util do
             'nested_array' => [
               1,
               'another string',
-              { 'super_nested_key' => 'value' }
-            ]
-          }
-        }
+              { 'super_nested_key' => 'value' },
+            ],
+          },
+        },
       ]
     end
     let(:array_with_symbol_keys_in_hashes) do
       [
         'just a string',
         {
-          some_key: 'a value'
+          some_key: 'a value',
         },
         1,
         {
@@ -241,10 +241,10 @@ RSpec.describe Pwsh::Util do
             nested_array: [
               1,
               'another string',
-              { super_nested_key: 'value' }
-            ]
-          }
-        }
+              { super_nested_key: 'value' },
+            ],
+          },
+        },
       ]
     end
 
@@ -255,19 +255,19 @@ RSpec.describe Pwsh::Util do
 
   describe '.escape_quotes' do
     it 'handles single quotes' do
-      expect(described_class.escape_quotes("The 'Cats' go 'meow'!")).to match(/The ''Cats'' go ''meow''!/)
+      expect(described_class.escape_quotes("The 'Cats' go 'meow'!")).to match(%r{The ''Cats'' go ''meow''!})
     end
 
     it 'handles double single quotes' do
-      expect(described_class.escape_quotes("The ''Cats'' go 'meow'!")).to match(/The ''''Cats'''' go ''meow''!/)
+      expect(described_class.escape_quotes("The ''Cats'' go 'meow'!")).to match(%r{The ''''Cats'''' go ''meow''!})
     end
 
     it 'handles double quotes' do
-      expect(described_class.escape_quotes("The 'Cats' go \"meow\"!")).to match(/The ''Cats'' go "meow"!/)
+      expect(described_class.escape_quotes("The 'Cats' go \"meow\"!")).to match(%r{The ''Cats'' go "meow"!})
     end
 
     it 'handles dollar signs' do
-      expect(described_class.escape_quotes('This should show $foo variable')).to match(/This should show \$foo variable/)
+      expect(described_class.escape_quotes('This should show $foo variable')).to match(%r{This should show \$foo variable})
     end
   end
 
@@ -283,8 +283,8 @@ RSpec.describe Pwsh::Util do
         nested_hash: {
           another_string: 'foo',
           another_number: 2,
-          array: [1, 2, 3]
-        }
+          array: [1, 2, 3],
+        },
       }
     end
     let(:powershell_hash) { "@{string = 'string'; number = 1; symbol = some_symbol; boolean = $true; nested_hash = @{another_string = 'foo'; another_number = 2; array = @(1, 2, 3)}}" }
@@ -316,7 +316,7 @@ RSpec.describe Pwsh::Util do
     end
 
     it 'raises an error if an unknown type is passed' do
-      expect { described_class.format_powershell_value(described_class) }.to raise_error(/unsupported type Module/)
+      expect { described_class.format_powershell_value(described_class) }.to raise_error(%r{unsupported type Module})
     end
   end
 

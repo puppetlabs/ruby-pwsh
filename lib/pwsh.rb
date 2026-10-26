@@ -34,7 +34,7 @@ module Pwsh
     def self.default_options
       {
         debug: false,
-        pipe_timeout: 30
+        pipe_timeout: 30,
       }
     end
 
@@ -280,7 +280,7 @@ module Pwsh
       if (envlist = environment_variables)
         envlist = [envlist] unless envlist.is_a? Array
         envlist.each do |setting|
-          if setting =~ /^(\w+)=((.|\n)+)$/
+          if setting =~ %r{^(\w+)=((.|\n)+)$}
             env_name = Regexp.last_match(1)
             value    = Regexp.last_match(2)
             if environment.include?(env_name) || environment.include?(env_name.to_sym)
@@ -489,7 +489,7 @@ module Pwsh
     def length_prefixed_string(data)
       msg = data.encode(Encoding::UTF_8)
       # https://ruby-doc.org/core-1.9.3/Array.html#method-i-pack
-      [msg.bytes.length].pack('V') + msg.force_encoding(Encoding::BINARY)
+      [msg.bytesize].pack('V') + msg.force_encoding(Encoding::BINARY)
     end
 
     # Writes binary-encoded data to the PowerShell manager process via the pipe.
@@ -511,7 +511,7 @@ module Pwsh
     # @param timeout [Float] The number of seconds to wait for the pipe to be readable
     # @yield [String] a binary encoded string chunk
     # @return nil
-    def read_from_pipe(pipe, timeout = 0.1, &_block)
+    def read_from_pipe(pipe, timeout = 0.1, &)
       if self.class.readable?(pipe, timeout)
         l = pipe.readpartial(4096)
         # TODO: Log a debug for "#{Time.now} PIPE> #{l}"
@@ -538,7 +538,7 @@ module Pwsh
       read_from_pipe(pipe, 0) { |s| output << s } while self.class.readable?(pipe)
 
       # String has been binary up to this point, so force UTF-8 now
-      output == [] ? [] : [output.join.force_encoding(Encoding::UTF_8)]
+      (output == []) ? [] : [output.join.force_encoding(Encoding::UTF_8)]
     end
 
     # Open threads and pipes to read stdout and stderr from the PowerShell manager,
@@ -589,8 +589,8 @@ module Pwsh
 
       [
         output,
-        stdout == [] ? nil : stdout.join, # native stdout
-        stderr_reader.value # native stderr
+        (stdout == []) ? nil : stdout.join, # native stdout
+        stderr_reader.value, # native stderr
       ]
     ensure
       # Failsafe if the prior unlock was never reached / Mutex wasn't unlocked

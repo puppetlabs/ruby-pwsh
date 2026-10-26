@@ -31,7 +31,7 @@ RSpec.describe 'DSC Acceptance: Basic' do
         "dsc_name => 'PSGallery',",
         "dsc_ensure => 'Present',",
         "dsc_installationpolicy => 'Trusted'",
-        '}'
+        '}',
       ].join(' ')
     end
 
@@ -57,9 +57,9 @@ RSpec.describe 'DSC Acceptance: Basic' do
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
       expect(first_run_result[:exitcode]).to be(2)
-      expect(first_run_result[:native_stdout]).to match(/dsc_installationpolicy changed 'Untrusted' to 'Trusted'/)
-      expect(first_run_result[:native_stdout]).to match(/Updating: Finished/)
-      expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
+      expect(first_run_result[:native_stdout]).to match(%r{dsc_installationpolicy changed 'Untrusted' to 'Trusted'})
+      expect(first_run_result[:native_stdout]).to match(%r{Updating: Finished})
+      expect(first_run_result[:native_stdout]).to match(%r{Applied catalog})
       second_run_result = powershell.execute(command)
       expect(second_run_result[:exitcode]).to be(0)
     end
@@ -71,7 +71,7 @@ RSpec.describe 'DSC Acceptance: Basic' do
         "dsc_psmodule { 'Install BurntToast':",
         "dsc_name => 'BurntToast',",
         "dsc_ensure => 'Present',",
-        '}'
+        '}',
       ].join(' ')
     end
 
@@ -88,9 +88,9 @@ RSpec.describe 'DSC Acceptance: Basic' do
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
       expect(first_run_result[:exitcode]).to be(2)
-      expect(first_run_result[:native_stdout]).to match(/dsc_ensure changed 'Absent' to 'Present'/)
-      expect(first_run_result[:native_stdout]).to match(/Creating: Finished/)
-      expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
+      expect(first_run_result[:native_stdout]).to match(%r{dsc_ensure changed 'Absent' to 'Present'})
+      expect(first_run_result[:native_stdout]).to match(%r{Creating: Finished})
+      expect(first_run_result[:native_stdout]).to match(%r{Applied catalog})
       second_run_result = powershell.execute(command)
       expect(second_run_result[:exitcode]).to be(0)
     end
@@ -102,7 +102,7 @@ RSpec.describe 'DSC Acceptance: Basic' do
         "dsc_psmodule { 'Install BurntToast':",
         "dsc_name => 'BurntToast',",
         "dsc_ensure => 'Absent',",
-        '}'
+        '}',
       ].join(' ')
     end
 
@@ -121,9 +121,9 @@ RSpec.describe 'DSC Acceptance: Basic' do
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
       expect(first_run_result[:exitcode]).to be(2)
-      expect(first_run_result[:native_stdout]).to match(/dsc_ensure changed 'Present' to 'Absent'/)
-      expect(first_run_result[:native_stdout]).to match(/Deleting: Finished/)
-      expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
+      expect(first_run_result[:native_stdout]).to match(%r{dsc_ensure changed 'Present' to 'Absent'})
+      expect(first_run_result[:native_stdout]).to match(%r{Deleting: Finished})
+      expect(first_run_result[:native_stdout]).to match(%r{Applied catalog})
       second_run_result = powershell.execute(command)
       expect(second_run_result[:exitcode]).to be(0)
     end
@@ -165,17 +165,17 @@ RSpec.describe 'DSC Acceptance: Basic' do
           "'user' => '#{local_user}',",
           "'password' => Sensitive('#{local_pw}')",
           '}',
-          '}'
+          '}',
         ].join(' ')
       end
 
       it 'applies idempotently without leaking secrets' do
         first_run_result = powershell.execute(command)
         expect(first_run_result[:exitcode]).to be(2)
-        expect(first_run_result[:native_stdout]).to match(/dsc_installationpolicy changed 'Untrusted' to 'Trusted'/)
-        expect(first_run_result[:native_stdout]).to match(/Updating: Finished/)
-        expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
-        expect(first_run_result[:native_stdout]).to match(/'#<Sensitive \[value redacted\]>'/)
+        expect(first_run_result[:native_stdout]).to match(%r{dsc_installationpolicy changed 'Untrusted' to 'Trusted'})
+        expect(first_run_result[:native_stdout]).to match(%r{Updating: Finished})
+        expect(first_run_result[:native_stdout]).to match(%r{Applied catalog})
+        expect(first_run_result[:native_stdout]).to match(%r{'#<Sensitive \[value redacted\]>'})
         expect(first_run_result[:native_stdout]).not_to match(local_pw)
         second_run_result = powershell.execute(command)
         expect(second_run_result[:exitcode]).to be(0)
@@ -193,15 +193,15 @@ RSpec.describe 'DSC Acceptance: Basic' do
           "'user' => 'definitely_do_not_exist_here',",
           "'password' => Sensitive('#{local_pw}')",
           '}',
-          '}'
+          '}',
         ].join(' ')
       end
 
       it 'errors loudly without leaking secrets' do
         first_run_result = powershell.execute(command)
         expect(first_run_result[:exitcode]).to be(4)
-        expect(first_run_result[:stderr].first).to match(/dsc_psrepository: The user name or password is incorrect/)
-        expect(first_run_result[:native_stdout]).to match(/'#<Sensitive \[value redacted\]>'/)
+        expect(first_run_result[:stderr].first).to match(%r{dsc_psrepository: The user name or password is incorrect})
+        expect(first_run_result[:native_stdout]).to match(%r{'#<Sensitive \[value redacted\]>'})
         expect(first_run_result[:native_stdout]).not_to match(local_pw)
       end
     end

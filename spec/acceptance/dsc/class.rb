@@ -28,11 +28,11 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
         "dsc_ensure      => 'Present',",
         "dsc_path        => '#{psrc_path}',",
         "dsc_description => 'Example role capability file'",
-        '}'
+        '}',
       ].join(' ')
     end
 
-    before do
+    before(:each) do
       reset_command = <<~RESET_COMMAND
         $PsrcPath = '#{psrc_path}'
         # Delete the test PSRC fixture if it exists
@@ -46,10 +46,10 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
       expect(first_run_result[:exitcode]).to be(2)
-      expect(first_run_result[:native_stdout]).to match(//)
-      expect(first_run_result[:native_stdout]).to match(/dsc_description changed.*to 'Example role capability file'/)
-      expect(first_run_result[:native_stdout]).to match(/Creating: Finished/)
-      expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
+      expect(first_run_result[:native_stdout]).to match(%r{})
+      expect(first_run_result[:native_stdout]).to match(%r{dsc_description changed.*to 'Example role capability file'})
+      expect(first_run_result[:native_stdout]).to match(%r{Creating: Finished})
+      expect(first_run_result[:native_stdout]).to match(%r{Applied catalog})
       second_run_result = powershell.execute(command)
       expect(second_run_result[:exitcode]).to be(0)
     end
@@ -64,11 +64,11 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
         "dsc_ensure      => 'Present',",
         "dsc_path        => '#{psrc_path}',",
         "dsc_description => 'Updated role capability file'",
-        '}'
+        '}',
       ].join(' ')
     end
 
-    before do
+    before(:each) do
       reset_command = <<~RESET_COMMAND
         $PsrcPath = '#{psrc_path}'
         # Delete the test PSRC fixture if it exists
@@ -84,9 +84,9 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
       expect(first_run_result[:exitcode]).to be(2)
-      expect(first_run_result[:native_stdout]).to match(/dsc_description changed 'Example role capability file' to 'Updated role capability file'/)
-      expect(first_run_result[:native_stdout]).to match(/Updating: Finished/)
-      expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
+      expect(first_run_result[:native_stdout]).to match(%r{dsc_description changed 'Example role capability file' to 'Updated role capability file'})
+      expect(first_run_result[:native_stdout]).to match(%r{Updating: Finished})
+      expect(first_run_result[:native_stdout]).to match(%r{Applied catalog})
       second_run_result = powershell.execute(command)
       expect(second_run_result[:exitcode]).to be(0)
     end
@@ -100,11 +100,11 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
         "dsc_jearolecapabilities { 'ExampleRoleCapability':",
         "dsc_ensure      => 'Absent',",
         "dsc_path        => '#{psrc_path}'",
-        '}'
+        '}',
       ].join(' ')
     end
 
-    before do
+    before(:each) do
       reset_command = <<~RESET_COMMAND
         $PsrcPath = '#{psrc_path}'
         # Delete the test PSRC fixture if it exists
@@ -119,9 +119,9 @@ RSpec.describe 'DSC Acceptance: Class-Based Resource' do
     it 'applies idempotently' do
       first_run_result = powershell.execute(command)
       expect(first_run_result[:exitcode]).to be(2)
-      expect(first_run_result[:native_stdout]).to match(/dsc_ensure changed 'Present' to 'Absent'/)
-      expect(first_run_result[:native_stdout]).to match(/Deleting: Finished/)
-      expect(first_run_result[:native_stdout]).to match(/Applied catalog/)
+      expect(first_run_result[:native_stdout]).to match(%r{dsc_ensure changed 'Present' to 'Absent'})
+      expect(first_run_result[:native_stdout]).to match(%r{Deleting: Finished})
+      expect(first_run_result[:native_stdout]).to match(%r{Applied catalog})
       second_run_result = powershell.execute(command)
       expect(second_run_result[:exitcode]).to be(0)
     end

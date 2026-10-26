@@ -15,7 +15,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   let(:execute_response) { { stdout: nil, stderr: nil, exitcode: 0 } }
 
   # Reset the caches after each run
-  after do
+  after(:each) do
     provider.instance_variable_set(:@cached_canonicalized_resource, [])
     provider.instance_variable_set(:@cached_query_results, [])
     provider.instance_variable_set(:@cached_test_results, [])
@@ -26,7 +26,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.initialize' do
-    before do
+    before(:each) do
       # Need to initialize the provider to load the instance variables
       provider
     end
@@ -61,9 +61,9 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.cached_test_results' do
-    let(:cache_value) { %w[foo bar] }
+    let(:cache_value) { ['foo', 'bar'] }
 
-    before do
+    before(:each) do
       provider.instance_variable_set(:@cached_test_results, cache_value)
     end
 
@@ -95,12 +95,12 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     subject(:canonicalized_resource) { provider.canonicalize(context, [manifest_resource]) }
 
     let(:resource_name_hash) { { name: 'foo', dsc_name: 'foo' } }
-    let(:namevar_keys) { %i[name dsc_name] }
-    let(:parameter_keys) { %i[dsc_parameter dsc_psdscrunascredential] }
+    let(:namevar_keys) { [:name, :dsc_name] }
+    let(:parameter_keys) { [:dsc_parameter, :dsc_psdscrunascredential] }
     let(:credential_hash) { { 'username' => 'foo', 'password' => 'bar' } }
     let(:base_resource) { resource_name_hash.dup }
 
-    before do
+    before(:each) do
       allow(context).to receive(:debug)
       allow(provider).to receive(:namevar_attributes).and_return(namevar_keys)
       allow(provider).to receive(:fetch_cached_hashes).and_return(cached_canonicalized_resource)
@@ -129,7 +129,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     context 'when a manifest resource not in the canonicalized resource cache' do
       let(:cached_canonicalized_resource) { [] }
 
-      before do
+      before(:each) do
         allow(provider).to receive(:invoke_get_method).and_return(actual_resource)
       end
 
@@ -143,7 +143,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       context 'when invoke_get_method returns a resource' do
-        before do
+        before(:each) do
           allow(provider).to receive(:parameter_attributes).and_return(parameter_keys)
           allow(provider).to receive(:enum_attributes).and_return([])
         end
@@ -189,7 +189,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             let(:manifest_resource) { base_resource.merge({ dsc_property: 'Dword' }) }
             let(:actual_resource) { base_resource.merge({ dsc_property: 'DWord' }) }
 
-            before do
+            before(:each) do
               allow(provider).to receive(:enum_attributes).and_return([:dsc_property])
             end
 
@@ -257,7 +257,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.get' do
-    after do
+    after(:each) do
       provider.instance_variable_set(:@cached_canonicalized_resource, [])
     end
 
@@ -288,9 +288,9 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     # Empty because we can mock everything but calling .keys on the hash
     let(:attributes) { { name: {}, dsc_name: {}, dsc_setting: {} } }
 
-    before do
+    before(:each) do
       allow(context).to receive(:type).and_return(type)
-      allow(type).to receive(:namevars).and_return(%i[name dsc_name])
+      allow(type).to receive(:namevars).and_return([:name, :dsc_name])
       allow(type).to receive(:attributes).and_return(attributes)
     end
 
@@ -412,7 +412,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:should_hash)    { { name: 'foo', dsc_setting: 'Foo', validation_mode: 'property' } }
     let(:fresh_state)    { { name: 'foo', dsc_setting: 'Bar' } }
 
-    before do
+    before(:each) do
       allow(context).to receive(:debug)
     end
 
@@ -444,7 +444,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       context 'when DSC Test says out of sync' do
-        before do
+        before(:each) do
           allow(provider).to receive(:fetch_cached_hashes).and_return([])
           allow(provider).to receive(:invoke_test_method).and_return([false, 'not in desired state'])
         end
@@ -455,7 +455,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           # fresh_state has 'Bar', should_hash has 'Foo' — values differ
           expect(result).to be_an(Array)
           expect(result.first).to be false
-          expect(result.last).to match(/dsc_setting changed/)
+          expect(result.last).to match(%r{dsc_setting changed})
         end
 
         it 'returns true for non-dsc_ properties (suppressed)' do
@@ -568,7 +568,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     it 'returns true for arrays in different order' do
-      expect(provider.values_equal?(%w[a b c], %w[c b a])).to be true
+      expect(provider.values_equal?(['a', 'b', 'c'], ['c', 'b', 'a'])).to be true
     end
 
     it 'returns true for hashes with case-different keys/values' do
@@ -589,7 +589,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:should_hash) { { name: 'foo', dsc_name: 'foo', dsc_setting: 'desired' } }
     let(:attributes) { { name: { type: 'String' }, dsc_name: { type: 'String', mandatory_for_get: true }, dsc_setting: { type: 'String' } } }
 
-    before do
+    before(:each) do
       allow(context).to receive(:debug)
       allow(context).to receive(:type).and_return(type)
       allow(type).to receive(:attributes).and_return(attributes)
@@ -627,7 +627,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     context 'when invoke_dsc_resource raises an error' do
       it 'returns nil and logs a debug message' do
         allow(provider).to receive(:invoke_dsc_resource).and_raise(StandardError, 'boom')
-        expect(context).to receive(:debug).with(/perform_fresh_get failed/)
+        expect(context).to receive(:debug).with(%r{perform_fresh_get failed})
         expect(provider.perform_fresh_get(context, name, should_hash)).to be_nil
       end
     end
@@ -638,7 +638,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:should_hash) { { name: 'foo', dsc_setting: 'desired' } }
     let(:fresh_result) { { name: 'foo', dsc_setting: 'current' } }
 
-    before do
+    before(:each) do
       allow(context).to receive(:debug)
     end
 
@@ -666,7 +666,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       {
         name: {
           type: 'String',
-          behaviour: :namevar
+          behaviour: :namevar,
         },
         dsc_name: {
           type: 'String',
@@ -674,7 +674,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           mandatory_for_get: true,
           mandatory_for_set: true,
           mof_type: 'String',
-          mof_is_embedded: false
+          mof_is_embedded: false,
         },
         dsc_psdscrunascredential: {
           type: 'Optional[Struct[{ user => String[1], password => Variant[String[1], Sensitive[String[1]]] }]]',
@@ -682,21 +682,21 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           mandatory_for_get: false,
           mandatory_for_set: false,
           mof_type: 'PSCredential',
-          mof_is_embedded: true
+          mof_is_embedded: true,
         },
         dsc_ensure: {
           type: "Optional[Enum['Present', 'Absent']]",
           mandatory_for_get: false,
           mandatory_for_set: false,
           mof_type: 'String',
-          mof_is_embedded: false
+          mof_is_embedded: false,
         },
         dsc_time: {
           type: 'Optional[Timestamp]',
           mandatory_for_get: false,
           mandatory_for_set: false,
           mof_type: 'DateTime',
-          mof_is_embedded: false
+          mof_is_embedded: false,
         },
         dsc_ciminstance: {
           type: "Optional[Struct[{
@@ -706,7 +706,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           mandatory_for_get: false,
           mandatory_for_set: false,
           mof_type: 'FooBarCimInstance',
-          mof_is_embedded: true
+          mof_is_embedded: true,
         },
         dsc_nestedciminstance: {
           type: "Optional[Struct[{
@@ -720,14 +720,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           mandatory_for_get: false,
           mandatory_for_set: false,
           mof_type: 'BazCimInstance',
-          mof_is_embedded: true
+          mof_is_embedded: true,
         },
         dsc_array: {
           type: 'Optional[Array[String]]',
           mandatory_for_get: false,
           mandatory_for_set: false,
           mof_type: 'String[]',
-          mof_is_embedded: false
+          mof_is_embedded: false,
         },
         dsc_param: {
           type: 'Optional[String]',
@@ -735,12 +735,12 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           mandatory_for_get: false,
           mandatory_for_set: false,
           mof_type: 'String',
-          mof_is_embedded: false
-        }
+          mof_is_embedded: false,
+        },
       }
     end
     let(:name_hash) { { name: 'foo', dsc_name: 'foo', dsc_time: '2100-01-01' } }
-    let(:mandatory_get_attributes) { %i[dsc_name] }
+    let(:mandatory_get_attributes) { [:dsc_name] }
     let(:query_props) { { dsc_name: 'foo' } }
     let(:resource) { "Resource: #{query_props}" }
     let(:script) { "Script: #{query_props}" }
@@ -752,16 +752,16 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         'CimInstance' => { 'Foo' => true, 'Bar' => 'Ope' },
         'NestedCimInstance' => {
           'Baz' => true,
-          'NestedProperty' => { 'NestedFoo' => 'yay', 'NestedBar' => 'Ope', 'cim_instance_type' => 'FooBarNestedCimINstance' }
+          'NestedProperty' => { 'NestedFoo' => 'yay', 'NestedBar' => 'Ope', 'cim_instance_type' => 'FooBarNestedCimINstance' },
         },
-        'Array' => %w[foo bar],
+        'Array' => ['foo', 'bar'],
         'EmptyArray' => nil,
         'Param' => 'Value',
-        'UnusedProperty' => 'foo'
+        'UnusedProperty' => 'foo',
       }
     end
 
-    before do
+    before(:each) do
       allow(context).to receive(:debug)
       allow(provider).to receive(:mandatory_get_attributes).and_return(mandatory_get_attributes)
       allow(provider).to receive(:invocable_resource).with(query_props, context, 'get').and_return(resource)
@@ -773,12 +773,12 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       allow(type).to receive(:attributes).and_return(attributes)
     end
 
-    after do
+    after(:each) do
       provider.instance_variable_set(:@cached_query_results, [])
     end
 
     context 'when the invocation script returns data without errors' do
-      before do
+      before(:each) do
         allow(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: 'DSC Data' })
         allow(JSON).to receive(:parse).with('DSC Data').and_return(parsed_invocation_data)
         allow(Puppet::Pops::Time::Timestamp).to receive(:parse).with('2100-01-01').and_return('TimeStamp:2100-01-01')
@@ -819,27 +819,27 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       it 'downcases keys in cim instance properties' do
-        expect(result[:dsc_nestedciminstance].keys).to eq(%w[baz nestedproperty])
-        expect(result[:dsc_nestedciminstance]['nestedproperty'].keys).to eq(%w[cim_instance_type nestedbar nestedfoo])
+        expect(result[:dsc_nestedciminstance].keys).to eq(['baz', 'nestedproperty'])
+        expect(result[:dsc_nestedciminstance]['nestedproperty'].keys).to eq(['cim_instance_type', 'nestedbar', 'nestedfoo'])
       end
 
       it 'recursively sorts the result for order-insensitive comparisons' do
-        expect(result.keys).to eq(%i[dsc_array dsc_ciminstance dsc_ensure dsc_name dsc_nestedciminstance dsc_time name])
-        expect(result[:dsc_array]).to eq(%w[bar foo])
-        expect(result[:dsc_ciminstance].keys).to eq(%w[bar foo])
-        expect(result[:dsc_nestedciminstance].keys).to eq(%w[baz nestedproperty])
-        expect(result[:dsc_nestedciminstance]['nestedproperty'].keys).to eq(%w[cim_instance_type nestedbar nestedfoo])
+        expect(result.keys).to eq([:dsc_array, :dsc_ciminstance, :dsc_ensure, :dsc_name, :dsc_nestedciminstance, :dsc_time, :name])
+        expect(result[:dsc_array]).to eq(['bar', 'foo'])
+        expect(result[:dsc_ciminstance].keys).to eq(['bar', 'foo'])
+        expect(result[:dsc_nestedciminstance].keys).to eq(['baz', 'nestedproperty'])
+        expect(result[:dsc_nestedciminstance]['nestedproperty'].keys).to eq(['cim_instance_type', 'nestedbar', 'nestedfoo'])
       end
 
       context 'when a namevar is an array' do
-        let(:name_hash) { { name: 'foo', dsc_name: 'foo', dsc_array: %w[foo bar] } }
-        let(:query_props) { { dsc_name: 'foo', dsc_array: %w[foo bar] } }
-        let(:mandatory_get_attributes) { %i[dsc_name dsc_array] }
+        let(:name_hash) { { name: 'foo', dsc_name: 'foo', dsc_array: ['foo', 'bar'] } }
+        let(:query_props) { { dsc_name: 'foo', dsc_array: ['foo', 'bar'] } }
+        let(:mandatory_get_attributes) { [:dsc_name, :dsc_array] }
         let(:attributes) do
           {
             name: {
               type: 'String',
-              behaviour: :namevar
+              behaviour: :namevar,
             },
             dsc_name: {
               type: 'String',
@@ -847,23 +847,23 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
               mandatory_for_get: true,
               mandatory_for_set: true,
               mof_type: 'String',
-              mof_is_embedded: false
+              mof_is_embedded: false,
             },
             dsc_array: {
               type: 'Array[String]',
               mandatory_for_get: true,
               mandatory_for_set: true,
               mof_type: 'String[]',
-              mof_is_embedded: false
-            }
+              mof_is_embedded: false,
+            },
           }
         end
         let(:parsed_invocation_data) do
-          { 'Name' => 'foo', 'Ensure' => 'Present', 'Array' => %w[foo bar] }
+          { 'Name' => 'foo', 'Ensure' => 'Present', 'Array' => ['foo', 'bar'] }
         end
 
         it 'behaves like any other namevar when specified as not empty' do
-          expect(result[:dsc_array]).to eq(%w[bar foo])
+          expect(result[:dsc_array]).to eq(['bar', 'foo'])
         end
 
         context 'when the namevar array is empty' do
@@ -899,11 +899,11 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         {
           'Name' => 'foo',
           'Ensure' => 'System.Object[]',
-          'Time' => nil
+          'Time' => nil,
         }
       end
 
-      before do
+      before(:each) do
         allow(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: 'DSC Data' })
         allow(JSON).to receive(:parse).with('DSC Data').and_return(parsed_invocation_data)
         allow(provider).to receive(:fetch_cached_hashes).and_return([])
@@ -918,15 +918,15 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       let(:parsed_invocation_data) do
         {
           'Name' => nil,
-          'Ensure' => 'Present'
+          'Ensure' => 'Present',
         }
       end
 
-      before do
+      before(:each) do
         allow(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: 'DSC Data' })
         allow(JSON).to receive(:parse).with('DSC Data').and_return(parsed_invocation_data)
         allow(provider).to receive(:fetch_cached_hashes).and_return([])
-        allow(provider).to receive(:namevar_attributes).and_return(%i[name dsc_name])
+        allow(provider).to receive(:namevar_attributes).and_return([:name, :dsc_name])
       end
 
       it 'preserves the namevar value from the input name_hash' do
@@ -945,7 +945,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     context 'when handling DateTimes' do
-      before do
+      before(:each) do
         allow(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: 'DSC Data' })
         allow(JSON).to receive(:parse).with('DSC Data').and_return(parsed_invocation_data)
         allow(provider).to receive(:fetch_cached_hashes).and_return([])
@@ -970,7 +970,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
 
         it 'writes an error and sets the value of `dsc_time` to nil' do
-          expect(context).to receive(:err).with(/Value returned for DateTime/)
+          expect(context).to receive(:err).with(%r{Value returned for DateTime})
           expect(result[:dsc_time]).to be_nil
         end
       end
@@ -982,7 +982,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
 
         it 'writes an error and sets the value of `dsc_time` to nil' do
-          expect(context).to receive(:err).with(/Value returned for DateTime/)
+          expect(context).to receive(:err).with(%r{Value returned for DateTime})
           expect(result[:dsc_time]).to be_nil
         end
       end
@@ -996,14 +996,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       let(:query_props) { { dsc_name: 'foo', dsc_psdscrunascredential: credential_hash } }
 
       context 'when the credential is invalid' do
-        before do
+        before(:each) do
           allow(provider).to receive(:logon_failed_already?).and_return(false)
           allow(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: 'DSC Data' })
           allow(JSON).to receive(:parse).with('DSC Data').and_return({ 'errormessage' => dsc_logon_failure_error })
           allow(context).to receive(:err).with(name_hash[:name], puppet_logon_failure_error)
         end
 
-        after do
+        after(:each) do
           provider.instance_variable_set(:@logon_failures, [])
         end
 
@@ -1041,7 +1041,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:resource) { "Resource: #{apply_props}" }
     let(:script) { "Script: #{apply_props}" }
 
-    before do
+    before(:each) do
       allow(context).to receive(:debug)
       allow(provider).to receive(:invocable_resource).with(apply_props, context, 'set').and_return(resource)
       allow(provider).to receive(:ps_script_content).with(resource).and_return(script)
@@ -1078,9 +1078,9 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     context 'when the invocation script errors with a collision' do
       it 'writes a notice via context and applies successfully on retry' do
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
-        expect(context).to receive(:notice).with(/Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour./).once
+        expect(context).to receive(:notice).with(%r{Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour.}).once
         expect(context).to receive(:notice).with('Sleeping for 60 seconds.').twice
-        expect(context).to receive(:notice).with(/Retrying: attempt [1-2] of 5/).twice
+        expect(context).to receive(:notice).with(%r{Retrying: attempt [1-2] of 5}).twice
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
         expect(context).to receive(:notice).with('Attempt 1 of 5 failed.')
         allow(provider).to receive(:sleep)
@@ -1091,25 +1091,25 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       it 'writes a error via context and fails to apply when all retry attempts used' do
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
                                                .exactly(5).times
-        expect(context).to receive(:notice).with(/Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour./).once
+        expect(context).to receive(:notice).with(%r{Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour.}).once
         expect(context).to receive(:notice).with('Sleeping for 60 seconds.').exactly(5).times
-        expect(context).to receive(:notice).with(/Retrying: attempt [1-5] of 5/).exactly(5).times
+        expect(context).to receive(:notice).with(%r{Retrying: attempt [1-5] of 5}).exactly(5).times
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
-        expect(context).to receive(:notice).with(/Attempt [1-5] of 5 failed/).exactly(5).times
-        expect(context).to receive(:err).with(/The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked/)
+        expect(context).to receive(:notice).with(%r{Attempt [1-5] of 5 failed}).exactly(5).times
+        expect(context).to receive(:err).with(%r{The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked})
         allow(provider).to receive(:sleep)
         expect(result).to be_nil
       end
 
       it 'writes an error via context and fails to apply when encountering an unexpected error' do
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
-        expect(context).to receive(:notice).with(/Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour./).once
+        expect(context).to receive(:notice).with(%r{Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour.}).once
         expect(context).to receive(:notice).with('Sleeping for 60 seconds.').once
-        expect(context).to receive(:notice).with(/Retrying: attempt 1 of 5/).once
+        expect(context).to receive(:notice).with(%r{Retrying: attempt 1 of 5}).once
         allow(provider).to receive(:sleep)
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "Some unexpected error"}' }).once
-        expect(context).to receive(:notice).with(/Attempt 1 of 5 failed/).once
-        expect(context).to receive(:err).with(/Some unexpected error/)
+        expect(context).to receive(:notice).with(%r{Attempt 1 of 5 failed}).once
+        expect(context).to receive(:err).with(%r{Some unexpected error})
         expect(result).to be_nil
       end
     end
@@ -1120,7 +1120,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       let(:resource_with_timeout) { "Resource: #{apply_props_with_timeout}" }
       let(:script_with_timeout) { "Script: #{apply_props_with_timeout}" }
 
-      before do
+      before(:each) do
         allow(provider).to receive(:invocable_resource).with(apply_props_with_timeout, context, 'set').and_return(resource_with_timeout)
         allow(provider).to receive(:ps_script_content).with(resource_with_timeout).and_return(script_with_timeout)
         allow(provider).to receive(:remove_secret_identifiers).with(script_with_timeout).and_return(script_with_timeout)
@@ -1144,9 +1144,9 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.invoke_get_method_for_canonicalize' do
-    before do
+    before(:each) do
       allow(context).to receive(:debug)
-      allow(provider).to receive(:namevar_attributes).and_return(%i[name dsc_name])
+      allow(provider).to receive(:namevar_attributes).and_return([:name, :dsc_name])
     end
 
     it 'calls invoke_get_method and caches to @cached_canonicalize_results' do
@@ -1206,12 +1206,12 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         dscmeta_module_name: 'PuppetDsc',
         dscmeta_module_version: '1.2.3.4',
         docs: 'The DSC Foo resource type. Automatically generated from version 1.2.3.4',
-        features: %w[simple_get_filter canonicalize],
+        features: ['simple_get_filter', 'canonicalize'],
         attributes: {
           name: {
             type: 'String',
             desc: 'Description of the purpose for this resource declaration.',
-            behaviour: :namevar
+            behaviour: :namevar,
           },
           dsc_name: {
             type: 'String',
@@ -1220,7 +1220,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             mandatory_for_get: true,
             mandatory_for_set: true,
             mof_type: 'String',
-            mof_is_embedded: false
+            mof_is_embedded: false,
           },
           dsc_psdscrunascredential: {
             type: 'Optional[Struct[{ user => String[1], password => Variant[String[1], Sensitive[String[1]]] }]]',
@@ -1229,7 +1229,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             mandatory_for_get: false,
             mandatory_for_set: false,
             mof_type: 'PSCredential',
-            mof_is_embedded: true
+            mof_is_embedded: true,
           },
           dsc_ensure: {
             type: "Optional[Enum['Present', 'Absent']]",
@@ -1237,15 +1237,15 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             mandatory_for_get: false,
             mandatory_for_set: false,
             mof_type: 'String',
-            mof_is_embedded: false
-          }
-        }
+            mof_is_embedded: false,
+          },
+        },
       }
     end
     let(:should_hash) { { dsc_name: 'foo' } }
     let(:vendored_modules_path) { 'C:/code/puppetlabs/gems/ruby-pwsh/lib/puppet_x/puppetdsc/dsc_resources' }
 
-    before do
+    before(:each) do
       allow(context).to receive(:debug)
       allow(context).to receive(:type).and_return(type)
       allow(type).to receive(:definition).and_return(definition)
@@ -1298,13 +1298,13 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:load_path) { [] }
     let(:new_path_nil_root_module) { 'C:/code/puppetlabs/gems/ruby-pwsh/lib/puppet_x/puppetdsc/dsc_resources' }
 
-    before do
+    before(:each) do
       allow(provider).to receive(:load_path).and_return(load_path)
       allow(File).to receive(:exist?).and_call_original
     end
 
     it 'raises an error when the vendored resources cannot be found' do
-      expect { provider.vendored_modules_path('NeverGonnaFindMe') }.to raise_error(/Unable to find expected vendored DSC Resource/)
+      expect { provider.vendored_modules_path('NeverGonnaFindMe') }.to raise_error(%r{Unable to find expected vendored DSC Resource})
     end
 
     context 'when the vendored resources are in puppet_x/<module_name>/dsc_resources' do
@@ -1367,16 +1367,16 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     let(:name) { { name: 'foo', dsc_name: 'bar' } }
     let(:should_hash) { name.merge(dsc_ensure: 'present') }
-    let(:test_properties) { should_hash.reject { |k, _v| k == :name } }
+    let(:test_properties) { should_hash.except(:name) }
     let(:invoke_dsc_resource_data) { nil }
 
-    before do
+    before(:each) do
       allow(context).to receive(:notice)
       allow(context).to receive(:debug)
       allow(provider).to receive(:invoke_dsc_resource).with(context, name, test_properties, 'test').and_return(invoke_dsc_resource_data)
     end
 
-    after do
+    after(:each) do
       provider.instance_variable_set(:@cached_test_results, [])
     end
 
@@ -1406,7 +1406,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         # Resource is not in the desired state
         expect(result.first).to be(false)
         # Custom out-of-sync message passed
-        expect(result.last).to match(/not in the desired state/)
+        expect(result.last).to match(%r{not in the desired state})
         expect(provider.cached_test_results).to eq([name.merge(in_desired_state: false)])
       end
     end
@@ -1418,13 +1418,13 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     it 'includes underscores instead of hyphens' do
-      expect(provider.random_variable_name).to match(/_/)
-      expect(provider.random_variable_name).not_to match(/-/)
+      expect(provider.random_variable_name).to match(%r{_})
+      expect(provider.random_variable_name).not_to match(%r{-})
     end
   end
 
   describe '.instantiated_variables' do
-    after do
+    after(:each) do
       provider.instance_variable_set(:@instantiated_variables, [])
     end
 
@@ -1439,7 +1439,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.clear_instantiated_variables!' do
-    after do
+    after(:each) do
       provider.instance_variable_set(:@instantiated_variables, [])
     end
 
@@ -1463,12 +1463,12 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     context 'when the logon_failures cache has entries' do
-      before do
+      before(:each) do
         allow(good_password).to receive(:unwrap).and_return('foo')
         allow(bad_password).to receive(:unwrap).and_return('bar')
       end
 
-      after do
+      after(:each) do
         provider.instance_variable_set(:@logon_failures, [])
       end
 
@@ -1490,7 +1490,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         'SomeKey' => 'value',
         'SomeArray' => [
           { 'ArrayKeyOne' => 1, 'ArrayKeyTwo' => 2 },
-          { 'ArrayKeyOne' => '1', 'ArrayKeyTwo' => '2' }
+          { 'ArrayKeyOne' => '1', 'ArrayKeyTwo' => '2' },
         ],
         'SomeHash' => {
           'NestedKey' => 'foo',
@@ -1499,24 +1499,24 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             'DeeplyNestedKey' => 'foo',
             'DeeplyNestedArray' => [{ 'DeeplyNestedArrayKeyOne' => 1, 'DeeplyNestedArrayKeyTwo' => 2 }],
             'DeeplyNestedHash' => {
-              'VeryDeeplyNestedKey' => 'foo'
-            }
-          }
-        }
+              'VeryDeeplyNestedKey' => 'foo',
+            },
+          },
+        },
       }
     end
 
     it 'converts all the keys in a hash into downcase, even if nested in another hash or array' do
       downcased_hash = test_hash.dup
       expect { provider.downcase_hash_keys!(downcased_hash) }.not_to raise_error
-      expect(downcased_hash.keys).to eq(%w[somekey somearray somehash])
-      expect(downcased_hash['somearray'][0].keys).to eq(%w[arraykeyone arraykeytwo])
-      expect(downcased_hash['somearray'][1].keys).to eq(%w[arraykeyone arraykeytwo])
-      expect(downcased_hash['somehash'].keys).to eq(%w[nestedkey nestedarray nestedhash])
-      expect(downcased_hash['somehash']['nestedarray'].first.keys).to eq(%w[nestedarraykeyone nestedarraykeytwo])
-      expect(downcased_hash['somehash']['nestedhash'].keys).to eq(%w[deeplynestedkey deeplynestedarray deeplynestedhash])
-      expect(downcased_hash['somehash']['nestedhash']['deeplynestedarray'].first.keys).to eq(%w[deeplynestedarraykeyone deeplynestedarraykeytwo])
-      expect(downcased_hash['somehash']['nestedhash']['deeplynestedhash'].keys).to eq(%w[verydeeplynestedkey])
+      expect(downcased_hash.keys).to eq(['somekey', 'somearray', 'somehash'])
+      expect(downcased_hash['somearray'][0].keys).to eq(['arraykeyone', 'arraykeytwo'])
+      expect(downcased_hash['somearray'][1].keys).to eq(['arraykeyone', 'arraykeytwo'])
+      expect(downcased_hash['somehash'].keys).to eq(['nestedkey', 'nestedarray', 'nestedhash'])
+      expect(downcased_hash['somehash']['nestedarray'].first.keys).to eq(['nestedarraykeyone', 'nestedarraykeytwo'])
+      expect(downcased_hash['somehash']['nestedhash'].keys).to eq(['deeplynestedkey', 'deeplynestedarray', 'deeplynestedhash'])
+      expect(downcased_hash['somehash']['nestedhash']['deeplynestedarray'].first.keys).to eq(['deeplynestedarraykeyone', 'deeplynestedarraykeytwo'])
+      expect(downcased_hash['somehash']['nestedhash']['deeplynestedhash'].keys).to eq(['verydeeplynestedkey'])
     end
   end
 
@@ -1532,7 +1532,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         'cim_instance_type' => 'MSFT_xWebBindingInformation',
         'Port' => 80,
         'IPAddress' => '*',
-        'Protocol' => 'http'
+        'Protocol' => 'http',
       }
     end
     let(:nested_cim_instance) do
@@ -1543,15 +1543,15 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             'Inheritance' => 'This folder and files',
             'Ensure' => 'Present',
             'cim_instance_type' => 'NTFSAccessControlEntry',
-            'FileSystemRights' => ['FullControl']
-          }
+            'FileSystemRights' => ['FullControl'],
+          },
         ],
         'ForcePrincipal' => true,
-        'Principal' => 'Everyone'
+        'Principal' => 'Everyone',
       }
     end
 
-    before { provider.munge_cim_instances!(value) }
+    before(:each) { provider.munge_cim_instances!(value) }
 
     context 'when called against a non-nested cim instance' do
       let(:value) { cim_instance.dup }
@@ -1586,7 +1586,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     context 'when called against a value which is not a cim_instance' do
-      let(:original) { %w[foo bar baz] }
+      let(:original) { ['foo', 'bar', 'baz'] }
       let(:value) { original.dup }
 
       it 'does not change the value' do
@@ -1601,7 +1601,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         SomeKey: 'Value',
         SomeArray: [
           { ArrayKeyOne: 1, ArrayKeyTwo: 2 },
-          { ArrayKeyOne: 'ONE', ArrayKeyTwo: 2 }
+          { ArrayKeyOne: 'ONE', ArrayKeyTwo: 2 },
         ],
         SomeHash: {
           NestedKey: 'Foo',
@@ -1610,10 +1610,10 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             DeeplyNestedKey: 'Foo',
             DeeplyNestedArray: [{ DeeplyNestedArrayKeyOne: 'One', DeeplyNestedArrayKeyTwo: 2 }],
             DeeplyNestedHash: {
-              VeryDeeplyNestedKey: 'Foo'
-            }
-          }
-        }
+              VeryDeeplyNestedKey: 'Foo',
+            },
+          },
+        },
       }
     end
     let(:downcased_array) { [{ arraykeyone: 1, arraykeytwo: 2 }, { arraykeyone: 'one', arraykeytwo: 2 }] }
@@ -1625,9 +1625,9 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           deeplynestedkey: 'foo',
           deeplynestedarray: [{ deeplynestedarraykeyone: 'one', deeplynestedarraykeytwo: 2 }],
           deeplynestedhash: {
-            verydeeplynestedkey: 'foo'
-          }
-        }
+            verydeeplynestedkey: 'foo',
+          },
+        },
       }
     end
 
@@ -1653,20 +1653,20 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             DeeplyNestedArray: [2, 3, 'a', 1, 'c', 'b'],
             DeeplyNestedHash: {
               VeryDeeplyNestedKey2: 'Foo',
-              VeryDeeplyNestedKey1: 'Bar'
-            }
-          }
-        }
+              VeryDeeplyNestedKey1: 'Bar',
+            },
+          },
+        },
       }
     end
-    let(:sorted_keys) { %i[SomeArray SomeComplexArray SomeHash SomeKey] }
+    let(:sorted_keys) { [:SomeArray, :SomeComplexArray, :SomeHash, :SomeKey] }
     let(:sorted_some_array) { [1, 2, 3] }
     let(:sorted_complex_array) { [2, 3, [1, 2]] }
-    let(:sorted_some_hash_keys) { %i[NestedArray NestedHash NestedKey] }
+    let(:sorted_some_hash_keys) { [:NestedArray, :NestedHash, :NestedKey] }
     let(:sorted_nested_array) { [1, 2, { NestedArrayKeyOne: 'ONE', NestedArrayKeyTwo: 2 }] }
-    let(:sorted_nested_hash_keys) { %i[DeeplyNestedArray DeeplyNestedHash DeeplyNestedKey] }
+    let(:sorted_nested_hash_keys) { [:DeeplyNestedArray, :DeeplyNestedHash, :DeeplyNestedKey] }
     let(:sorted_deeply_nested_array) { [1, 2, 3, 'a', 'b', 'c'] }
-    let(:sorted_deeply_nested_hash_keys) { %i[VeryDeeplyNestedKey1 VeryDeeplyNestedKey2] }
+    let(:sorted_deeply_nested_hash_keys) { [:VeryDeeplyNestedKey1, :VeryDeeplyNestedKey2] }
 
     it 'downcases any string passed, whether alone or in a hash or array or nested deeply' do
       result = provider.recursively_sort(test_hash)
@@ -1710,14 +1710,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         name: { type: 'String' },
         dsc_ensure: { mandatory_for_get: true },
         dsc_enum: { mandatory_for_get: false },
-        dsc_string: { mandatory_for_get: true }
+        dsc_string: { mandatory_for_get: true },
       }
     end
 
     it 'returns the list of attributes from the type where the mandatory_for_get meta property is true' do
       expect(context).to receive(:type).and_return(type)
       expect(type).to receive(:attributes).and_return(attributes)
-      expect(provider.mandatory_get_attributes(context)).to eq(%i[dsc_ensure dsc_string])
+      expect(provider.mandatory_get_attributes(context)).to eq([:dsc_ensure, :dsc_string])
     end
   end
 
@@ -1727,14 +1727,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         name: { type: 'String' },
         dsc_ensure: { mandatory_for_set: true },
         dsc_enum: { mandatory_for_set: false },
-        dsc_string: { mandatory_for_set: true }
+        dsc_string: { mandatory_for_set: true },
       }
     end
 
     it 'returns the list of attributes from the type where the mandatory_for_set meta property is true' do
       expect(context).to receive(:type).and_return(type)
       expect(type).to receive(:attributes).and_return(attributes)
-      expect(provider.mandatory_set_attributes(context)).to eq(%i[dsc_ensure dsc_string])
+      expect(provider.mandatory_set_attributes(context)).to eq([:dsc_ensure, :dsc_string])
     end
   end
 
@@ -1745,14 +1745,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         dsc_name: { type: 'String', behaviour: :namevar },
         dsc_ensure: { type: "[Enum['Present', 'Absent']]" },
         dsc_enum: { type: "Optional[Enum['Trusted', 'Untrusted']]" },
-        dsc_string: { type: 'Optional[String]' }
+        dsc_string: { type: 'Optional[String]' },
       }
     end
 
     it 'returns the list of attributes from the type where the attribute has the namevar behavior' do
       expect(context).to receive(:type).and_return(type)
       expect(type).to receive(:attributes).and_return(attributes)
-      expect(provider.namevar_attributes(context)).to eq(%i[name dsc_name])
+      expect(provider.namevar_attributes(context)).to eq([:name, :dsc_name])
     end
   end
 
@@ -1763,14 +1763,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         dsc_name: { type: 'String', behaviour: :namevar },
         dsc_ensure: { type: "[Enum['Present', 'Absent']]" },
         dsc_enum: { type: "Optional[Enum['Trusted', 'Untrusted']]", behaviour: :parameter },
-        dsc_string: { type: 'Optional[String]', behaviour: :parameter }
+        dsc_string: { type: 'Optional[String]', behaviour: :parameter },
       }
     end
 
     it 'returns the list of attributes from the type where the attribute has the parameter behavior' do
       expect(context).to receive(:type).and_return(type)
       expect(type).to receive(:attributes).and_return(attributes)
-      expect(provider.parameter_attributes(context)).to eq(%i[dsc_enum dsc_string])
+      expect(provider.parameter_attributes(context)).to eq([:dsc_enum, :dsc_string])
     end
   end
 
@@ -1780,14 +1780,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         name: { type: 'String' },
         dsc_ensure: { type: "[Enum['Present', 'Absent']]" },
         dsc_enum: { type: "Optional[Enum['Trusted', 'Untrusted']]" },
-        dsc_string: { type: 'Optional[String]' }
+        dsc_string: { type: 'Optional[String]' },
       }
     end
 
     it 'returns the list of attributes from the type where the attribute data type is an enum' do
       expect(context).to receive(:type).and_return(type)
       expect(type).to receive(:attributes).and_return(enum_test_attributes)
-      expect(provider.enum_attributes(context)).to eq(%i[dsc_ensure dsc_enum])
+      expect(provider.enum_attributes(context)).to eq([:dsc_ensure, :dsc_enum])
     end
   end
 
@@ -1796,11 +1796,11 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       {
         some_variable_name: 'FooBar',
         another_variable_name: 'Get-Foo',
-        third_variable_name: 'Get-Foo "bar"'
+        third_variable_name: 'Get-Foo "bar"',
       }
     end
 
-    before do
+    before(:each) do
       allow(provider).to receive(:instantiated_variables).and_return(instantiated_variables)
     end
 
@@ -1821,7 +1821,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
       it 'sets $UnmungedPSModulePath to the current PSModulePath' do
         # since https://github.com/puppetlabs/ruby-pwsh/pull/261 we load vendored path for MOF resources as well
-        expect(result).to match(/\$UnmungedPSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine/)
+        expect(result).to match(%r{\$UnmungedPSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine})
       end
     end
 
@@ -1830,7 +1830,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
       # since https://github.com/puppetlabs/ruby-pwsh/pull/261 we load vendored path for MOF resources as well
       it 'sets $UnmungedPSModulePath to the current PSModulePath' do
-        expect(result).to match(/\$UnmungedPSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine/)
+        expect(result).to match(%r{\$UnmungedPSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine})
       end
     end
 
@@ -1838,19 +1838,19 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       let(:test_resource) { { dscmeta_resource_implementation: 'Class', vendored_modules_path: 'C:/foo/bar' } }
 
       it 'sets $UnmungedPSModulePath to the current PSModulePath' do
-        expect(result).to match(/\$UnmungedPSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine/)
+        expect(result).to match(%r{\$UnmungedPSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine})
       end
 
       it 'sets $MungedPSModulePath the vendor path with backslash separators' do
-        expect(result).to match(/\$MungedPSModulePath = .+;C:\\foo\\bar/)
+        expect(result).to match(%r{\$MungedPSModulePath = .+;C:\\foo\\bar})
       end
 
       it 'updates the system PSModulePath to $MungedPSModulePath' do
-        expect(result).to match(/-Name 'PSModulePath' -Value \$MungedPSModulePath/)
+        expect(result).to match(%r{-Name 'PSModulePath' -Value \$MungedPSModulePath})
       end
 
       it 'sets the process level PSModulePath to the modified system PSModulePath' do
-        expect(result).to match(/\$env:PSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine/)
+        expect(result).to match(%r{\$env:PSModulePath = .+GetEnvironmentVariable.+PSModulePath.+machine})
       end
     end
   end
@@ -1861,8 +1861,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:base_resource) do
       {
         parameters: {
-          dsc_name: { value: 'foo', mof_type: 'String', mof_is_embedded: false }
-        }
+          dsc_name: { value: 'foo', mof_type: 'String', mof_is_embedded: false },
+        },
       }
     end
 
@@ -1882,20 +1882,20 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           parameters: {
             dsc_psdscrunascredential: { value: nil, mof_type: 'PSCredential' },
             dsc_somecredential: { value: { 'user' => 'foo', 'password' => foo_password }, mof_type: 'PSCredential' },
-            dsc_othercredential: { value: { 'user' => 'bar', 'password' => bar_password }, mof_type: 'PSCredential' }
-          }
+            dsc_othercredential: { value: { 'user' => 'bar', 'password' => bar_password }, mof_type: 'PSCredential' },
+          },
         }
       end
       let(:test_resource) { base_resource.merge(additional_parameters) }
 
-      before do
+      before(:each) do
         allow(Puppet::Pops::Types::PSensitiveType::Sensitive).to receive(:===).with(foo_password).and_return(true)
         allow(Puppet::Pops::Types::PSensitiveType::Sensitive).to receive(:===).with(bar_password).and_return(true)
         allow(foo_password).to receive(:unwrap).and_return('foo')
         allow(bar_password).to receive(:unwrap).and_return('bar')
       end
 
-      after do
+      after(:each) do
         provider.instance_variable_set(:@instantiated_variables, [])
       end
 
@@ -1910,8 +1910,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       it 'returns an array of strings each containing the instantiation of a PowerShell variable representing the credential hash' do
-        expect(result[0]).to match(/^\$\w+ = New-PSCredential -User foo -Password 'foo#PuppetSensitive'/)
-        expect(result[1]).to match(/^\$\w+ = New-PSCredential -User bar -Password 'bar#PuppetSensitive'/)
+        expect(result[0]).to match(%r{^\$\w+ = New-PSCredential -User foo -Password 'foo#PuppetSensitive'})
+        expect(result[1]).to match(%r{^\$\w+ = New-PSCredential -User bar -Password 'bar#PuppetSensitive'})
       end
     end
   end
@@ -1928,7 +1928,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   describe '.prepare_cim_instances' do
     subject(:result) { provider.prepare_cim_instances(test_resource) }
 
-    after do
+    after(:each) do
       provider.instance_variable_set(:@instantiated_variables, [])
     end
 
@@ -1939,14 +1939,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             dsc_someciminstance: {
               value: { 'foo' => 1, 'bar' => 'two' },
               mof_type: 'SomeCimType',
-              mof_is_embedded: true
+              mof_is_embedded: true,
             },
-            dsc_name: { value: 'foo', mof_type: 'String', mof_is_embedded: false }
-          }
+            dsc_name: { value: 'foo', mof_type: 'String', mof_is_embedded: false },
+          },
         }
       end
 
-      before do
+      before(:each) do
         allow(provider).to receive(:nested_cim_instances).with(test_resource[:parameters][:dsc_someciminstance][:value]).and_return([nil, nil])
         allow(provider).to receive(:random_variable_name).and_return('cim_foo')
       end
@@ -1970,34 +1970,34 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
                 'accesscontrolentry' => [{
                   'accesscontroltype' => 'Allow',
                   'ensure' => 'Present',
-                  'cim_instance_type' => 'NTFSAccessControlEntry'
+                  'cim_instance_type' => 'NTFSAccessControlEntry',
                 }],
-                'principal' => 'veryRealUserName'
+                'principal' => 'veryRealUserName',
               }],
               mof_type: 'NTFSAccessControlList[]',
-              mof_is_embedded: true
-            }
-          }
+              mof_is_embedded: true,
+            },
+          },
         }
       end
       let(:nested_cim_instances) do
         [[[{ 'accesscontroltype' => 'Allow', 'ensure' => 'Present', 'cim_instance_type' => 'NTFSAccessControlEntry' }], nil]]
       end
 
-      before do
+      before(:each) do
         allow(provider).to receive(:nested_cim_instances).with(test_resource[:parameters][:dsc_accesscontrollist][:value]).and_return(nested_cim_instances)
         allow(provider).to receive(:random_variable_name).and_return('cim_foo', 'cim_bar')
       end
 
       it 'processes nested cim instances first' do
         cim_instance_declarations = result.split("\n")
-        expect(cim_instance_declarations.first).to match(/\$cim_foo =/)
-        expect(cim_instance_declarations.first).to match(/ClassName 'NTFSAccessControlEntry'/)
+        expect(cim_instance_declarations.first).to match(%r{\$cim_foo =})
+        expect(cim_instance_declarations.first).to match(%r{ClassName 'NTFSAccessControlEntry'})
       end
 
       it 'references nested cim instances as variables in the parent cim instance' do
         cim_instance_declarations = result.split("\n")
-        expect(cim_instance_declarations[1]).to match(/\$cim_bar =.+Property @{'accesscontrolentry' = \[CimInstance\[\]\]@\(\$cim_foo\); 'principal' = 'veryRealUserName'}/)
+        expect(cim_instance_declarations[1]).to match(%r{\$cim_bar =.+Property @{'accesscontrolentry' = \[CimInstance\[\]\]@\(\$cim_foo\); 'principal' = 'veryRealUserName'}})
       end
     end
 
@@ -2005,8 +2005,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       let(:test_resource) do
         {
           parameters: {
-            dsc_name: { value: 'foo', mof_type: 'String', mof_is_embedded: false }
-          }
+            dsc_name: { value: 'foo', mof_type: 'String', mof_is_embedded: false },
+          },
         }
       end
 
@@ -2024,9 +2024,9 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         'accesscontrolentry' => [{
           'accesscontroltype' => 'Allow',
           'ensure' => 'Present',
-          'cim_instance_type' => 'NTFSAccessControlEntry'
+          'cim_instance_type' => 'NTFSAccessControlEntry',
         }],
-        'principal' => 'veryRealUserName'
+        'principal' => 'veryRealUserName',
       }]
     end
 
@@ -2037,7 +2037,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
   end
 
   describe '.format_ciminstance' do
-    after do
+    after(:each) do
       provider.instance_variable_set(:@instantiated_variables, [])
     end
 
@@ -2049,14 +2049,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     it 'handles arrays of cim instances' do
       property_hash = [{ 'foo' => 1, 'bar' => 'two' }, { 'foo' => 3, 'bar' => 'four' }]
-      expected_cim_instance_array_regex = /Property \[CimInstance\[\]\]@\(@\{'foo' = 1; 'bar' = 'two'}, @\{'foo' = 3; 'bar' = 'four'\}\)/
+      expected_cim_instance_array_regex = %r{Property \[CimInstance\[\]\]@\(@\{'foo' = 1; 'bar' = 'two'}, @\{'foo' = 3; 'bar' = 'four'\}\)}
       expect(provider.format_ciminstance('foo', 'SomeClass', property_hash)).to match(expected_cim_instance_array_regex)
     end
 
     it 'interpolates variables in the case of a cim instance containing a nested instance' do
       provider.instance_variable_set(:@instantiated_variables, { 'SomeVariable' => { 'bar' => 'ope' } })
       property_hash = { 'foo' => { 'bar' => 'ope' } }
-      expect(provider.format_ciminstance('foo', 'SomeClass', property_hash)).to match(/@\{'foo' = \$SomeVariable\}/)
+      expect(provider.format_ciminstance('foo', 'SomeClass', property_hash)).to match(%r{@\{'foo' = \$SomeVariable\}})
     end
   end
 
@@ -2073,26 +2073,26 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         dscmeta_module_name: 'PuppetDsc',
         dsc_invoke_method: 'Get',
         vendored_modules_path: 'C:/code/puppetlabs/gems/ruby-pwsh/lib/puppet_x/puppetdsc/dsc_resources',
-        attributes: nil
+        attributes: nil,
       }
     end
 
     it 'includes the DSC Resource name in the output hash' do
-      expect(result).to match(/Name = 'Foo'/)
+      expect(result).to match(%r{Name = 'Foo'})
     end
 
     it 'includes the specified method in the output hash' do
-      expect(result).to match(/Method = 'Get'/)
+      expect(result).to match(%r{Method = 'Get'})
     end
 
     it 'includes the properties as a hashtable to pass the DSC Resource in the output hash' do
-      expect(result).to match(/Property = @\{name = 'foo'\}/)
+      expect(result).to match(%r{Property = @\{name = 'foo'\}})
     end
 
     context 'when handling module versioning' do
       context 'when the dscmeta_module_version is not specified' do
         it 'includes the ModuleName in the output hash as a string' do
-          expect(result).to match(/ModuleName = 'PuppetDsc'/)
+          expect(result).to match(%r{ModuleName = 'PuppetDsc'})
         end
       end
 
@@ -2104,7 +2104,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
             dscmeta_module_name: 'PuppetDsc',
             dscmeta_module_version: '1.2.3.4',
             dsc_invoke_method: 'Get',
-            vendored_modules_path: 'C:/path/to/ruby-pwsh/lib/puppet_x/puppetdsc/dsc_resources'
+            vendored_modules_path: 'C:/path/to/ruby-pwsh/lib/puppet_x/puppetdsc/dsc_resources',
           }
         end
         let(:expected_module_name) do
@@ -2112,7 +2112,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
 
         it 'includes the ModuleName in the output hash as a hashtable of name and version' do
-          expect(result).to match(/#{expected_module_name}/)
+          expect(result).to match(%r{#{expected_module_name}})
         end
       end
     end
@@ -2130,7 +2130,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           "$InvokeParams = @{Name = 'Foo'; Method = 'Get'; Property = @{credential = $SomeCredential}; ModuleName = 'PuppetDsc'}"
         end
 
-        before do
+        before(:each) do
           allow(Puppet::Pops::Types::PSensitiveType::Sensitive).to receive(:===).with(password).and_return(true)
           allow(password).to receive(:unwrap).and_return('bar')
         end
@@ -2150,7 +2150,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
         it 'casts the formatted timestamp string to DateTime in the property hash' do
           expect(date_time).to receive(:format).and_return('2100-01-01')
-          expect(result).to match(/datetime = \[DateTime\]'2100-01-01'/)
+          expect(result).to match(%r{datetime = \[DateTime\]'2100-01-01'})
         end
       end
 
@@ -2160,7 +2160,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
 
         it 'casts the empty aray to the mof type in the property hash' do
-          expect(result).to match(/emptyarray = \[String\[\]\]@\(\)/)
+          expect(result).to match(%r{emptyarray = \[String\[\]\]@\(\)})
         end
       end
 
@@ -2170,7 +2170,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
 
         it 'casts the Cim Instance value as [CimInstance[]]in the property hash' do
-          expect(result).to match(/ciminstance = \[CimInstance\[\]\]@\{'something' = 1; 'another' = 'two'\}/)
+          expect(result).to match(%r{ciminstance = \[CimInstance\[\]\]@\{'something' = 1; 'another' = 'two'\}})
         end
       end
     end
@@ -2186,7 +2186,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       "Functions Block\nPreamble Block\n\n\n\nParameters Block\nPostscript Block"
     end
 
-    before do
+    before(:each) do
       allow(File).to receive(:new).with("#{template_path}/invoke_dsc_resource_functions.ps1").and_return(functions_file_handle)
       allow(functions_file_handle).to receive(:read).and_return('Functions Block')
       allow(File).to receive(:new).with("#{template_path}/invoke_dsc_resource_preamble.ps1").and_return(preamble_file_handle)
@@ -2282,9 +2282,9 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           nested_value: sensitive_string,
           nested_array: [sensitive_string, 'bar'],
           nested_hash: {
-            deeply_nested_value: sensitive_string
-          }
-        }
+            deeply_nested_value: sensitive_string,
+          },
+        },
       }
 
       result = provider.unwrap(sensitive_structure)
@@ -2455,7 +2455,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   describe '.ps_manager' do
     describe '.ps_manager on non-Windows' do
-      before do
+      before(:each) do
         allow(Pwsh::Util).to receive(:on_windows?).and_return(false)
         allow(Pwsh::Manager).to receive(:pwsh_path).and_return('pwsh')
         allow(Pwsh::Manager).to receive(:pwsh_args).and_return('args')
@@ -2475,7 +2475,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     end
 
     describe '.ps_manager on Windows' do
-      before do
+      before(:each) do
         allow(Pwsh::Util).to receive(:on_windows?).and_return(true)
         allow(Pwsh::Manager).to receive(:powershell_path).and_return('pwsh')
         allow(Pwsh::Manager).to receive(:powershell_args).and_return('args')
