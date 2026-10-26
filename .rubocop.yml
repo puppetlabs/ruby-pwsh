@@ -1,30 +1,142 @@
-inherit_from: .rubocop_todo.yml
-
-require:
-  - rubocop-performance
-  - rubocop-rspec
-
+---
+plugins:
+- rubocop-performance
+- rubocop-hash_inspect
+- rubocop-rspec
+- rubocop-rspec_rails
+- rubocop-factory_bot
+- rubocop-capybara
 AllCops:
-  Exclude:
-    - Gemfile
-    - Rakefile
-    - spec/fixtures/**/*
-    - vendor/bundle/**/*
   NewCops: enable
-  SuggestExtensions: false
-  TargetRubyVersion: '3.1'
-
-# Disabled
-Style/ClassAndModuleChildren:
-  Enabled: false
-
+  DisplayCopNames: true
+  TargetRubyVersion: 3.1
+  Include:
+  - "**/*.rb"
+  Exclude:
+  - bin/*
+  - ".vendor/**/*"
+  - "**/Gemfile"
+  - "**/Rakefile"
+  - pkg/**/*
+  - spec/fixtures/**/*
+  - vendor/**/*
+  - "**/Puppetfile"
+  - "**/Vagrantfile"
+  - "**/Guardfile"
 Layout/LineLength:
-  Max: 196
-
-####################################################
-# Cops below here due for deprecation
-####################################################
-# ``Rspec/FilePath`` is going to be deprecated in the next major release of rubocop >=3.0.0: see <https://www.rubydoc.info/gems/rubocop-rspec/RuboCop/Cop/RSpec/FilePath>
-# As the new cops are already present, e.g., Rspec/SpecFilePathPathFormat, then disabling this in preparation
-RSpec/FilePath:
+  Description: People have wide screens, use them.
+  Max: 200
+Layout/EndOfLine:
+  Description: We enforce lf to ensure consistency across platforms.
+  EnforcedStyle: lf
+RSpec/BeforeAfterAll:
+  Description: Beware of using after(:all) as it may cause state to leak between tests.
+    A necessary evil in acceptance testing.
+  Exclude:
+  - spec/acceptance/**/*.rb
+RSpec/HookArgument:
+  Description: Prefer explicit :each argument, matching existing module's style
+  EnforcedStyle: each
+RSpec/DescribeSymbol:
+  Exclude:
+  - spec/unit/facter/**/*.rb
+Style/BlockDelimiters:
+  Description: Prefer braces for chaining. Mostly an aesthetical choice. Better to
+    be consistent then.
+  EnforcedStyle: braces_for_chaining
+Style/ClassAndModuleChildren:
+  Description: Compact style reduces the required amount of indentation.
+  EnforcedStyle: compact
+Style/EmptyElse:
+  Description: Enforce against empty else clauses, but allow `nil` for clarity.
+  EnforcedStyle: empty
+Style/FormatString:
+  Description: Following the main puppet project's style, prefer the % format format.
+  EnforcedStyle: percent
+Style/FormatStringToken:
+  Description: Following the main puppet project's style, prefer the simpler template
+    tokens over annotated ones.
+  EnforcedStyle: template
+Style/Lambda:
+  Description: Prefer the keyword for easier discoverability.
+  EnforcedStyle: literal
+Style/RegexpLiteral:
+  Description: Community preference. See https://github.com/voxpupuli/modulesync_config/issues/168
+  EnforcedStyle: percent_r
+Style/TernaryParentheses:
+  Description: Checks for use of parentheses around ternary conditions. Enforce parentheses
+    on complex expressions for better readability, but seriously consider breaking
+    it up.
+  EnforcedStyle: require_parentheses_when_complex
+Style/TrailingCommaInArguments:
+  Description: Prefer always trailing comma on multiline argument lists. This makes
+    diffs, and re-ordering nicer.
+  EnforcedStyleForMultiline: comma
+Style/TrailingCommaInArrayLiteral:
+  Description: Prefer always trailing comma on multiline literals. This makes diffs,
+    and re-ordering nicer.
+  EnforcedStyleForMultiline: comma
+Style/SymbolArray:
+  Description: Using percent style obscures symbolic intent of array's contents.
+  EnforcedStyle: brackets
+Style/WordArray:
+  Description: Using percent style obscures symbolic intent of array's contents.
+  EnforcedStyle: brackets
+Style/TrailingCommaInHashLiteral:
+  Description: PDK generates multiline hashes with trailing commas. Align with Style/TrailingCommaInArguments
+    and Style/TrailingCommaInArrayLiteral (both comma) so hash literals follow the
+    same project style.
+  EnforcedStyleForMultiline: comma
+RSpec/DescribeClass:
+  Description: rspec-puppet describes its subject by string class/define name (no
+    Ruby constant exists to reference), so this cop is never satisfiable for puppet
+    specs. This is structurally inapplicable, not a style preference -- distinct from
+    D-08 which governs style cops.
   Enabled: false
+RSpec/MessageSpies:
+  Description: PDK-generated specs and the rspec-puppet convention use the mock-style
+    `expect(...).to receive(...)` idiom throughout, not RuboCop's default spy-style
+    `have_received`. Restores the setting the old `strict` profile applied globally
+    (no Exclude needed -- provider/transport specs already comply).
+  EnforcedStyle: receive
+RSpec/ExampleLength:
+  Description: The resource-API provider specs PDK generates contain multi-line examples
+    covering multiple CRUD operations. Scoped to PDK-generated provider and transport
+    spec paths only (D-08).
+  Exclude:
+  - spec/unit/puppet/provider/**/*_spec.rb
+  - spec/unit/puppet/transport/**/*_spec.rb
+RSpec/MultipleExpectations:
+  Description: The resource-API provider specs PDK generates use multiple expectations
+    per example to cover resource attribute checks. Scoped to PDK-generated provider
+    and transport spec paths only (D-08).
+  Exclude:
+  - spec/unit/puppet/provider/**/*_spec.rb
+  - spec/unit/puppet/transport/**/*_spec.rb
+RSpec/VerifiedDoubleReference:
+  Description: The resource-API provider and transport specs PDK generates use string-referenced
+    instance doubles (the Puppet provider constant is not loaded in the spec context).
+    Scoped to PDK-generated provider and transport spec paths only (D-08).
+  Exclude:
+  - spec/unit/puppet/provider/**/*_spec.rb
+  - spec/unit/puppet/transport/**/*_spec.rb
+RSpec/ContextWording:
+  Description: rspec-puppet-facts uses the `context "on
+  Prefixes:
+  - when
+  - with
+  - without
+  - 'on'
+Style/MixinUsage:
+  Description: rspec-puppet-facts requires the top-level `include RspecPuppetFacts`
+    idiom in spec_helper, which cannot be cleanly restructured without breaking the
+    facts test harness. Scoped to spec_helper only (D-07).
+  Exclude:
+  - spec/spec_helper.rb
+Lint/EmptyClass:
+  Description: The generated transport device file uses the idiomatic Ruby namespace
+    forward-declaration `class Puppet::Util::NetworkDevice; end`. An empty class is
+    the standard namespace-shim idiom here and is not non-idiomatic code. Scoped to
+    the network_device path only (D-08).
+  Exclude:
+  - lib/puppet/util/network_device/**/*.rb
