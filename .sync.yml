@@ -17,3 +17,6 @@ spec/spec_helper.rb:
   delete: true
 Rakefile:
   unmanaged: true
+.rubocop.yml:
+  selected_profile: 'on'
+  include_todos: true
