@@ -20,3 +20,6 @@ Rakefile:
 .rubocop.yml:
   selected_profile: 'on'
   include_todos: true
+  cop_overrides:
+    Style/ClassAndModuleChildren:
+      Enabled: false
