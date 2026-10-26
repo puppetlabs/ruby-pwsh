@@ -220,3 +220,31 @@ Style/RedundantSelfAssignmentBranch:
 Style/ReturnNilInPredicateMethodDefinition:
   Exclude:
     - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
+
+# Added with the pdk update that moved the module to the template's stricter rubocop profile.
+# Offense count: 5
+# This cop supports unsafe autocorrection (--autocorrect-all).
+# Not applied: slice calls namevar_attributes once instead of once per entry, which breaks a unit test's call count.
+Style/HashSlice:
+  Exclude:
+    - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
+
+# Offense count: 2
+# `private` has no effect on these constants; using private_constant would change their visibility.
+Lint/UselessConstantScoping:
+  Exclude:
+    - 'lib/puppet/provider/dsc_base_provider/dsc_base_provider.rb'
+
+# Offense count: 4
+# The acceptance specs are run by the rake task's file pattern, not by a _spec.rb suffix.
+RSpec/SpecFilePathSuffix:
+  Exclude:
+    - 'spec/acceptance/dsc/*.rb'
+
+# Offense count: 3
+# Spec files are named after the module path, not the described class.
+RSpec/SpecFilePathFormat:
+  Exclude:
+    - 'spec/unit/puppet/provider/dsc_base_provider/dsc_base_provider_spec.rb'
+    - 'spec/unit/pwsh/version_spec.rb'
+    - 'spec/unit/pwsh/windows_powershell_spec.rb'
