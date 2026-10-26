@@ -2049,7 +2049,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     it 'handles arrays of cim instances' do
       property_hash = [{ 'foo' => 1, 'bar' => 'two' }, { 'foo' => 3, 'bar' => 'four' }]
-      expected_cim_instance_array_regex = %r{Property \[CimInstance\[\]\]@\(@\{'foo' = 1; 'bar' = 'two'}, @\{'foo' = 3; 'bar' = 'four'\}\)}
+      expected_cim_instance_array_regex = %r{Property \[CimInstance\[\]\]@\(@\{'foo' = 1; 'bar' = 'two'\}, @\{'foo' = 3; 'bar' = 'four'\}\)}
       expect(provider.format_ciminstance('foo', 'SomeClass', property_hash)).to match(expected_cim_instance_array_regex)
     end
 
