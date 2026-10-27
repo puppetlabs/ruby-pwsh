@@ -63,7 +63,7 @@ jobs:
           - '4.0'
         include:
           - ruby_version: '3.2'
-            puppet_version: '~> 8.0'
+            puppet_version: '~> 8.17'
           - ruby_version: '4.0'
             puppet_version: '~> 9.0'
     name: "spec (ruby ${{ matrix.ruby_version }} | puppet ${{ matrix.puppet_version }})"
@@ -85,7 +85,7 @@ jobs:
           - "4.0"
         include:
           - ruby_version: '3.2'
-            puppet_version: '~> 8.0'
+            puppet_version: '~> 8.17'
           - ruby_version: '4.0'
             puppet_version: '~> 9.0'
         runs_on:
