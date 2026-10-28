@@ -119,6 +119,7 @@ RSpec/DescribeClass:
     - 'spec/acceptance/dsc/cim_instances.rb'
     - 'spec/acceptance/dsc/class.rb'
     - 'spec/acceptance/dsc/complex.rb'
+    - 'spec/unit/puppet/feature/pwshlib_spec.rb'
     - 'spec/unit/pwsh_spec.rb'
 
 # Offense count: 38
