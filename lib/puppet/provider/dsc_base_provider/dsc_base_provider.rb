@@ -494,7 +494,10 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   def values_equal?(is_value, should_value)
     return true if is_value == should_value
 
-    # Handle nil/empty equivalence
+    # Handle nil/empty equivalence. Treating nil and '' as equal is intentional:
+    # PowerShell returns $null for empty strings (see invoke_dsc_resource_functions.ps1),
+    # so a fresh DSC Get cannot tell them apart. Without this, a manifest value of ''
+    # reports a corrective change on every run.
     is_empty = is_value.nil? || (is_value.respond_to?(:empty?) && is_value.empty?)
     should_empty = should_value.nil? || (should_value.respond_to?(:empty?) && should_value.empty?)
     return true if is_empty && should_empty
@@ -550,9 +553,9 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
 
     return true if in_sync
 
-    # DSC Test says out of sync. Suppress non-dsc_ and nil/empty properties.
+    # DSC Test says out of sync. Suppress non-dsc_ and unset properties.
     return true unless property_name.to_s.start_with?('dsc_')
-    return true if should_value.nil? || (should_value.respond_to?(:empty?) && should_value.empty?)
+    return true if skip_empty_should_value?(should_value)
 
     # Fresh Get comparison for dsc_ properties with values
     compare_fresh_value(context, name, property_name, should_hash, report_on_failure: true)
@@ -563,9 +566,19 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     return nil unless property_name.to_s.start_with?('dsc_')
 
     should_value = should_hash.is_a?(Hash) ? should_hash[property_name] : nil
-    return nil if should_value.nil? || (should_value.respond_to?(:empty?) && should_value.empty?)
+    return nil if skip_empty_should_value?(should_value)
 
     compare_fresh_value(context, name, property_name, should_hash, report_on_failure: false)
+  end
+
+  # Whether a desired value should be left out of the fresh Get comparison:
+  # nil and empty collections mean the property is not managed. An empty String
+  # is an explicit, valid DSC value (e.g. ManagedRuntimeVersion = '' for
+  # "No Managed Code") and must be compared.
+  def skip_empty_should_value?(value)
+    return true if value.nil?
+
+    !value.is_a?(String) && value.respond_to?(:empty?) && value.empty?
   end
 
   # Shared fresh Get comparison for both validation modes.

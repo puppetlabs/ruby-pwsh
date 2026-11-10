@@ -468,6 +468,15 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_nil)
           expect(result).to be true
         end
+
+        # '' is a valid DSC value (e.g. dsc_managedruntimeversion => '' for
+        # "No Managed Code"), so it must be compared instead of suppressed.
+        it 'reports a change when should_value is an empty string and the system has a value' do
+          should_hash_empty = should_hash.merge(dsc_setting: '')
+          allow(provider).to receive(:get_cached_fresh_state).and_return(name: 'foo', dsc_setting: 'v4.0')
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
+          expect(result).to eq([false, "dsc_setting changed 'v4.0' to ''"])
+        end
       end
     end
 
@@ -492,9 +501,36 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         end
       end
 
+      # '' is a valid DSC value (e.g. dsc_managedruntimeversion => '' for
+      # "No Managed Code"), so it must be compared instead of skipped.
       context 'when should_value is empty string' do
+        let(:should_hash_empty) { should_hash.merge(dsc_setting: '') }
+
+        it 'returns true when the system value is also empty' do
+          # PowerShell returns $null for an empty string, so the fresh Get gives nil.
+          allow(provider).to receive(:get_cached_fresh_state).and_return(name: 'foo', dsc_setting: nil)
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
+          expect(result).to be(true)
+        end
+
+        it 'reports a change when the system has a value' do
+          allow(provider).to receive(:get_cached_fresh_state).and_return(name: 'foo', dsc_setting: 'v4.0')
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
+          expect(result).to eq([false, "dsc_setting changed 'v4.0' to ''"])
+        end
+      end
+
+      context 'when should_value is empty array' do
         it 'returns nil' do
-          should_hash_empty = should_hash.merge(dsc_setting: '')
+          should_hash_empty = should_hash.merge(dsc_setting: [])
+          result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
+          expect(result).to be_nil
+        end
+      end
+
+      context 'when should_value is empty hash' do
+        it 'returns nil' do
+          should_hash_empty = should_hash.merge(dsc_setting: {})
           result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
           expect(result).to be_nil
         end
@@ -554,6 +590,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider.values_equal?(nil, nil)).to be true
     end
 
+    # Required because PowerShell returns $null for empty strings.
     it 'returns true for nil and empty string' do
       expect(provider.values_equal?(nil, '')).to be true
       expect(provider.values_equal?('', nil)).to be true
