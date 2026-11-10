@@ -49,6 +49,7 @@ module Pwsh
   end
 end
 
+# :nocov:
 if Pwsh::Util.on_windows?
   require 'win32/registry'
   module Pwsh
@@ -106,3 +107,4 @@ if Pwsh::Util.on_windows?
     end
   end
 end
+# :nocov:

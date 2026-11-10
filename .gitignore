@@ -1,8 +1,12 @@
 .git/
 .*.sw[op]
+*.tar.gz
+docs/
 .metadata
 .yardoc
 .yardwarns
+.rspec
+.rspec_status
 *.iml
 /.bundle/
 /.idea/
