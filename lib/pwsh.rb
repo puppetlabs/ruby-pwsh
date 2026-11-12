@@ -534,8 +534,11 @@ module Pwsh
       read_from_pipe(pipe) { |s| output << s } while signal.locked?
 
       # There's ultimately a bit of a race here
-      # Read one more time after signal is received
-      read_from_pipe(pipe, 0) { |s| output << s } while self.class.readable?(pipe)
+      # Read one more time after signal is received. The response has been read
+      # completely at this point, so only check for data that is already buffered:
+      # with the default timeout (0.5 s) IO.select waits the full timeout on the
+      # (normally empty) stdout and stderr pipes, adding 0.5 s to every execute.
+      read_from_pipe(pipe, 0) { |s| output << s } while self.class.readable?(pipe, 0)
 
       # String has been binary up to this point, so force UTF-8 now
       output == [] ? [] : [output.join.force_encoding(Encoding::UTF_8)]

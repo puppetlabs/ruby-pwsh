@@ -288,6 +288,14 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         expect(result[:exitcode]).to eq(55)
       end
 
+      it 'does not wait for more pipe output once the response is read' do
+        allow(Pwsh::Manager).to receive(:readable?).and_call_original
+        manager.execute('exit 0')
+
+        # readable?(pipe) uses the default 0.5 s timeout, which blocks on an empty pipe
+        expect(Pwsh::Manager).not_to have_received(:readable?).with(anything)
+      end
+
       it 'returns the exitcode 1 when exception is thrown' do
         result = manager.execute('throw "foo"')
 
