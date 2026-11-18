@@ -30,6 +30,11 @@ on:
         required: false
         default: "ubuntu-latest"
         type: "string"
+      ref:
+        description: "Git ref to check out. Defaults to the ref that triggered the workflow run if unset."
+        required: false
+        default: ""
+        type: "string"
 
 env:
   PUPPET_FORGE_TOKEN: ${{ secrets.PUPPET_FORGE_TOKEN || secrets.PUPPET_FORGE_TOKEN_PUBLIC }}
@@ -44,6 +49,8 @@ jobs:
 
       - name: "checkout"
         uses: "actions/checkout@v4"
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: "export environment"
         shell: pwsh
