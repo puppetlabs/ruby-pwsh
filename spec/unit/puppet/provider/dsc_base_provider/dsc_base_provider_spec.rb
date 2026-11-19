@@ -116,6 +116,16 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
     end
 
+    context 'when a manifest resource uses the resource validation mode' do
+      let(:manifest_resource) { base_resource.merge({ dsc_property: 'FooBar', validation_mode: 'resource' }) }
+      let(:cached_canonicalized_resource) { [] }
+
+      it 'keeps the manifest values without calling the Get method' do
+        expect(provider).not_to receive(:invoke_get_method_for_canonicalize)
+        expect(canonicalized_resource).to eq([manifest_resource])
+      end
+    end
+
     context 'when a manifest resource is in the canonicalized resource cache' do
       let(:manifest_resource) { base_resource.merge({ dsc_property: 'FooBar' }) }
       let(:expected_resource) { base_resource.merge({ dsc_property: 'foobar' }) }
@@ -146,6 +156,17 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         before do
           allow(provider).to receive(:parameter_attributes).and_return(parameter_keys)
           allow(provider).to receive(:enum_attributes).and_return([])
+        end
+
+        context 'when the manifest resource has meta parameters with mixed casing' do
+          let(:manifest_resource) do
+            base_resource.merge({ dsc_property: 'bar', require: 'Service[MyService]', tag: ['MyTag'], alias: 'MyAlias' })
+          end
+          let(:actual_resource) { base_resource.merge({ dsc_property: 'Bar' }) }
+
+          it 'preserves the casing of the meta parameters' do
+            expect(canonicalized_resource.first).to include(require: 'Service[MyService]', tag: ['MyTag'], alias: 'MyAlias')
+          end
         end
 
         context 'when canonicalizing property values' do
@@ -277,6 +298,56 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider).to receive(:mandatory_get_attributes).and_return([:dsc_some_parameter]).exactly(3).times
       expect(provider).to receive(:invoke_get_method).with(context, { name: 'foo', dsc_some_parameter: 'baz' }).and_return({ name: 'foo', property: 'bar' })
       expect(provider.get(context, [{ name: 'foo' }])).to eq([{ name: 'foo', property: 'bar' }])
+    end
+
+    it 'takes the mandatory properties from the canonicalized resource with the same name' do
+      provider.instance_variable_set(:@cached_canonicalized_resource, [{ name: 'foo', dsc_path: 'C:\\foo' }, { name: 'bar', dsc_path: 'C:\\bar' }])
+      allow(context).to receive(:debug)
+      allow(provider).to receive_messages(fetch_cached_hashes: [], namevar_attributes: [:name], mandatory_get_attributes: [:dsc_path])
+      expect(provider).to receive(:invoke_get_method).with(context, { name: 'bar', dsc_path: 'C:\\bar' }).and_return({ name: 'bar' })
+      provider.get(context, [{ name: 'bar' }])
+    end
+
+    it 'calls the Get method for the names missing from the canonicalize cache' do
+      provider.instance_variable_set(:@cached_canonicalize_results, [{ name: 'foo', dsc_setting: 'Foo' }])
+      allow(context).to receive(:debug)
+      expect(provider).to receive(:invoke_get_method).with(context, { name: 'bar' }).and_return({ name: 'bar', dsc_setting: 'Bar' })
+      expect(provider.get(context, [{ name: 'foo' }, { name: 'bar' }])).to eq([{ name: 'foo', dsc_setting: 'Foo' }, { name: 'bar', dsc_setting: 'Bar' }])
+    end
+  end
+
+  describe '.get in the resource validation mode' do
+    let(:should_hash) { { name: 'foo', dsc_name: 'foo', dsc_setting: 'Foo', validation_mode: 'resource', noop: true } }
+
+    before do
+      allow(context).to receive(:debug)
+      allow(provider).to receive(:mandatory_get_attributes).and_return([])
+      allow(provider).to receive(:namevar_attributes).and_return(%i[name dsc_name])
+      provider.instance_variable_set(:@cached_canonicalized_resource, [should_hash])
+    end
+
+    after do
+      provider.instance_variable_set(:@cached_canonicalized_resource, [])
+      provider.instance_variable_set(:@cached_query_results, [])
+    end
+
+    it 'returns the desired state without calling the Get method when DSC Test passes' do
+      expect(provider).to receive(:invoke_test_method).with(context, { name: 'foo' }, should_hash).and_return(true)
+      expect(provider).not_to receive(:invoke_get_method)
+      expect(provider.get(context, [{ name: 'foo' }])).to eq([should_hash.reject { |key, _value| key == :noop }])
+    end
+
+    it 'calls the Get method when DSC Test fails' do
+      expect(provider).to receive(:invoke_test_method).and_return([false, 'not in the desired state'])
+      expect(provider).to receive(:invoke_get_method).with(context, { name: 'foo' }).and_return({ name: 'foo', dsc_setting: 'Bar' })
+      expect(provider.get(context, [{ name: 'foo' }])).to eq([{ name: 'foo', dsc_setting: 'Bar' }])
+    end
+
+    it 'calls the Get method when the resource is meant to be absent' do
+      provider.instance_variable_set(:@cached_canonicalized_resource, [should_hash.merge(dsc_ensure: 'absent')])
+      expect(provider).not_to receive(:invoke_test_method)
+      expect(provider).to receive(:invoke_get_method).and_return({ name: 'foo', dsc_ensure: 'absent' })
+      provider.get(context, [{ name: 'foo' }])
     end
   end
 
@@ -480,6 +551,72 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
           allow(provider).to receive(:get_cached_fresh_state).and_return(name: 'foo', dsc_setting: 'v4.0')
           result = provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash_empty)
           expect(result).to eq([false, "dsc_setting changed 'v4.0' to ''"])
+        end
+
+        # The fresh Get comparison ignores array order and string case, so it can find no
+        # difference although Test failed. One property must still be reported, or Set never runs.
+        context 'when the fresh Get shows no difference on any managed property' do
+          let(:should_hash) do
+            { name: 'foo', dsc_interfacealias: 'Ethernet', dsc_address: ['10.0.0.1', '10.0.0.2'], dsc_validate: false,
+              dsc_psdscrunascredential: nil, validation_mode: 'resource' }
+          end
+          let(:fresh_state) { { name: 'foo', dsc_interfacealias: 'Ethernet', dsc_address: ['10.0.0.2', '10.0.0.1'], dsc_validate: false } }
+          let(:message) do
+            'DSC Test reported the resource out of sync; the difference may be in array order, string case or a property Get does not return'
+          end
+
+          before do
+            allow(type).to receive(:attributes).and_return(
+              dsc_interfacealias: { behaviour: :namevar },
+              dsc_address: {},
+              dsc_validate: {},
+              dsc_psdscrunascredential: { behaviour: :parameter }
+            )
+            allow(provider).to receive(:get_cached_fresh_state).and_return(fresh_state)
+          end
+
+          it 'reports the first managed property as changed' do
+            expect(provider.send(:insync?, context, name, :dsc_address, is_hash, should_hash)).to eq([false, message])
+            expect(provider.instance_variable_get(:@insync_property_cache)).to have_key('foo_dsc_address')
+          end
+
+          it 'returns true for the other managed properties' do
+            expect(provider.send(:insync?, context, name, :dsc_validate, is_hash, should_hash)).to be true
+          end
+
+          it 'returns nil on the corrective change check that follows' do
+            provider.send(:insync?, context, name, :dsc_address, is_hash, should_hash)
+            expect(provider.send(:insync?, context, name, :dsc_address, is_hash, should_hash)).to be_nil
+          end
+
+          it 'never reports a namevar or a parameter' do
+            expect(provider.send(:insync?, context, name, :dsc_interfacealias, is_hash, should_hash)).to be true
+            expect(provider.send(:carries_failed_test?, context, name, :dsc_psdscrunascredential, should_hash)).to be false
+          end
+        end
+
+        context 'when the fresh Get shows a difference on another managed property' do
+          let(:should_hash) { { name: 'foo', dsc_address: ['10.0.0.1', '10.0.0.2'], dsc_validate: true, validation_mode: 'resource' } }
+
+          before do
+            allow(type).to receive(:attributes).and_return(dsc_address: {}, dsc_validate: {})
+            allow(provider).to receive(:get_cached_fresh_state)
+              .and_return(name: 'foo', dsc_address: ['10.0.0.2', '10.0.0.1'], dsc_validate: false)
+          end
+
+          it 'reports only the property that differs' do
+            expect(provider.send(:insync?, context, name, :dsc_address, is_hash, should_hash)).to be true
+            expect(provider.send(:insync?, context, name, :dsc_validate, is_hash, should_hash)).to eq([false, "dsc_validate changed 'false' to 'true'"])
+          end
+        end
+      end
+
+      context 'when DSC Test returns an error' do
+        it 'keeps the fresh Get comparison without forcing a change' do
+          allow(provider).to receive(:fetch_cached_hashes).and_return([])
+          allow(provider).to receive(:invoke_test_method).and_return(nil)
+          allow(provider).to receive(:get_cached_fresh_state).and_return(name: 'foo', dsc_setting: 'foo')
+          expect(provider.send(:insync?, context, name, :dsc_setting, is_hash, should_hash)).to be true
         end
       end
     end
@@ -838,8 +975,10 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
               allow(provider).to receive(:invoke_test_method).and_return([false, 'not in desired state'])
             end
 
-            it 'ignores optional CIM fields omitted from the manifest' do
-              expect(insync_with([http_binding.merge('sslflags' => '0')])).to be true
+            it 'ignores optional CIM fields omitted from the manifest, and still reports the failed Test' do
+              result = insync_with([http_binding.merge('sslflags' => '0')])
+              expect(result[0]).to be false
+              expect(result[1]).to start_with('DSC Test reported the resource out of sync')
             end
 
             it 'reports a change when a managed field differs' do
@@ -1786,6 +1925,19 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     after do
       provider.instance_variable_set(:@cached_test_results, [])
+    end
+
+    context 'when the resource sets a timeout and a credential' do
+      let(:credential) { { 'user' => 'DOM\\svc', 'password' => 'secret' } }
+      let(:should_hash) { name.merge(dsc_ensure: 'present', dsc_timeout: 600, dsc_psdscrunascredential: credential) }
+
+      it 'passes them in the name hash and caches the result under the name' do
+        expect(provider).to receive(:invoke_dsc_resource)
+          .with(context, name.merge(dsc_timeout: 600, dsc_psdscrunascredential: credential), test_properties, 'test')
+          .and_return({ 'indesiredstate' => true, 'errormessage' => '' })
+        expect(result).to be(true)
+        expect(provider.cached_test_results).to eq([name.merge(in_desired_state: true)])
+      end
     end
 
     context 'when something went wrong calling Invoke-DscResource' do
