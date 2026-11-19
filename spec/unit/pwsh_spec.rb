@@ -815,7 +815,11 @@ RSpec.describe 'On Windows PowerShell', if: Pwsh::Util.on_windows? && Pwsh::Mana
 end
 
 RSpec.describe 'On PowerShell Core', if: Pwsh::Manager.pwsh_supported? do
-  it_behaves_like 'a PowerShellCodeManager',
-                  Pwsh::Manager.pwsh_path,
-                  Pwsh::Manager.pwsh_args
+  pwsh_path = begin
+    Pwsh::Manager.pwsh_path
+  rescue RuntimeError
+    nil
+  end
+
+  it_behaves_like 'a PowerShellCodeManager', pwsh_path, Pwsh::Manager.pwsh_args if pwsh_path
 end
