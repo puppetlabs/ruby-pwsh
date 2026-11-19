@@ -41,7 +41,7 @@ group :development do
   gem "rb-readline", '= 0.5.5',                  require: false, platforms: [:mswin, :mingw, :x64_mingw]
 end
 group :development, :release_prep do
-  gem "puppet-strings", '~> 4.0',         require: false
+  gem "puppet-strings", '~> 5.1',         require: false
   gem "puppetlabs_spec_helper", '~> 9.0', require: false
 end
 group :system_tests do
