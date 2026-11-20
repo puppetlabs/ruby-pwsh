@@ -1309,6 +1309,43 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(context).to receive(:err).with('Nothing returned.')
         expect(result).to be_nil
       end
+
+      context 'with a PowerShell error message' do
+        let(:secret_script) { "$a = New-PSCredential -User 'foo' -Password 'P4ss#PuppetSensitive'\n$b = New-PSCredential -User 'bar' -Password 'P4ss2#PuppetSensitive'" }
+
+        before do
+          allow(provider).to receive(:ps_script_content).with(resource).and_return(secret_script)
+          allow(provider).to receive(:redact_secrets).with(secret_script)
+          allow(provider).to receive(:remove_secret_identifiers).with(secret_script).and_return(secret_script)
+        end
+
+        it 'adds its first line only, without the quoted script lines' do
+          errormessage = "A positional parameter cannot be found.\n\rAt line:2 char:6\r\n+ $b = New-PSCredential -User bar -Password 'P4 ..."
+          allow(ps_manager).to receive(:execute).with(secret_script, nil).and_return({ stdout: nil, errormessage: errormessage })
+          expect(context).to receive(:err).with('Nothing returned. A positional parameter cannot be found.')
+          expect(result).to be_nil
+        end
+
+        it 'redacts the secrets of the script, the longest first' do
+          allow(ps_manager).to receive(:execute).with(secret_script, nil).and_return({ stdout: nil, errormessage: 'Bad values P4ss2 and P4ss' })
+          expect(context).to receive(:err).with('Nothing returned. Bad values #<Sensitive [value redacted]> and #<Sensitive [value redacted]>')
+          expect(result).to be_nil
+        end
+
+        it 'redacts every quoted text, which may be a fragment of a secret' do
+          errormessage = "A positional parameter cannot be found that accepts argument 'ss2'."
+          allow(ps_manager).to receive(:execute).with(secret_script, nil).and_return({ stdout: nil, errormessage: errormessage })
+          expect(context).to receive(:err).with("Nothing returned. A positional parameter cannot be found that accepts argument '#<Sensitive [value redacted]>'.")
+          expect(result).to be_nil
+        end
+      end
+
+      it 'keeps the quoted texts of the PowerShell error message when the script holds no secret' do
+        errormessage = "A positional parameter cannot be found that accepts argument 'SERVICE\\SQLAgent'.\n\rAt line:1 char:5"
+        allow(ps_manager).to receive(:execute).with(script, nil).and_return({ stdout: nil, errormessage: errormessage })
+        expect(context).to receive(:err).with("Nothing returned. A positional parameter cannot be found that accepts argument 'SERVICE\\SQLAgent'.")
+        expect(result).to be_nil
+      end
     end
 
     context 'when handling DateTimes' do
@@ -2318,8 +2355,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       end
 
       it 'returns an array of strings each containing the instantiation of a PowerShell variable representing the credential hash' do
-        expect(result[0]).to match(/^\$\w+ = New-PSCredential -User foo -Password 'foo#PuppetSensitive'/)
-        expect(result[1]).to match(/^\$\w+ = New-PSCredential -User bar -Password 'bar#PuppetSensitive'/)
+        expect(result[0]).to match(/^\$\w+ = New-PSCredential -User 'foo' -Password 'foo#PuppetSensitive'/)
+        expect(result[1]).to match(/^\$\w+ = New-PSCredential -User 'bar' -Password 'bar#PuppetSensitive'/)
       end
     end
   end
@@ -2328,8 +2365,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:credential_hash) { { 'user' => 'foo', 'password' => 'bar' } }
 
     it 'returns a string representing the instantiation of a PowerShell variable representing the credential hash' do
-      expected_powershell_code = "$foo = New-PSCredential -User foo -Password 'bar#PuppetSensitive'"
+      expected_powershell_code = "$foo = New-PSCredential -User 'foo' -Password 'bar#PuppetSensitive'"
       expect(provider.format_pscredential('foo', credential_hash)).to eq(expected_powershell_code)
+    end
+
+    it 'quotes a user name with a space, a dollar sign or a single quote' do
+      credential = { 'user' => "NT SERVICE\\SQLAgent$INS_1'9", 'password' => 'bar' }
+      expected_powershell_code = "$foo = New-PSCredential -User 'NT SERVICE\\SQLAgent$INS_1''9' -Password 'bar#PuppetSensitive'"
+      expect(provider.format_pscredential('foo', credential)).to eq(expected_powershell_code)
     end
   end
 
@@ -2727,8 +2770,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   describe '.redact_secrets' do
     let(:unsensitive_string) { 'some very unsecret text' }
-    let(:sensitive_string) { "$foo = New-PSCredential -User foo -Password 'foo#PuppetSensitive'" }
-    let(:redacted_string) { "$foo = New-PSCredential -User foo -Password '#<Sensitive [value redacted]>'" }
+    let(:sensitive_string) { "$foo = New-PSCredential -User 'foo' -Password 'foo#PuppetSensitive'" }
+    let(:redacted_string) { "$foo = New-PSCredential -User 'foo' -Password '#<Sensitive [value redacted]>'" }
     let(:sensitive_array) { "@('a', 'b#PuppetSensitive', 'c')" }
     let(:redacted_array) { "@('a', '#<Sensitive [value redacted]>', 'c')" }
     let(:sensitive_hash) { "@{a = 'foo'; b = 'bar#PuppetSensitive'; c = 1}" }
@@ -2737,14 +2780,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:redacted_complex) { "@{a = 'foo'; b = '#<Sensitive [value redacted]>'; c = @('a', '#<Sensitive [value redacted]>', 'c')}" }
     let(:multiline_sensitive_string) do
       <<~SENSITIVE.strip
-        $foo = New-PSCredential -User foo -Password 'foo#PuppetSensitive'
-        $bar = New-PSCredential -User bar -Password 'bar#PuppetSensitive'
+        $foo = New-PSCredential -User 'foo' -Password 'foo#PuppetSensitive'
+        $bar = New-PSCredential -User 'bar' -Password 'bar#PuppetSensitive'
       SENSITIVE
     end
     let(:multiline_redacted_string) do
       <<~REDACTED.strip
-        $foo = New-PSCredential -User foo -Password '#<Sensitive [value redacted]>'
-        $bar = New-PSCredential -User bar -Password '#<Sensitive [value redacted]>'
+        $foo = New-PSCredential -User 'foo' -Password '#<Sensitive [value redacted]>'
+        $bar = New-PSCredential -User 'bar' -Password '#<Sensitive [value redacted]>'
       REDACTED
     end
     let(:multiline_sensitive_complex) do
@@ -2795,8 +2838,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
   describe '.remove_secret_identifiers' do
     let(:unsensitive_string) { 'some very unsecret text' }
-    let(:sensitive_string) { "$foo = New-PSCredential -User foo -Password 'foo#PuppetSensitive'" }
-    let(:redacted_string) { "$foo = New-PSCredential -User foo -Password 'foo'" }
+    let(:sensitive_string) { "$foo = New-PSCredential -User 'foo' -Password 'foo#PuppetSensitive'" }
+    let(:redacted_string) { "$foo = New-PSCredential -User 'foo' -Password 'foo'" }
     let(:sensitive_array) { "@('a', 'b#PuppetSensitive', 'c')" }
     let(:redacted_array) { "@('a', 'b', 'c')" }
     let(:sensitive_hash) { "@{a = 'foo'; b = 'bar#PuppetSensitive'; c = 1}" }
@@ -2805,14 +2848,14 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     let(:redacted_complex) { "@{a = 'foo'; b = 'bar'; c = @('a', 'b', 'c')}" }
     let(:multiline_sensitive_string) do
       <<~SENSITIVE.strip
-        $foo = New-PSCredential -User foo -Password 'foo#PuppetSensitive'
-        $bar = New-PSCredential -User bar -Password 'bar#PuppetSensitive'
+        $foo = New-PSCredential -User 'foo' -Password 'foo#PuppetSensitive'
+        $bar = New-PSCredential -User 'bar' -Password 'bar#PuppetSensitive'
       SENSITIVE
     end
     let(:multiline_redacted_string) do
       <<~REDACTED.strip
-        $foo = New-PSCredential -User foo -Password 'foo'
-        $bar = New-PSCredential -User bar -Password 'bar'
+        $foo = New-PSCredential -User 'foo' -Password 'foo'
+        $bar = New-PSCredential -User 'bar' -Password 'bar'
       REDACTED
     end
     let(:multiline_sensitive_complex) do
