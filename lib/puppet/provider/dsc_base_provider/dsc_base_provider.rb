@@ -402,9 +402,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     output = ps_manager.execute(remove_secret_identifiers(script_content), @timeout)
 
     if output[:stdout].nil?
-      message = 'Nothing returned.'
-      message += " #{output[:errormessage]}" if output[:errormessage]&.match?(/PowerShell module timeout \(\d+ ms\) exceeded while executing/)
-      context.err(message)
+      context.err(nothing_returned_message(output[:errormessage], script_content))
       return nil
     end
 
@@ -1213,7 +1211,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @param credential_hash [Hash] the Properties which define the PSCredential Object
   # @return [String] A line of PowerShell which defines the PSCredential object and stores it to a variable
   def format_pscredential(variable_name, credential_hash)
-    "$#{variable_name} = New-PSCredential -User #{credential_hash['user']} -Password '#{credential_hash['password']}#{SECRET_POSTFIX}'"
+    "$#{variable_name} = New-PSCredential -User '#{escape_quotes(credential_hash['user'].to_s)}' -Password '#{credential_hash['password']}#{SECRET_POSTFIX}'"
   end
 
   # Parses a resource definition (as from `invocable_resource`) for any properties which are CIM instances
@@ -1508,6 +1506,26 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @return [String] the redacted text
   def redact_secrets(text)
     handle_secrets(text, "'#<Sensitive [value redacted]>'", "Unredacted sensitive data would've been leaked")
+  end
+
+  # Builds the error of a DSC call which returned no data, with the first line of the PowerShell error message
+  # when there is one. The next lines of a parse error quote the failing script line, possibly cut in the middle
+  # of a secret: they are dropped. When the script holds secrets, a parse error broken inside one of them may
+  # quote a fragment of it in the first line: every quoted text of that line is replaced, and so is every
+  # full secret value, the longest first so that a secret containing another one is not partly left.
+  #
+  # @param errormessage [String] the error message returned by the PowerShell manager, if any
+  # @param script_content [String] the script, with its secrets still marked by SECRET_POSTFIX
+  # @return [String] the error to log
+  def nothing_returned_message(errormessage, script_content)
+    first_line = errormessage.to_s.split(/\r?\n|\r/).find { |line| !line.strip.empty? }
+    return 'Nothing returned.' if first_line.nil?
+
+    secrets = script_content.scan(SECRET_DATA_REGEX).flatten.compact.uniq.sort_by { |secret| -secret.length }
+    return "Nothing returned. #{first_line.strip}" if secrets.empty?
+
+    redacted = secrets.reduce(first_line.strip) { |text, secret| text.gsub(secret, '#<Sensitive [value redacted]>') }
+    "Nothing returned. #{redacted.gsub(/'[^']*'/, "'#<Sensitive [value redacted]>'")}"
   end
 
   # While Puppet is aware of Sensitive data types, the PowerShell script is not
