@@ -41,13 +41,14 @@ group :development do
   gem "rb-readline", '= 0.5.5',                  require: false, platforms: [:mswin, :mingw, :x64_mingw]
 end
 group :development, :release_prep do
-  gem "puppet-strings", '~> 4.0',         require: false
+  gem "puppet-strings", '~> 5.1',         require: false
   gem "puppetlabs_spec_helper", '~> 9.0', require: false
 end
 group :system_tests do
   gem "CFPropertyList", '< 3.0.7', require: false, platforms: [:mswin, :mingw, :x64_mingw]
   gem "ffi",                       require: false, platforms: [:mswin, :mingw, :x64_mingw]
   gem "serverspec", '~> 2.41',     require: false
+  gem "net-ssh", '< 8.0',          require: false
 end
 
 puppet_version = ENV['PUPPET_GEM_VERSION']
