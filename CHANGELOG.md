@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## [v2.1.1](https://github.com/puppetlabs/ruby-pwsh/tree/v2.1.1) - 2026-09-07
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v2.1.0...v2.1.1)
+
+### Fixed
+
+- Declare Puppet 9 support in metadata.json requirements [#393](https://github.com/puppetlabs/ruby-pwsh/pull/393) ([LukasAud](https://github.com/LukasAud))
+
+## [v2.1.0](https://github.com/puppetlabs/ruby-pwsh/tree/v2.1.0) - 2026-09-07
+
+[Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v2.0.1...v2.1.0)
+
+### Added
+
+- (CAT-2589) Add Ruby 4.0 / Puppet 9 lane, source gems from puppetcore [#385](https://github.com/puppetlabs/ruby-pwsh/pull/385) ([LukasAud](https://github.com/LukasAud))
+
 ## [v2.0.1](https://github.com/puppetlabs/ruby-pwsh/tree/v2.0.1) - 2026-02-16
 
 [Full Changelog](https://github.com/puppetlabs/ruby-pwsh/compare/v2.0.0...v2.0.1)
