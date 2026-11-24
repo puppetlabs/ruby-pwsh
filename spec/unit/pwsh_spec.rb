@@ -516,6 +516,15 @@ RSpec.shared_examples 'a PowerShellCodeManager' do |ps_command, ps_args|
         expect(result[:stdout]).to eq("False#{line_end}")
       end
 
+      it 'removes env variables named like a cached one with another case between runs' do
+        path = manager.execute('[Environment]::GetEnvironmentVariable("PATH", "process")')[:stdout]
+        manager.execute('[Environment]::SetEnvironmentVariable("path", "leak", "process")')
+        result = manager.execute('[Environment]::GetEnvironmentVariable("path", "process")')
+
+        expect(result[:stdout]).not_to eq("leak#{line_end}")
+        expect(manager.execute('[Environment]::GetEnvironmentVariable("PATH", "process")')[:stdout]).to eq(path)
+      end
+
       it 'sets custom environment variables' do
         result = manager.execute('Write-Output $ENV:foo', nil, nil, ['foo=bar'])
 
