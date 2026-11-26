@@ -314,6 +314,95 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
       expect(provider).to receive(:invoke_get_method).with(context, { name: 'bar' }).and_return({ name: 'bar', dsc_setting: 'Bar' })
       expect(provider.get(context, [{ name: 'foo' }, { name: 'bar' }])).to eq([{ name: 'foo', dsc_setting: 'Foo' }, { name: 'bar', dsc_setting: 'Bar' }])
     end
+
+    it 'adds the other DSC properties of the matching resource in the resource validation mode' do
+      provider.instance_variable_set(:@cached_canonicalized_resource, [{ name: 'foo', validation_mode: 'resource', dsc_path: 'C:\\foo', dsc_encrypt: 'Optional', dsc_unset: nil, noop: true }])
+      allow(context).to receive(:debug)
+      allow(provider).to receive_messages(fetch_cached_hashes: [], namevar_attributes: [:name], mandatory_get_attributes: [:dsc_path], resource_mode_state_from_test: nil)
+      expect(provider).to receive(:invoke_get_method)
+        .with(context, { name: 'foo', validation_mode: 'resource', dsc_path: 'C:\\foo', dsc_encrypt: 'Optional' }).and_return({ name: 'foo' })
+      provider.get(context, [{ name: 'foo' }])
+    end
+
+    it 'does not add the properties of the fallback resource in the resource validation mode' do
+      provider.instance_variable_set(:@cached_canonicalized_resource, [{ name: 'foo', validation_mode: 'resource', dsc_path: 'C:\\foo', dsc_encrypt: 'Optional' }])
+      allow(context).to receive(:debug)
+      allow(provider).to receive_messages(fetch_cached_hashes: [], namevar_attributes: [:name], mandatory_get_attributes: [:dsc_path], resource_mode_state_from_test: nil)
+      expect(provider).to receive(:invoke_get_method).with(context, { name: 'bar', dsc_path: 'C:\\foo' }).and_return({ name: 'bar' })
+      provider.get(context, [{ name: 'bar' }])
+    end
+
+    it 'fails the resource with a readable error when the DSC Get call fails' do
+      provider.instance_variable_set(:@cached_canonicalized_resource, [])
+      allow(context).to receive(:debug)
+      allow(provider).to receive_messages(fetch_cached_hashes: [], namevar_attributes: [:name], mandatory_get_attributes: [], invoke_get_method: nil)
+      expect { provider.get(context, [{ name: 'foo' }]) }.to raise_error(Puppet::ResourceError, /DSC Get failed for foo/)
+    end
+  end
+
+  describe '.get_query_properties' do
+    let(:attributes) do
+      {
+        name: { type: 'String', behaviour: :namevar },
+        dsc_name: { type: 'String', behaviour: :namevar, mandatory_for_get: true },
+        dsc_encrypt: { type: 'Optional[String]' },
+        dsc_unset: { type: 'Optional[String]' },
+        dsc_timeout: { type: 'Optional[Integer]', behaviour: :parameter },
+        dsc_psdscrunascredential: { type: 'Optional[Hash]', behaviour: :parameter }
+      }
+    end
+    let(:hash) { { name: 'foo', dsc_name: 'foo', dsc_encrypt: 'Optional', dsc_unset: nil, dsc_timeout: 600, dsc_psdscrunascredential: nil } }
+
+    before do
+      allow(context).to receive(:type).and_return(type)
+      allow(type).to receive(:attributes).and_return(attributes)
+      allow(provider).to receive(:mandatory_get_attributes).and_return([:dsc_name])
+    end
+
+    it 'returns only the mandatory Get properties in the property validation mode' do
+      expect(provider.send(:get_query_properties, context, hash)).to eq({ dsc_name: 'foo' })
+    end
+
+    it 'adds the other DSC properties set in the manifest in the resource validation mode' do
+      expect(provider.send(:get_query_properties, context, hash.merge(validation_mode: 'resource'))).to eq({ dsc_name: 'foo', dsc_encrypt: 'Optional' })
+    end
+  end
+
+  describe '.whole_to_float' do
+    it 'converts integers, also inside arrays, and leaves other values alone' do
+      expect(provider.whole_to_float(0)).to be_a(Float).and(eq(0.0))
+      expect(provider.whole_to_float([1, 2.5])).to eql([1.0, 2.5])
+      expect(provider.whole_to_float(nil)).to be_nil
+    end
+  end
+
+  describe '.fill_required_arrays' do
+    let(:type) do
+      Puppet::Pops::Types::TypeParser.singleton.parse(
+        'Optional[Array[Struct[{ permission => Array[String], state => String, Optional[note] => Optional[Array[String]] }]]]'
+      )
+    end
+
+    it 'returns a nil required array field as an empty array and leaves optional fields alone' do
+      value = [{ 'permission' => ['ConnectSql'], 'state' => 'Grant' }, { 'permission' => nil, 'state' => 'Deny', 'note' => nil }]
+      expect(provider.fill_required_arrays(value, type)).to eq(
+        [{ 'permission' => ['ConnectSql'], 'state' => 'Grant' }, { 'permission' => [], 'state' => 'Deny', 'note' => nil }]
+      )
+    end
+
+    it 'leaves a nil value alone' do
+      expect(provider.fill_required_arrays(nil, type)).to be_nil
+    end
+  end
+
+  describe '.canonicalize_get_value!' do
+    it 'returns a whole Real64 value as a Float, as the type expects' do
+      allow(context).to receive(:type).and_return(type)
+      allow(type).to receive(:attributes).and_return({ dsc_maxsizeinbytes: { type: 'Optional[Float]', mof_type: 'Real64', mof_is_embedded: false } })
+      data = { dsc_maxsizeinbytes: 0 }
+      provider.canonicalize_get_value!(context, data, :dsc_maxsizeinbytes, {})
+      expect(data[:dsc_maxsizeinbytes]).to be_a(Float).and(eq(0.0))
+    end
   end
 
   describe '.get in the resource validation mode' do
@@ -339,7 +428,8 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
 
     it 'calls the Get method when DSC Test fails' do
       expect(provider).to receive(:invoke_test_method).and_return([false, 'not in the desired state'])
-      expect(provider).to receive(:invoke_get_method).with(context, { name: 'foo' }).and_return({ name: 'foo', dsc_setting: 'Bar' })
+      expect(provider).to receive(:invoke_get_method)
+        .with(context, { name: 'foo', dsc_name: 'foo', dsc_setting: 'Foo', validation_mode: 'resource' }).and_return({ name: 'foo', dsc_setting: 'Bar' })
       expect(provider.get(context, [{ name: 'foo' }])).to eq([{ name: 'foo', dsc_setting: 'Bar' }])
     end
 
@@ -1558,26 +1648,27 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
     context 'when the specified account has already failed to logon' do
       let(:should_hash) { name.merge(dsc_psdscrunascredential: 'bar') }
 
-      it 'returns immediately' do
+      it 'fails the resource without invoking DSC' do
         expect(provider).to receive(:logon_failed_already?).and_return(true)
         expect(context).to receive(:err).with('Logon credentials are invalid')
-        expect(result).to be_nil
+        expect(ps_manager).not_to receive(:execute)
+        expect { result }.to raise_error(Puppet::ResourceError, /DSC Set failed for foo/)
       end
     end
 
     context 'when the invocation script returns nil' do
-      it 'errors via context but does not raise' do
+      it 'errors via context and fails the resource' do
         expect(ps_manager).to receive(:execute).and_return({ stdout: nil })
         expect(context).to receive(:err).with('Nothing returned.')
-        expect { result }.not_to raise_error
+        expect { result }.to raise_error(Puppet::ResourceError, /DSC Set failed for foo/)
       end
     end
 
     context 'when the invocation script errors' do
-      it 'writes the error via context but does not raise and returns nil' do
+      it 'writes the error via context and fails the resource' do
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "DSC Error!"}' })
         expect(context).to receive(:err).with('DSC Error!')
-        expect(result).to be_nil
+        expect { result }.to raise_error(Puppet::ResourceError, /DSC Set failed for foo/)
       end
     end
 
@@ -1591,7 +1682,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(context).to receive(:notice).with('Attempt 1 of 5 failed.')
         allow(provider).to receive(:sleep)
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": null}' })
-        expect { result }.not_to raise_error
+        expect(result).to eq({ 'errormessage' => nil })
       end
 
       it 'writes a error via context and fails to apply when all retry attempts used' do
@@ -1604,7 +1695,7 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(context).to receive(:notice).with(/Attempt [1-5] of 5 failed/).exactly(5).times
         expect(context).to receive(:err).with(/The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked/)
         allow(provider).to receive(:sleep)
-        expect(result).to be_nil
+        expect { result }.to raise_error(Puppet::ResourceError, /DSC Set failed for foo/)
       end
 
       it 'writes an error via context and fails to apply when encountering an unexpected error' do
@@ -1616,7 +1707,18 @@ RSpec.describe Puppet::Provider::DscBaseProvider do
         expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "Some unexpected error"}' }).once
         expect(context).to receive(:notice).with(/Attempt 1 of 5 failed/).once
         expect(context).to receive(:err).with(/Some unexpected error/)
-        expect(result).to be_nil
+        expect { result }.to raise_error(Puppet::ResourceError, /DSC Set failed for foo/)
+      end
+
+      it 'writes an error via context and fails to apply when a retry returns nothing' do
+        expect(ps_manager).to receive(:execute).and_return({ stdout: '{"errormessage": "The Invoke-DscResource cmdlet is in progress and must return before Invoke-DscResource can be invoked"}' })
+        expect(context).to receive(:notice).with(/Invoke-DscResource collision detected/).once
+        expect(context).to receive(:notice).with('Sleeping for 60 seconds.').once
+        expect(context).to receive(:notice).with(/Retrying: attempt 1 of 5/).once
+        allow(provider).to receive(:sleep)
+        expect(ps_manager).to receive(:execute).and_return({ stdout: nil }).once
+        expect(context).to receive(:err).with('Nothing returned.')
+        expect { result }.to raise_error(Puppet::ResourceError, /DSC Set failed for foo/)
       end
     end
 
