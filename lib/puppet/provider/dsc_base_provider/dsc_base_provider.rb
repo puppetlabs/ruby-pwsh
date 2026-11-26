@@ -150,7 +150,12 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       state_from_test = resource_mode_state_from_test(context, name)
       next [state_from_test] unless state_from_test.nil?
 
-      [invoke_get_method(context, name.merge(mandatory_get_properties(context, name)))]
+      current = invoke_get_method(context, name.merge(mandatory_get_properties(context, name)))
+      # invoke_dsc_resource already logged the DSC error; returning nil makes the Resource API fail on
+      # "undefined method `[]' for nil" instead, so fail this resource with a readable message.
+      raise Puppet::ResourceError, "DSC Get failed for #{name[:name]}, see the error above" if current.nil?
+
+      [current]
     end
   end
 
@@ -274,7 +279,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # @param should [Hash] the desired state hash (used to extract query properties)
   # @return [Hash] returns a hash with dsc_ prefixed keys and current system values, or nil on failure
   def perform_fresh_get(context, name, should)
-    query_props = should.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
+    query_props = get_query_properties(context, should)
     data = invoke_dsc_resource(context, name, query_props, 'get')
     return nil if data.nil?
 
@@ -410,9 +415,9 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
         @cached_query_results << name_hash # if fetch_cached_hashes(@cached_query_results, [data]).empty?
       elsif error.match?(collision_error_matcher)
         context.notice('Invoke-DscResource collision detected: Please stagger the timing of your Puppet runs as this can lead to unexpected behaviour.')
-        retry_invoke_dsc_resource(context, 5, 60, collision_error_matcher) do
-          data = ps_manager.execute(remove_secret_identifiers(script_content))[:stdout]
-        end
+        retried = retry_invoke_dsc_resource(context, 5, 60, collision_error_matcher) { ps_manager.execute(remove_secret_identifiers(script_content), @timeout)[:stdout] }
+        # A retry that succeeded is a good result.
+        return retried if retried.is_a?(Hash) && retried['errormessage'].nil?
       else
         context.err(error)
       end
@@ -448,7 +453,11 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       sleep retry_wait_interval_secs
       # notify and retry
       context.notice("Retrying: attempt #{try} of #{max_retry_count}.")
-      data = JSON.parse(yield)
+      stdout = yield
+      # The retry itself can time out: nothing to parse then.
+      return context.err('Nothing returned.') if stdout.nil?
+
+      data = JSON.parse(stdout)
       # if no error, assume successful invocation and break
       break if data['errormessage'].nil?
 
@@ -598,6 +607,8 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   # Returns the properties that Get needs besides the namevars (and the credential, if any), taken
   # from the canonicalized resource matching the name hash, so that each resource gets its own
   # values. Falls back on the first canonicalized resource, as before, when none matches.
+  # In resource validation mode, the matching resource's other DSC properties and its validation mode
+  # are added as well, for get_query_properties; never those of the fallback resource.
   #
   # @param context [Object] the Puppet runtime context to operate in and send feedback to
   # @param name [Hash] the name hash for the resource
@@ -605,13 +616,16 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   def mandatory_get_properties(context, name)
     return {} if @cached_canonicalized_resource.empty?
 
-    canonicalized_resource = @cached_canonicalized_resource.find { |resource| (name.to_a - resource.to_a).empty? } ||
-                             @cached_canonicalized_resource[0]
+    matching_resource = @cached_canonicalized_resource.find { |resource| (name.to_a - resource.to_a).empty? }
+    canonicalized_resource = matching_resource || @cached_canonicalized_resource[0]
     mandatory_properties = canonicalized_resource.select do |attribute, _value|
       (mandatory_get_attributes(context) - namevar_attributes(context)).include?(attribute)
     end
     # If dsc_psdscrunascredential was specified, re-add it here.
     mandatory_properties[:dsc_psdscrunascredential] = canonicalized_resource[:dsc_psdscrunascredential] if canonicalized_resource.key?(:dsc_psdscrunascredential)
+    if matching_resource && matching_resource[:validation_mode] == 'resource'
+      mandatory_properties.merge!(matching_resource.select { |attribute, value| attribute == :validation_mode || (attribute.to_s.start_with?('dsc_') && !value.nil?) })
+    end
     mandatory_properties
   end
 
@@ -630,6 +644,29 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
       @cached_query_results << r.dup if fetch_cached_hashes(@cached_query_results, [r]).empty?
     end
     canon_results
+  end
+
+  # Returns the properties passed to the DSC Get method: the mandatory Get properties and the
+  # credential, if any. In resource validation mode, every other DSC property set in the manifest is
+  # passed too, as the LCM does: some resources need them in Get (SqlServerDsc SqlScript connects with
+  # its Encrypt property, the class-based SqlPermission asserts that a permission property is set).
+  # DSC Test decides the sync state in that mode, so a Get that echoes a desired value cannot hide a drift.
+  #
+  # @param context [Object] the Puppet runtime context to operate in and send feedback to
+  # @param hash [Hash] the name hash or should hash of the resource
+  # @return [Hash] the properties to pass to Invoke-DscResource
+  def get_query_properties(context, hash)
+    query_props = hash.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
+    return query_props unless hash[:validation_mode] == 'resource'
+
+    attributes = context.type.attributes
+    hash.each do |attribute, value|
+      next if value.nil? || query_props.key?(attribute) || !attribute.to_s.start_with?('dsc_')
+      next unless attributes.key?(attribute) && attributes[attribute][:behaviour].nil?
+
+      query_props[attribute] = value
+    end
+    query_props
   end
 
   # Resource validation mode: DSC Test decides whether the resource is in the desired state, so when it
@@ -768,7 +805,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
   def invoke_get_method(context, name_hash)
     context.debug("retrieving #{name_hash.inspect}")
 
-    query_props = name_hash.select { |k, v| mandatory_get_attributes(context).include?(k) || (k == :dsc_psdscrunascredential && !v.nil?) }
+    query_props = get_query_properties(context, name_hash)
     data = invoke_dsc_resource(context, name_hash, query_props, 'get')
     return nil if data.nil?
 
@@ -845,6 +882,7 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     if data[type_key].is_a?(Enumerable)
       downcase_hash_keys!(data[type_key])
       munge_cim_instances!(data[type_key])
+      data[type_key] = fill_required_arrays(data[type_key], attribute_type(context, type_key)) if context.type.attributes[type_key][:mof_is_embedded]
     end
 
     # Convert DateTime back to appropriate type
@@ -856,9 +894,64 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
         nil
       end
     end
+    # PowerShell serializes a whole Real32/Real64 value without its decimal part (0, not 0.0), and the
+    # Float type of the attribute rejects an Integer.
+    data[type_key] = whole_to_float(data[type_key]) if /\AReal(32|64)/i.match?(context.type.attributes[type_key][:mof_type])
     # PowerShell does not distinguish between a return of empty array/string
     #  and null but Puppet does; revert to those values if specified.
     data[type_key] = [] if data[type_key].nil? && query_props.key?(type_key) && query_props[type_key].is_a?(Array)
+  end
+
+  # Returns the parsed Puppet type of an attribute, cached per attribute, or nil when it cannot be parsed
+  # (the value is then returned unchanged).
+  def attribute_type(context, attribute)
+    @attribute_types ||= {}
+    return @attribute_types[attribute] if @attribute_types.key?(attribute)
+
+    @attribute_types[attribute] = begin
+      Puppet::Pops::Types::TypeParser.singleton.parse(context.type.attributes[attribute][:type])
+    rescue StandardError => e
+      context.debug("Could not parse the type of #{attribute}: #{e.message}")
+      nil
+    end
+  end
+
+  # PowerShell returns $null for an empty array, so a CIM instance field typed as a required Array
+  # comes back nil (SqlServerDsc SqlPermission returns `Permission = $null` for the states without
+  # permissions), which the type rejects. Returns the value with those fields set to an empty array,
+  # at any nesting level; optional fields are left alone.
+  #
+  # @param value [Object] the value returned by DSC Get, keys already downcased
+  # @param type [Puppet::Pops::Types::PAnyType] the Puppet type of the value
+  # @return [Object] the value with the required array fields filled
+  def fill_required_arrays(value, type)
+    type = type.optional_type while type.is_a?(Puppet::Pops::Types::POptionalType) && !type.optional_type.nil?
+    case type
+    when Puppet::Pops::Types::PArrayType
+      value.is_a?(Array) ? value.map { |item| fill_required_arrays(item, type.element_type) } : value
+    when Puppet::Pops::Types::PStructType
+      return value unless value.is_a?(Hash)
+
+      type.elements.each_with_object(value.dup) do |element, result|
+        key = result.keys.find { |k| k.to_s.casecmp?(element.name) }
+        if key.nil? || result[key].nil?
+          result[key || element.name.downcase] = [] if element.value_type.is_a?(Puppet::Pops::Types::PArrayType)
+        else
+          result[key] = fill_required_arrays(result[key], element.value_type)
+        end
+      end
+    else
+      value
+    end
+  end
+
+  # Converts an Integer, or the Integers of an array, to Float.
+  def whole_to_float(value)
+    case value
+    when Integer then value.to_f
+    when Array then value.map { |item| whole_to_float(item) }
+    else value
+    end
   end
 
   # Sanitize .NET serialization artifacts (e.g., "System.Object[]") to nil.
@@ -892,7 +985,12 @@ class Puppet::Provider::DscBaseProvider # rubocop:disable Metrics/ClassLength
     context.debug("Invoking Set Method for '#{name}' with #{should.inspect}")
 
     apply_props = should.select { |k, _v| k.to_s =~ /^dsc_/ }
-    invoke_dsc_resource(context, should, apply_props, 'set')
+    result = invoke_dsc_resource(context, should, apply_props, 'set')
+    # invoke_dsc_resource already logged the DSC error; without raising, the Resource API reports the resource
+    # as changed and its dependents run as if the Set had worked.
+    raise Puppet::ResourceError, "DSC Set failed for #{name[:name]}, see the error above" if result.nil?
+
+    result
 
     # TODO: Implement this functionality for notifying a DSC reboot?
     # notify_reboot_pending if data['rebootrequired'] == true
